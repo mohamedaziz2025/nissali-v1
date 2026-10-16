@@ -1,0 +1,425 @@
+// 5.7 — Page Horaires de prière (inspirée de Mawaqit) : « Ma ville » ou « Ma mosquée », recherche d'une
+// mosquée ou d'une ville, « Ma position », mosquées autour classées par distance, horaires du jour, Jumu'a, Qibla.
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { CityPicker } from '../components/forms';
+import Icon from '../components/Icon';
+import { Button, Card, Field, Gap, Label, Row, Screen, Segmented, Sheet, T, Toggle, useToast } from '../components/ui';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { countdown, longDate } from '../lib/format';
+import { jumuaOf } from '../lib/jumua';
+import { currentPosition, syncLocation } from '../lib/location';
+import { colors, fonts, PRAYER_LABELS, PRAYERS } from '../theme';
+
+function MosqueRow({ m, selected, onPress }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={`${m.name}, ${m.city}${m.distanceKm != null ? `, ${m.distanceKm} kilomètres` : ''}`} style={({ pressed }) => [s.mosque, selected && s.mosqueOn, pressed && { opacity: 0.8 }]}>
+      <View style={[s.mosqueIcon, selected && { backgroundColor: colors.bordeaux }]}>
+        <Icon name="home" size={18} color={selected ? colors.white : colors.or} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.mosqueName} numberOfLines={1}>{m.name}</Text>
+        <Text style={s.mosqueMeta} numberOfLines={1}>
+          {[m.city, m.distanceKm != null ? `${String(m.distanceKm).replace('.', ',')} km` : null].filter(Boolean).join(' · ')}
+          {m.partner ? ' · horaires publiés' : ''}
+        </Text>
+      </View>
+      {selected ? (
+        <View style={s.check}>
+          <Icon name="check" size={14} color={colors.white} strokeWidth={3} />
+        </View>
+      ) : (
+        <Icon name="chevronRight" size={18} color={colors.muted} />
+      )}
+    </Pressable>
+  );
+}
+
+const ROWS = [
+  { key: 'fajr', icon: 'sunrise' },
+  { key: 'dhuhr', icon: 'sun' },
+  { key: 'asr', icon: 'sun' },
+  { key: 'maghrib', icon: 'sunset' },
+  { key: 'isha', icon: 'moon' },
+];
+
+/** Illustration au trait fin : arches et coupole (carte « Prochaine prière »). */
+function Arches() {
+  const stroke = 'rgba(233,185,193,0.5)';
+  return (
+    <Svg width={150} height={130} viewBox="0 0 150 130" style={s.arches} pointerEvents="none">
+      <Path d="M30 130V74a28 28 0 0 1 56 0v56" stroke={stroke} strokeWidth={1.6} fill="none" />
+      <Path d="M42 130V80a16 16 0 0 1 32 0v50" stroke={stroke} strokeWidth={1.2} fill="none" />
+      <Path d="M38 50a20 20 0 0 1 40 0" stroke={stroke} strokeWidth={1.6} fill="none" />
+      <Path d="M58 30v-8M55 22h6" stroke={stroke} strokeWidth={1.4} />
+      <Path d="M96 130V92a14 14 0 0 1 28 0v38" stroke={stroke} strokeWidth={1.4} fill="none" />
+      <Path d="M134 130V36M130 36h8l-4-10z" stroke={stroke} strokeWidth={1.4} fill="none" />
+      <Path d="M8 130V98a10 10 0 0 1 20 0v32" stroke={stroke} strokeWidth={1.2} fill="none" />
+      <Path d="M0 130h150" stroke={stroke} strokeWidth={1.2} />
+    </Svg>
+  );
+}
+
+function BottomButton({ icon, label, onPress }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [s.bottomBtn, pressed && { opacity: 0.85 }]}>
+      <Icon name={icon} size={20} color={colors.bordeaux} />
+      <Text style={s.bottomText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export default function PrayerTimes() {
+  const { user, setSession } = useAuth();
+  const toast = useToast();
+  const scrollRef = useRef(null);
+  const source = user?.prayerSource || { mode: 'ville' };
+  const [choosing, setChoosing] = useState(source.mode === 'mosquee' && !source.mosque);
+  const [mode, setMode] = useState(source.mode === 'mosquee' ? 'mosquee' : 'ville');
+  const [today, setToday] = useState(null);
+  const [nearby, setNearby] = useState(null);
+  const [results, setResults] = useState(null);
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [pos, setPos] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  const [reminders, setReminders] = useState(false);
+
+  useEffect(() => {
+    const i = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(i);
+  }, []);
+
+  const loadToday = useCallback(() => api.get('/prayers').then(setToday).catch(() => {}), []);
+  useEffect(() => {
+    loadToday();
+  }, [loadToday, user?.prayerSource?.mosque, user?.prayerSource?.mode, user?.city?.lat, user?.prayerSettings?.adjustments]);
+
+  const loadNearby = useCallback(async (usePosition = false) => {
+    setBusy(true);
+    try {
+      const p = usePosition ? await currentPosition({ ask: true }) : pos;
+      if (usePosition && !p) toast('Autorise la localisation pour trouver les mosquées autour de toi', 'error');
+      if (p) setPos(p);
+      setNearby(await api.get(`/mosques/nearby${p ? `?lat=${p.lat}&lng=${p.lng}` : ''}`));
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }, [pos, toast]);
+
+  useEffect(() => {
+    if (choosing && mode === 'mosquee' && !nearby) loadNearby(false);
+  }, [choosing, mode, nearby, loadNearby]);
+
+  // Recherche d'une mosquée ou d'une ville
+  useEffect(() => {
+    if (q.trim().length < 2) {
+      setResults(null);
+      return undefined;
+    }
+    const t = setTimeout(() => {
+      api
+        .get(`/mosques/search?q=${encodeURIComponent(q.trim())}${pos ? `&lat=${pos.lat}&lng=${pos.lng}` : ''}`)
+        .then(setResults)
+        .catch(() => setResults({ items: [] }));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [q, pos]);
+
+  const close = () => {
+    setChoosing(false);
+    setQ('');
+    scrollRef.current?.scrollTo?.({ y: 0, animated: false });
+  };
+  const open = () => {
+    setMode(source.mode === 'mosquee' ? 'mosquee' : 'ville');
+    setChoosing(true);
+    scrollRef.current?.scrollTo?.({ y: 0, animated: false });
+  };
+
+  const chooseMosque = async (m) => {
+    setBusy(true);
+    try {
+      const session = await api.put('/me/prayer-source', m.id ? { mode: 'mosquee', mosqueId: m.id } : { mode: 'mosquee', osm: { osmId: m.osmId, name: m.name, address: m.address, city: m.city, lat: m.lat, lng: m.lng } });
+      await setSession(session);
+      close();
+      toast(`Horaires de ${m.name}`);
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const chooseCity = async (city) => {
+    setBusy(true);
+    try {
+      let session = await api.put('/me/prayer-source', { mode: 'ville' });
+      if (city) session = await api.patch('/me', { city: { ...city, source: city.source || 'manuel' }, prayerSettings: { followLocation: city.source === 'gps' } });
+      await setSession(session);
+      close();
+      toast(`Horaires calculés pour ${session.user.city?.name || 'ta ville'}`);
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const useMyPosition = async () => {
+    setBusy(true);
+    try {
+      let session = await api.put('/me/prayer-source', { mode: 'ville' });
+      await setSession(session);
+      session = await syncLocation(session.user, { ask: true, force: true });
+      if (session) {
+        await setSession(session);
+        close();
+        toast(`Horaires à ta position : ${session.user.city?.name}`);
+      } else toast('Position indisponible', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const patchSettings = async (prayerSettings, message) => {
+    try {
+      await setSession(await api.patch('/me', { prayerSettings }));
+      toast(message);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+
+  const selectedId = source.mode === 'mosquee' ? source.mosque : null;
+  const list = results?.items || nearby?.items || [];
+  const meta = today?.source;
+  const t = today?.timings;
+  const jumua = jumuaOf(meta);
+  const isMosque = meta?.mode === 'mosquee';
+  const placeName = isMosque ? meta.label : today?.city?.name || user?.city?.name || 'Ma ville';
+  const placeHint = isMosque ? [meta.city, meta.fallback ? 'horaires calculés à son adresse' : meta.partner ? 'horaires publiés par la mosquée' : 'horaires calculés à son adresse'].filter(Boolean).join(' · ') : user?.city?.source === 'gps' ? 'Ma position · horaires calculés' : 'Ma ville · horaires calculés';
+  const nextKey = t?.instants ? PRAYERS.find((p) => new Date(t.instants[p]).getTime() > now) : null;
+  const heroKey = nextKey || 'fajr';
+  const notifOn = user?.prayerSettings?.notifications !== false;
+  const adhanMode = user?.prayerSettings?.adhan === false ? 'notification' : user?.prayerSettings?.adhanMode || 'adhan';
+
+  // --- Choix de la source : ville ou mosquée (masqué une fois le choix fait) -----------------------
+  if (choosing) {
+    return (
+      <Screen back title="Mes horaires" subtitle="Choisis d’où viennent tes horaires" scrollRef={scrollRef} right={source.mode !== 'mosquee' || selectedId ? <Pressable onPress={close} hitSlop={10} accessibilityRole="button"><Text style={s.link}>Annuler</Text></Pressable> : null}>
+        <Segmented
+          items={[
+            { key: 'ville', label: 'Ma ville' },
+            { key: 'mosquee', label: 'Ma mosquée' },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
+        <Gap />
+
+        {mode === 'mosquee' ? (
+          <>
+            <Field value={q} onChangeText={setQ} placeholder="Rechercher une mosquée ou une ville" icon="search" autoCorrect={false} returnKeyType="search" />
+            <Gap h={14} />
+            <Row justify="space-between" style={{ marginBottom: 10 }}>
+              <Text style={s.section}>{results ? (results.city ? `Autour de ${results.city.name}` : 'Résultats') : 'Autour de toi'}</Text>
+              <Pressable onPress={() => loadNearby(true)} hitSlop={8} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Icon name="locate" size={16} color={colors.bordeaux} />
+                <Text style={s.link}>Ma position</Text>
+              </Pressable>
+            </Row>
+            {busy && !list.length ? <ActivityIndicator color={colors.bordeaux} style={{ marginVertical: 20 }} /> : null}
+            {list.map((m) => (
+              <MosqueRow key={m.id || m.osmId} m={m} selected={Boolean(selectedId) && (m.id === selectedId || (meta?.mosqueId && m.id === meta.mosqueId))} onPress={() => chooseMosque(m)} />
+            ))}
+            {!busy && (results || nearby) && !list.length ? <T variant="muted" style={{ textAlign: 'center', marginVertical: 12 }}>Aucune mosquée trouvée. Essaie avec le nom de ta ville.</T> : null}
+            <T variant="small" style={{ marginTop: 6 }}>Mosquées partenaires : horaires publiés par la mosquée. Autres mosquées : horaires calculés à leur adresse, le temps qu’elles rejoignent Nissali.</T>
+          </>
+        ) : (
+          <>
+            <Card style={{ gap: 12 }}>
+              <Row gap={10}>
+                <Icon name="pin" size={18} color={colors.or} />
+                <View style={{ flex: 1 }}>
+                  <T variant="bold">{user?.city?.name || 'Paris'}</T>
+                  <T variant="small">{user?.city?.source === 'gps' ? 'Ta position actuelle (GPS)' : 'Ville enregistrée'}</T>
+                </View>
+              </Row>
+              {source.mode === 'mosquee' ? <Button title={`Horaires de ${user?.city?.name || 'ma ville'}`} onPress={() => chooseCity(null)} loading={busy} /> : null}
+              <Pressable onPress={useMyPosition} disabled={busy} accessibilityRole="button" style={s.positionBtn}>
+                {busy ? <ActivityIndicator color={colors.bordeaux} /> : <Icon name="locate" size={18} color={colors.bordeaux} />}
+                <Text style={s.positionText}>Utiliser ma position</Text>
+              </Pressable>
+            </Card>
+            <Gap h={12} />
+            <CityPicker label="Ou choisis une ville" value={null} onChange={(c) => chooseCity(c)} />
+            <T variant="small" style={{ marginTop: 8 }}>Horaires calculés pour ta ville (API Aladhan, méthode choisie par le comité), ajustables de quelques minutes dans ton profil.</T>
+          </>
+        )}
+      </Screen>
+    );
+  }
+
+  // --- Affichage : source choisie, prochaine prière, horaires du jour -----------------------------
+  return (
+    <Screen back title="Horaires de prière" scrollRef={scrollRef} onRefresh={loadToday}>
+      <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${placeName}. Changer de ville ou de mosquée`} style={({ pressed }) => [s.place, pressed && { opacity: 0.85 }]}>
+        <View style={s.placeIcon}>
+          <Icon name={isMosque ? 'home' : 'pin'} size={18} color={colors.bordeaux} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.placeName} numberOfLines={2}>{placeName}</Text>
+          <Text style={s.placeHint} numberOfLines={2}>{placeHint}</Text>
+        </View>
+        <Icon name="chevronRight" size={20} color={colors.bordeaux} />
+      </Pressable>
+
+      {!t ? (
+        <ActivityIndicator color={colors.bordeaux} style={{ marginTop: 40 }} />
+      ) : (
+        <>
+          <LinearGradient colors={[colors.bordeaux, colors.prune]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
+            <Arches />
+            <Text style={s.heroLabel}>PROCHAINE PRIÈRE</Text>
+            <Text style={s.heroName}>{PRAYER_LABELS[heroKey]}</Text>
+            <Text style={s.heroTime}>{t[heroKey]}</Text>
+            <Text style={s.heroIn}>{nextKey ? `Dans ${countdown(t.instants[nextKey], now).replace(/^(\d+)\s+min$/, (_, m) => `${m}\u00A0minute${m > 1 ? 's' : ''}`)}` : 'Demain matin'}</Text>
+            {jumua?.today ? <Text style={s.heroJumua}>Aujourd’hui · Jumu’a à {jumua.times.join(' et ')}</Text> : null}
+            <Pressable
+              onPress={() => patchSettings({ notifications: !notifOn }, notifOn ? 'Rappels de prière désactivés' : 'Rappels de prière activés')}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: notifOn }}
+              style={s.heroPill}
+            >
+              <Icon name="bell" size={15} color={colors.white} fill={notifOn ? colors.white : 'none'} />
+              <Text style={s.heroPillText}>{notifOn ? 'Rappel activé' : 'Rappel désactivé'}</Text>
+            </Pressable>
+          </LinearGradient>
+
+          <View style={s.list}>
+            {ROWS.map((r, i) => {
+              const on = r.key === nextKey;
+              const sep = i > 0 && !on && ROWS[i - 1].key !== nextKey;
+              return (
+                <View key={r.key}>
+                  {sep ? <View style={s.sep} /> : null}
+                  <Pressable onPress={() => setReminders(true)} accessibilityRole="button" accessibilityLabel={`${PRAYER_LABELS[r.key]} à ${t[r.key]}${on ? ', prochaine prière' : ''}`} style={({ pressed }) => [s.row, on && s.rowOn, pressed && { opacity: 0.85 }]}>
+                    <View style={[s.rowIcon, on && { backgroundColor: colors.white }]}>
+                      <Icon name={r.icon} size={20} color={on ? colors.bordeaux : colors.or} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.rowName, on && { color: colors.bordeaux, fontFamily: fonts.bold }]}>{PRAYER_LABELS[r.key]}</Text>
+                      {r.key === 'fajr' ? <Text style={s.rowHint}>Lever du soleil {t.sunrise}</Text> : null}
+                    </View>
+                    <Text style={[s.rowTime, on && { color: colors.bordeaux }]}>{t[r.key]}</Text>
+                    <Icon name="chevronRight" size={18} color={on ? colors.bordeaux : colors.muted} />
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+
+          {jumua ? (
+            <View style={[s.jumua, jumua.today && s.jumuaToday]} accessibilityLabel={`Jumu’a ${jumua.today ? 'aujourd’hui' : longDate(jumua.day)} à ${jumua.times.join(' et ')}`}>
+              <View style={[s.jumuaIcon, jumua.today && { backgroundColor: colors.bordeaux }]}>
+                <Icon name="home" size={20} color={jumua.today ? colors.white : colors.or} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.jumuaLabel}>{jumua.today ? 'JUMU’A · AUJOURD’HUI' : `JUMU’A · ${longDate(jumua.day).toUpperCase()}`}</Text>
+                <Text style={s.rowHint} numberOfLines={1}>{meta.label}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[s.jumuaTime, jumua.today && { color: colors.bordeaux }]}>{jumua.times[0]}</Text>
+                {jumua.times[1] ? <Text style={s.rowHint}>2ᵉ Jumu’a {jumua.times[1]}</Text> : null}
+              </View>
+            </View>
+          ) : null}
+
+          <T variant="small" style={{ marginTop: 10, textAlign: 'center' }}>
+            {isMosque && !meta.fallback ? 'Horaires publiés par la mosquée.' : meta?.fallback ? 'Horaires de la mosquée indisponibles aujourd’hui : calculés à son adresse.' : today.method || ''}
+          </T>
+
+          <Row gap={12} style={{ marginTop: 18 }}>
+            <BottomButton icon="compass" label={`Qibla${today.qibla?.direction != null ? ` · ${Math.round(today.qibla.direction)}°` : ''}`} onPress={() => router.push('/qibla')} />
+            <BottomButton icon="bell" label="Mes rappels" onPress={() => setReminders(true)} />
+          </Row>
+        </>
+      )}
+
+      <Sheet visible={reminders} onClose={() => setReminders(false)} title="Mes rappels de prière">
+        <Toggle label="Notification à l’heure de chaque prière" value={notifOn} onChange={(v) => patchSettings({ notifications: v }, v ? 'Rappels de prière activés' : 'Rappels de prière désactivés')} />
+        {notifOn ? (
+          <>
+            <Label>À l’heure de la prière</Label>
+            <Segmented
+              items={[
+                { key: 'notification', label: 'Notification seule' },
+                { key: 'adhan', label: 'Adhan + notification' },
+              ]}
+              value={adhanMode}
+              onChange={(k) => patchSettings({ adhan: true, adhanMode: k }, k === 'adhan' ? 'L’adhan se lancera avec la notification' : 'Notification seule à l’heure de la prière')}
+            />
+          </>
+        ) : null}
+        <Pressable
+          onPress={() => {
+            setReminders(false);
+            router.push('/profil');
+          }}
+          accessibilityRole="link"
+          style={{ paddingVertical: 8 }}
+        >
+          <T variant="medium" color={colors.bordeaux}>Voix de l’adhan, ajustements et adhkar → Profil</T>
+        </Pressable>
+      </Sheet>
+    </Screen>
+  );
+}
+
+const s = StyleSheet.create({
+  section: { fontFamily: fonts.bold, fontSize: 14, color: colors.prune },
+  link: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.bordeaux },
+  mosque: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 18, padding: 12, marginBottom: 8, borderWidth: 1.5, borderColor: 'transparent' },
+  mosqueOn: { borderColor: colors.bordeaux },
+  mosqueIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F6EBDD', alignItems: 'center', justifyContent: 'center' },
+  mosqueName: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune },
+  mosqueMeta: { fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 1 },
+  check: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center' },
+  positionBtn: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', minHeight: 46, borderRadius: 999, backgroundColor: colors.blush },
+  positionText: { fontFamily: fonts.bold, fontSize: 15, color: colors.bordeaux },
+  place: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, marginBottom: 16 },
+  placeIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  placeName: { fontFamily: fonts.bold, fontSize: 16.5, color: colors.prune },
+  placeHint: { fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: 1 },
+  hero: { borderRadius: 28, padding: 22, paddingBottom: 20, overflow: 'hidden', minHeight: 200 },
+  arches: { position: 'absolute', right: 6, bottom: 0 },
+  heroLabel: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.6, color: colors.rose },
+  heroName: { fontFamily: fonts.title, fontSize: 30, color: colors.white, marginTop: 6 },
+  heroTime: { fontFamily: fonts.display, fontSize: 54, lineHeight: 62, color: colors.white },
+  heroIn: { fontFamily: fonts.medium, fontSize: 15, color: colors.rose },
+  heroJumua: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white, marginTop: 6 },
+  heroPill: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 14, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  heroPillText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
+  list: { backgroundColor: colors.white, borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, marginTop: 16, borderWidth: 1, borderColor: colors.line },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 10, paddingVertical: 12, borderRadius: 18 },
+  rowOn: { backgroundColor: colors.blush },
+  sep: { height: 1, backgroundColor: colors.line, marginLeft: 62, marginRight: 10 },
+  rowIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ivoire, alignItems: 'center', justifyContent: 'center' },
+  rowName: { fontFamily: fonts.medium, fontSize: 16.5, color: colors.prune },
+  rowHint: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 1 },
+  rowTime: { fontFamily: fonts.display, fontSize: 20, color: colors.prune, marginRight: 2 },
+  jumua: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 14, marginTop: 12, borderWidth: 1, borderColor: colors.line },
+  jumuaToday: { backgroundColor: colors.blush, borderColor: colors.rose },
+  jumuaIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F6EBDD', alignItems: 'center', justifyContent: 'center' },
+  jumuaLabel: { fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.or },
+  jumuaTime: { fontFamily: fonts.display, fontSize: 24, color: colors.prune },
+  bottomBtn: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', minHeight: 54, borderRadius: 18, backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.rose },
+  bottomText: { fontFamily: fonts.bold, fontSize: 15, color: colors.bordeaux },
+});

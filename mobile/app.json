@@ -1,0 +1,84 @@
+{
+  "expo": {
+    "name": "Nissali",
+    "slug": "nissali",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "nissali",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FCF8F6",
+    "primaryColor": "#7A1F35",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.nissali",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "app.nissali",
+      "adaptiveIcon": {
+        "backgroundColor": "#7A1F35",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#FCF8F6"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Nissali utilise ta position pour calculer les horaires de prière et la direction de la qibla."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#7A1F35"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nissali accède à tes photos pour ta photo de profil professionnelle."
+        }
+      ],
+      "expo-audio"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bb95a87b-b727-49cb-af3a-21b3d1da9812"
+      }
+    },
+    "owner": "medaziz29"
+  }
+}

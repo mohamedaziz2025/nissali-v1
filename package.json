@@ -1,0 +1,14 @@
+{
+  "name": "nissali",
+  "private": true,
+  "description": "Nissali — API Express/MongoDB, app mobile Expo, web app admin et praticiennes (Next.js)",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix mobile install && npm --prefix web install",
+    "db": "npm --prefix backend run db:local",
+    "seed": "npm --prefix backend run seed -- --reset",
+    "api": "npm --prefix backend run dev",
+    "web": "npm --prefix web run dev",
+    "mobile": "npm --prefix mobile run start",
+    "test": "npm --prefix backend test"
+  }
+}

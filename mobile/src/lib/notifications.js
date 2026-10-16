@@ -1,0 +1,154 @@
+// Notifications locales (fonctionnent dans Expo Go) : prières, dhikr (matin, soir, vendredi), rappels discrets (RG-17).
+// Elles sont reprogrammées à chaque ouverture de l'appli et à chaque saisie des règles,
+// pour que la pause pendant les règles (RG-15) soit immédiate.
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { api } from './api';
+import { addDays } from './format';
+import { readJson, writeJson } from './storage';
+
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    // Appli ouverte : les messages et annonces s'affichent dans le bandeau de l'appli (InAppNotifier),
+    // les rappels (prières, dhikr…) en notification système.
+    handleNotification: async (n) => {
+      const data = n?.request?.content?.data || {};
+      const inApp = data.kind === 'message' || Boolean(data.notificationId);
+      const adhan = data.kind === 'prayer' && Boolean(data.adhanUrl); // l'adhan remplace le son de la notification
+      return { shouldShowBanner: !inApp, shouldShowList: true, shouldPlaySound: !inApp && !adhan, shouldSetBadge: false };
+    },
+  });
+}
+
+const DISCREET = { title: 'Nissali', body: 'Petit rappel du jour' };
+const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+
+export async function ensurePermission() {
+  if (Platform.OS === 'web') return false;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels', importance: Notifications.AndroidImportance.DEFAULT });
+    await Notifications.setNotificationChannelAsync('prieres', { name: 'Prières', importance: Notifications.AndroidImportance.HIGH });
+    await Notifications.setNotificationChannelAsync('annonces', { name: 'Annonces et messages', importance: Notifications.AndroidImportance.HIGH });
+  }
+  const current = await Notifications.getPermissionsAsync();
+  if (current.granted) return true;
+  const asked = await Notifications.requestPermissionsAsync();
+  return asked.granted;
+}
+
+const at = (day, time) => {
+  const [y, m, d] = day.split('-').map(Number);
+  const [h, min] = time.split(':').map(Number);
+  return new Date(y, m - 1, d, h, min);
+};
+
+async function schedule(date, content, channelId = 'rappels') {
+  if (date.getTime() <= Date.now() + 30_000) return;
+  await Notifications.scheduleNotificationAsync({
+    content: { ...content, sound: true },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId },
+  });
+}
+
+/**
+ * Reprogramme toutes les notifications locales à partir de l'état du jour.
+ * today : réponse de /today ; user : profil.
+ */
+export async function rescheduleAll(today, user) {
+  if (Platform.OS === 'web' || !today || !user) return;
+  if (!(await ensurePermission())) return;
+  await Notifications.cancelAllScheduledNotificationsAsync();
+
+  const prefs = user.notificationPrefs || {};
+  const prayerPrefs = user.prayerSettings || {};
+
+  // Prières (API Aladhan, à la position de l'utilisatrice) : à l'heure de chaque prière, sauf pendant
+  // les règles (RG-15) où l'option dhikr la remplace. Rappels de dhikr : matin, soir et vendredi.
+  try {
+    const range = await api.get(`/prayers/range?days=3`);
+    for (const [i, t] of range.days.entries()) {
+      const paused = today.prayers.paused && (i === 0 || today.cycle?.kind === 'regles' || today.cycle?.kind === 'nifas');
+      if (prayerPrefs.notifications !== false) {
+        for (const p of Object.keys(LABELS)) {
+          const label = LABELS[p];
+          const time = t[p];
+          const instant = t.instants[p];
+          const date = new Date(instant);
+          if (paused) {
+            if (range.periodDhikr) await schedule(date, { title: 'Nissali', body: range.periodDhikr }, 'prieres');
+          } else {
+            const adhan = range.adhan;
+            await schedule(
+              date,
+              {
+                title: `${label} · ${time}`,
+                body: adhan ? `C’est l’heure de ${label} · l’adhan va retentir` : `C’est l’heure de ${label}`,
+                data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanUrl: adhan.url, adhanLabel: adhan.label } : {}) },
+              },
+              'prieres',
+            );
+          }
+        }
+        // Vendredi, mosquée choisie : rappel de la Jumu'a à l'heure publiée par la mosquée.
+        if (!paused && t.jumua?.times?.length) {
+          for (const [k, time] of t.jumua.times.entries()) {
+            await schedule(new Date(t.jumua.instants[k]), { title: `Jumu’a · ${time}`, body: `${k ? '2ᵉ Jumu’a' : 'Jumu’a'} à ${t.jumua.mosque}` }, 'prieres');
+          }
+        }
+      }
+      for (const r of t.reminders || []) await schedule(new Date(r.instant), { title: r.title, body: r.body }, 'prieres');
+    }
+  } catch {
+    // hors connexion : les notifications déjà programmées sont perdues, elles reviendront au retour du réseau
+  }
+
+  // Rappels discrets
+  if (prefs.dailyReminder !== false) await schedule(at(today.tomorrow, '08:30'), DISCREET);
+  if (prefs.periodSoon !== false && today.cycle?.kind === 'prochaines' && today.cycle.nextDate) {
+    await schedule(at(addDays(today.cycle.nextDate, -2), '09:00'), DISCREET);
+  }
+  if (prefs.periodEndQuestion !== false && today.cycle?.kind === 'regles' && !today.cycle.askPeriodEnded) {
+    const day = addDays(today.cycle.start, today.cycle.periodLength);
+    await schedule(at(day, '10:00'), DISCREET);
+  }
+  if (prefs.fastMakeup !== false && today.fasts?.nextPlanned) {
+    await schedule(at(addDays(today.fasts.nextPlanned, -1), '21:00'), DISCREET);
+  }
+  if (prefs.whiteDays !== false && today.whiteDays?.days?.[0]) {
+    await schedule(at(addDays(today.whiteDays.days[0].day, -1), '18:00'), DISCREET);
+  }
+  if (user.contraception?.pillReminder) {
+    const time = user.contraception.pillTime || '21:00';
+    for (let i = 0; i < 3; i += 1) await schedule(at(addDays(today.today, i), time), DISCREET);
+  }
+}
+
+export async function cancelAll() {
+  if (Platform.OS !== 'web') await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
+// --- Notifications push (envoyées par l'équipe Nissali, messages) ---------------------------------
+
+let registered = null;
+
+/**
+ * Enregistre le jeton Expo Push de ce téléphone auprès de Nissali (une fois par session).
+ * Dans Expo Go sur Android, les notifications distantes ne sont plus disponibles (SDK 53+) :
+ * le bandeau et le centre de notifications de l'appli prennent alors le relais (InAppNotifier).
+ */
+export async function registerPushToken() {
+  if (Platform.OS === 'web') return null;
+  if (registered) return registered;
+  try {
+    if (!(await ensurePermission())) return null;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const { data } = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+    await api.post('/me/push', { token: data });
+    registered = data;
+    await writeJson('nissali.pushToken', data);
+    return data;
+  } catch {
+    return null;
+  }
+}

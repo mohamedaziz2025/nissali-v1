@@ -1,0 +1,79 @@
+# Déploiement Nissali sur un serveur Docker partagé.
+#   web  (back-office + espace pro) : http://<IP>:8100
+#   api                              : http://<IP>:8101/api
+#   expo (Metro pour Expo Go)        : exp://<IP>:8102
+# MongoDB n'est pas exposé hors du réseau Docker du projet.
+name: nissali
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # mongosh est lent à démarrer quand le serveur est chargé : délais larges.
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 40s
+    networks: [nissali]
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/nissali
+      PORT: "4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8101}:4000"
+    volumes:
+      - uploads:/app/uploads
+      # Documents des fiches clientes (privés, jamais servis publiquement)
+      - private-files:/app/private
+    networks: [nissali]
+
+  web:
+    build:
+      context: ../web
+      args:
+        API_URL: http://api:4000
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "${WEB_PORT:-8100}:3001"
+    networks: [nissali]
+
+  expo:
+    build:
+      context: ../mobile
+      args:
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://72.62.71.97:8101/api}
+        METRO_PORT: "8102"
+    restart: unless-stopped
+    environment:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+      # Authentifie le CLI Expo (sinon Expo Go refuse le projet « anonymous »).
+      EXPO_TOKEN: ${EXPO_TOKEN:-}
+    ports:
+      - "${METRO_PORT:-8102}:8102"
+    volumes:
+      # Conserve urlRandomness : le lien du tunnel reste le même après redémarrage.
+      - expo-state:/app/.expo
+    networks: [nissali]
+
+volumes:
+  mongo-data:
+  uploads:
+  private-files:
+  expo-state:
+
+networks:
+  nissali:
+    driver: bridge
