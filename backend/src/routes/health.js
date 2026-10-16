@@ -9,7 +9,7 @@ import { buildHealthTips, getWeather } from '../services/health.js';
 import { prayerOptionsFor } from '../services/prayerService.js';
 import { getSettings } from '../services/settings.js';
 import { addDays, isDay } from '../utils/dates.js';
-import { badRequest } from '../utils/http.js';
+import { badRequest, notFound } from '../utils/http.js';
 
 const router = Router();
 router.use(requireAuth, requireHealthConsent);
@@ -55,6 +55,30 @@ router.put('/day/:day', validate(logSchema), async (req, res) => {
     { upsert: true, new: true },
   ).lean();
   res.json(log);
+});
+
+// 02 / 03 — Mon poids : dernière mesure, historique, ajout daté (aujourd'hui par défaut), correction, suppression.
+router.get('/weights', async (req, res) => {
+  const list = await DailyLog.find({ user: req.user._id, weight: { $exists: true, $ne: null } }).sort({ day: 1 }).select('day weight').lean();
+  const items = list.map((l) => ({ day: l.day, weight: l.weight }));
+  res.json({ items, last: items[items.length - 1] || null });
+});
+
+const weightSchema = z.object({ weight: z.number({ invalid_type_error: 'Indique ton poids en kg' }).min(25, 'Poids invalide : entre 25 et 300 kg').max(300, 'Poids invalide : entre 25 et 300 kg') });
+
+router.put('/weights/:day', validate(weightSchema), async (req, res) => {
+  if (!isDay(req.params.day)) throw badRequest('Date invalide');
+  if (req.params.day > nowFor(req.user).today) throw badRequest('Impossible de noter un poids pour une date future');
+  const weight = Math.round(req.body.weight * 10) / 10;
+  await DailyLog.updateOne({ user: req.user._id, day: req.params.day }, { $set: { weight } }, { upsert: true });
+  res.json({ day: req.params.day, weight });
+});
+
+router.delete('/weights/:day', async (req, res) => {
+  if (!isDay(req.params.day)) throw badRequest('Date invalide');
+  const r = await DailyLog.updateOne({ user: req.user._id, day: req.params.day, weight: { $exists: true } }, { $unset: { weight: '' } });
+  if (!r.modifiedCount) throw notFound('Aucune mesure ce jour-là');
+  res.json({ ok: true });
 });
 
 // Graphiques d'évolution : séries quotidiennes + moyennes par cycle.

@@ -43,6 +43,8 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use('/uploads', express.static(path.resolve(env.uploadDir), { maxAge: '7d' }));
+  // 14 — photos de couverture des articles livrées avec l'appli (remplaçables dans le back-office).
+  app.use('/covers', express.static(path.resolve('src/content/covers'), { maxAge: '30d' }));
   app.use(authenticate);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'nissali-api', time: new Date().toISOString() }));

@@ -70,9 +70,10 @@ const eventSchema = z.object({
   imageUrl: z.string().url().max(500).optional(),
   capacity: z.number().int().min(1).max(5000),
   price: z.number().min(0).max(1000).default(0),
-  ticketUrl: z.string().trim().url('Lien de billetterie invalide').regex(/^https?:\/\//, 'Lien de billetterie invalide').max(500).optional().or(z.literal('')),
+  // 17 / 18 — billetterie externe sécurisée (Billetweb, HelloAsso…) : lien HTTPS obligatoire.
+  ticketUrl: z.string().trim().url('Lien de billetterie invalide').regex(/^https:\/\/[^\s]+\.[^\s]+/, 'Le lien de billetterie doit être une adresse sécurisée (https://)').max(500).optional().or(z.literal('')),
   cancellationPolicy: z.string().max(600).optional(),
-}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien de ta billetterie en ligne pour un événement payant', path: ['ticketUrl'] });
+}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien de billetterie externe (https://) pour un événement payant', path: ['ticketUrl'] });
 
 async function buildEvent(b, tz) {
   const startAt = zonedToDate(b.day, b.time, tz);

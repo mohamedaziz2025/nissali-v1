@@ -18,6 +18,10 @@ const THEMES = { alimentation: 'Alimentation', sommeil: 'Sommeil', activite: 'Ac
 export default function AdminTips() {
   const toast = useToast();
   const { data, error, loading, reload } = useFetch('/admin/health-tips');
+  // 15 / 16 — article lié choisi parmi les articles du magazine, ou aucun (jamais au hasard).
+  const articles = useFetch('/admin/articles');
+  const articleOf = (slug) => (articles.data || []).find((a) => a.slug === slug);
+  const visible = (a) => a && a.published && ['valide_comite', 'valide_sante'].includes(a.validation);
   const [phase, setPhase] = useState('menstruelle');
   const [edit, setEdit] = useState(null);
   const list = (data || []).filter((t) => t.phase === phase);
@@ -75,7 +79,14 @@ export default function AdminTips() {
                   <td style={{ maxWidth: 520 }}>
                     <strong>{t.title}</strong>
                     <div className="muted small">{t.text}</div>
-                    {t.articleSlug ? <div className="small">Article lié : {t.articleSlug}</div> : null}
+                    {t.articleSlug ? (
+                      <div className="small">
+                        En savoir plus : {articleOf(t.articleSlug)?.title || t.articleSlug}
+                        {articleOf(t.articleSlug) && !visible(articleOf(t.articleSlug)) ? <span className="badge warning" style={{ marginLeft: 6 }}>Article non publié : lien masqué</span> : null}
+                      </div>
+                    ) : (
+                      <div className="small muted">Conseil autonome (aucun article lié)</div>
+                    )}
                   </td>
                   <td>{THEMES[t.theme]}</td>
                   <td>
@@ -119,7 +130,17 @@ export default function AdminTips() {
             </div>
             <Field label="Titre"><input className="input" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} required minLength={3} maxLength={120} /></Field>
             <Field label="Conseil" hint={`${edit.text.length}/600`}><textarea className="textarea" rows={4} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} required minLength={10} maxLength={600} /></Field>
-            <Field label="Article lié (identifiant de l’article, facultatif)"><input className="input" value={edit.articleSlug || ''} onChange={(e) => setEdit({ ...edit, articleSlug: e.target.value })} placeholder="ex. syndrome-premenstruel" /></Field>
+            <Field label="Article lié « En savoir plus » (facultatif)" hint="Seulement si l’article approfondit réellement le même sujet que le conseil. Sinon, le conseil reste autonome.">
+              <select className="select" value={edit.articleSlug || ''} onChange={(e) => setEdit({ ...edit, articleSlug: e.target.value })}>
+                <option value="">Aucun article</option>
+                {(articles.data || []).map((a) => (
+                  <option key={a._id} value={a.slug}>
+                    {a.title}
+                    {visible(a) ? '' : ' (non publié)'}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <label className="row" style={{ gap: 8 }}>
               <input type="checkbox" checked={edit.reviewed} onChange={(e) => setEdit({ ...edit, reviewed: e.target.checked })} />
               <span className="small">Relu et validé par une sage-femme</span>

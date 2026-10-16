@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BrandBar } from '../../components/Brand';
 import Icon from '../../components/Icon';
 import { CategoryTile, FeaturedCard, PractitionerCard } from '../../components/Practitioners';
 import { Button, Card, Chip, ErrorState, Field, Gap, Label, Loader, Row, Screen, Segmented, Sheet, T, Toggle } from '../../components/ui';
@@ -139,13 +140,13 @@ export default function Practitioners() {
   const groups = status.data?.groups || [];
   const categories = status.data?.categories || [];
 
-  if (status.loading && !status.data) return <Screen title="Praticiennes"><Loader /></Screen>;
-  if (status.error && !status.data) return <Screen title="Praticiennes"><ErrorState error={status.error} onRetry={status.reload} /></Screen>;
+  if (status.loading && !status.data) return <Screen title="Praticiennes" top={<BrandBar />}><Loader /></Screen>;
+  if (status.error && !status.data) return <Screen title="Praticiennes" top={<BrandBar />}><ErrorState error={status.error} onRetry={status.reload} /></Screen>;
 
   // Annuaire pas encore ouvert : maquette floutée « Bientôt disponible ».
   if (!enabled) {
     return (
-      <Screen title="Praticiennes" right={<T variant="muted">Entre sœurs</T>}>
+      <Screen title="Praticiennes" top={<BrandBar />} right={<T variant="muted">Entre sœurs</T>}>
         <Field value={q} onChangeText={setQ} placeholder="Spécialité ou nom" icon="search" editable={false} />
         <Gap h={18} />
         <View style={{ position: 'relative' }}>
@@ -197,6 +198,7 @@ export default function Practitioners() {
   return (
     <Screen
       title="Praticiennes"
+      top={<BrandBar />}
       right={
         <Row gap={10}>
           <Pressable onPress={() => router.push('/messages')} accessibilityRole="button" accessibilityLabel={`Messages${unreadCount ? `, ${unreadCount} non lus` : ''}`} hitSlop={6} style={({ pressed }) => [s.topIcon, pressed && { opacity: 0.8 }]}>

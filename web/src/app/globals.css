@@ -536,3 +536,11 @@ tbody tr:hover { background: #fdf9f9; }
 .del-menu button { border: 0; background: none; text-align: left; padding: 10px 14px; font: 500 13.5px var(--font-body); color: var(--text); cursor: pointer; }
 .del-menu button:hover { background: var(--surface-2); }
 .del-menu button.danger { color: var(--danger); }
+
+/* 14 — Photo de couverture des articles (recadrage 16:9, miniature carrée) */
+.cover-frame { position: relative; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; cursor: grab; background: var(--blush, #F7E8EA); touch-action: none; }
+.cover-frame:active { cursor: grabbing; }
+.cover-frame canvas { width: 100%; height: 100%; display: block; }
+.cover-preview { width: 320px; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; display: block; }
+.cover-thumb { width: 84px; height: 84px; object-fit: cover; border-radius: 12px; display: block; }
+.thumb-sm { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; display: block; flex: none; }

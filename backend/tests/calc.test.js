@@ -215,6 +215,20 @@ test('6.11 — RG-23 : compteur = automatiques + manuels − rattrapés, détail
   assert.deepEqual(c.byYear.map((y) => [y.hijriYear, y.remaining]), [[1446, 0], [1447, 6]]);
 });
 
+test('09 — solde = à rattraper − déjà rattrapés (dans et hors appli) : 8 − 3 − 2 = 3', () => {
+  const autoMissed = [1, 2, 3, 4, 5, 6, 7, 8].map((d) => ({ day: `2026-02-${String(18 + d).padStart(2, '0')}`, hijriYear: 1447 }));
+  const madeUp = [{ day: '2026-10-05' }, { day: '2026-10-08' }, { day: '2026-10-12' }];
+  const before = fastCounter({ autoMissed, madeUp });
+  assert.deepEqual([before.missed, before.madeUp, before.remaining], [8, 3, 5]);
+  const after = fastCounter({ autoMissed, madeUp, prior: [{ hijriYear: 1447, count: 2 }] });
+  assert.deepEqual([after.missed, after.madeUp, after.remaining, after.prior, after.inApp], [8, 5, 3, 2, 3]);
+  // Suppression de l'ajout : le solde est rétabli.
+  assert.equal(fastCounter({ autoMissed, madeUp, prior: [] }).remaining, 5);
+  // L'ajout reste rattaché à son Ramadan : il ne réduit pas une autre année.
+  const two = fastCounter({ autoMissed, manual: [{ hijriYear: 1446, count: 2 }], madeUp: [], prior: [{ hijriYear: 1447, count: 2 }] });
+  assert.deepEqual(two.byYear.map((y) => [y.hijriYear, y.remaining]), [[1446, 2], [1447, 6]]);
+});
+
 test('RG-24 — le plan évite les règles prévues, le Ramadan et les jours interdits', () => {
   const blocked = new Set(['2026-10-26']); // lundi pendant des règles prévues
   const plan = planMakeupDays({

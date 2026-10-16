@@ -2,19 +2,20 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ArticleImage } from '../../components/ArticleImage';
+import { BrandBar } from '../../components/Brand';
 import Icon from '../../components/Icon';
 import { Card, Chips, ErrorState, Field, Gap, Label, Loader, OfflineBanner, Row, Screen, Segmented, T } from '../../components/ui';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const SWATCH = { rose: colors.rose, or: colors.or, blush: colors.blush, bordeaux: colors.bordeaux };
 const REVIEW = { valide_comite: 'validé par le comité', valide_sante: 'relu par une pro de santé' };
 const MONTHS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'];
 
 function ArticleRow({ a }) {
   return (
-    <Card onPress={() => router.push(`/blog/${a.slug}`)} accessibilityLabel={a.title} style={{ flexDirection: 'row', gap: 14, padding: 14, marginBottom: 12 }}>
-      <View style={[s.swatch, { backgroundColor: SWATCH[a.color] || colors.blush }]} />
+    <Card onPress={() => router.push(`/blog/${a.slug}`)} accessibilityLabel={a.title} style={{ flexDirection: 'row', gap: 14, padding: 12, marginBottom: 12, alignItems: 'center' }}>
+      <ArticleImage article={a} size={84} />
       <View style={{ flex: 1, gap: 3 }}>
         <Label>{a.categoryLabel}</Label>
         <T variant="bold" style={{ fontSize: 16.5, lineHeight: 22 }}>{a.title}</T>
@@ -47,7 +48,8 @@ function Magazine() {
       {loading && !data ? <Loader /> : null}
       {error && !data ? <ErrorState error={error} onRetry={reload} /> : null}
       {data?.featured ? (
-        <Card tone="hero" onPress={() => router.push(`/blog/${data.featured.slug}`)} style={{ gap: 10, paddingVertical: 24, marginBottom: 14 }}>
+        <Card tone="hero" onPress={() => router.push(`/blog/${data.featured.slug}`)} style={{ gap: 10, paddingTop: data.featured.coverUrl ? 12 : 24, paddingBottom: 24, marginBottom: 14 }}>
+          {data.featured.coverUrl ? <ArticleImage article={data.featured} variant="cover" radius={18} style={{ marginBottom: 4 }} /> : null}
           <Label color={colors.rose}>À la une · {data.featured.categoryLabel}</Label>
           <T variant="h2" color={colors.white} style={{ fontSize: 26, lineHeight: 32 }}>{data.featured.title}</T>
           <T color={colors.rose}>
@@ -56,9 +58,12 @@ function Magazine() {
         </Card>
       ) : null}
       {data?.daily ? (
-        <Card tone="soft" onPress={() => router.push(`/blog/${data.daily.article.slug}`)} style={{ gap: 6, marginBottom: 14 }}>
-          <Label color={colors.or}>Article du jour · pour ta phase</Label>
-          <T variant="h3">{data.daily.article.title}</T>
+        <Card tone="soft" onPress={() => router.push(`/blog/${data.daily.article.slug}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, marginBottom: 14 }}>
+          <ArticleImage article={data.daily.article} size={72} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Label color={colors.or}>Article du jour · pour ta phase</Label>
+            <T variant="h3">{data.daily.article.title}</T>
+          </View>
         </Card>
       ) : null}
       {data?.items?.map((a) => <ArticleRow key={a.id} a={a} />)}
@@ -155,7 +160,7 @@ export default function Lifestyle() {
     if (params.tab === 'evenements' || params.tab === 'magazine') setTab(params.tab);
   }, [params.tab]);
   return (
-    <Screen title="Lifestyle">
+    <Screen title="Lifestyle" top={<BrandBar />}>
       <Segmented
         items={[
           { key: 'magazine', label: 'Magazine' },
@@ -171,7 +176,6 @@ export default function Lifestyle() {
 }
 
 const s = StyleSheet.create({
-  swatch: { width: 64, height: 64, borderRadius: 16 },
   dateBlock: { width: 56, height: 62, borderRadius: 16, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   dateDay: { fontFamily: fonts.title, fontSize: 24, color: colors.bordeaux, lineHeight: 28 },
   dateMonth: { fontFamily: fonts.bold, fontSize: 11, color: colors.bordeaux, letterSpacing: 0.8 },

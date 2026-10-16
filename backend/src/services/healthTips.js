@@ -12,32 +12,13 @@ async function allTips() {
 }
 export const forgetTips = () => (cache = { at: 0, tips: null });
 
-// Article lié à un conseil (5.2 « Ouvre l'article lié dans Lifestyle ») : celui du conseil s'il est publié,
-// sinon l'article de son thème, sinon le plus proche selon le thème et la phase.
-const THEME = {
-  alimentation: 'bien-manger-au-fil-du-cycle',
-  activite: 'bouger-au-fil-du-cycle',
-  hydratation: 'bien-s-hydrater-au-quotidien',
-  bien_etre: 'prendre-soin-de-soi-au-fil-du-cycle',
-  sommeil: 'sommeil-et-cycle',
-  douleurs: 'soulager-les-douleurs-de-regles',
-};
-const NEAREST = {
-  alimentation: { menstruelle: 'alimentation-et-fer', luteale: 'syndrome-premenstruel', grossesse: 'premier-trimestre-de-grossesse' },
-  activite: { menstruelle: 'soulager-les-douleurs-de-regles', luteale: 'syndrome-premenstruel', grossesse: 'premier-trimestre-de-grossesse' },
-  hydratation: { menstruelle: 'soulager-les-douleurs-de-regles', luteale: 'syndrome-premenstruel', grossesse: 'premier-trimestre-de-grossesse' },
-  bien_etre: { ovulatoire: 'pertes-blanches-normales', luteale: 'syndrome-premenstruel', grossesse: 'premier-trimestre-de-grossesse' },
-  douleurs: { luteale: 'syndrome-premenstruel', ovulatoire: 'mieux-comprendre-son-ovulation' },
-  sommeil: {},
-};
+// 15 / 16 — Article lié à un conseil : uniquement celui choisi dans le back-office (ou aucun).
+// Jamais d'article choisi au hasard ni « le plus proche » : sans lien, le conseil reste autonome.
 const visibleArticle = { published: true, validation: { $in: ['valide_comite', 'valide_sante'] } };
 
-async function articleFor(tip, phase) {
-  const candidates = [tip.articleSlug, THEME[tip.theme], NEAREST[tip.theme]?.[phase], phase === 'grossesse' ? 'premier-trimestre-de-grossesse' : 'les-4-phases-de-ton-cycle'].filter(Boolean);
-  const found = await Article.find({ ...visibleArticle, slug: { $in: candidates }, publishAt: { $lte: new Date() } }).select('slug title readMinutes').lean();
-  const bySlug = new Map(found.map((a) => [a.slug, a]));
-  const slug = candidates.find((c) => bySlug.has(c));
-  return slug ? bySlug.get(slug) : null;
+async function articleFor(tip) {
+  if (!tip.articleSlug) return null;
+  return Article.findOne({ ...visibleArticle, slug: tip.articleSlug, publishAt: { $lte: new Date() } }).select('slug title readMinutes coverUrl coverAlt').lean();
 }
 
 const dayIndex = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 86_400_000);
@@ -48,6 +29,15 @@ export async function tipOfTheDay(phase, day) {
   const list = fromDb.length ? fromDb : (HEALTH_TIPS[key] || []).map((t) => ({ ...t, phase: key, reviewed: false }));
   if (!list.length) return null;
   const tip = list[dayIndex(day) % list.length];
-  const article = await articleFor(tip, key);
-  return { id: tip._id ? String(tip._id) : null, phase: key, title: tip.title, text: tip.text, theme: tip.theme, articleSlug: article?.slug || null, articleTitle: article?.title || null, articleMinutes: article?.readMinutes || null, reviewed: Boolean(tip.reviewed) };
+  const a = await articleFor(tip);
+  return {
+    id: tip._id ? String(tip._id) : null,
+    phase: key,
+    title: tip.title,
+    text: tip.text,
+    theme: tip.theme,
+    // « En savoir plus » : seulement si un article approfondit réellement le même sujet.
+    article: a ? { slug: a.slug, title: a.title, readMinutes: a.readMinutes, coverUrl: a.coverUrl || null, coverAlt: a.coverAlt || '' } : null,
+    reviewed: Boolean(tip.reviewed),
+  };
 }

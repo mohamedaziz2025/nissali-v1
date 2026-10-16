@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Share, View } from 'react-native';
+import { ArticleImage } from '../../components/ArticleImage';
 import Markdown from '../../components/Markdown';
 import { Card, ErrorState, Gap, IconButton, Label, Loader, Screen, T } from '../../components/ui';
 import { useApi } from '../../lib/useApi';
@@ -12,6 +13,12 @@ export default function Article() {
   if (error && !data) return <Screen back><ErrorState error={error} onRetry={reload} /></Screen>;
   return (
     <Screen back right={<IconButton name="share" label="Partager" onPress={() => Share.share({ message: `${data.title} — à lire sur Nissali` })} />}>
+      {data.coverUrl ? (
+        <View style={{ marginBottom: 18, gap: 6 }}>
+          <ArticleImage article={data} variant="cover" />
+          {data.coverCredit ? <T variant="small">{data.coverCredit}</T> : null}
+        </View>
+      ) : null}
       <View style={{ gap: 10 }}>
         <Label>{data.categoryLabel}</Label>
         <T variant="h1" style={{ fontSize: 32, lineHeight: 38 }}>{data.title}</T>
@@ -44,9 +51,12 @@ export default function Article() {
           <Label>À lire aussi</Label>
           <Gap h={10} />
           {data.related.map((a) => (
-            <Card key={a.id} onPress={() => router.push(`/blog/${a.slug}`)} style={{ marginBottom: 10 }}>
-              <T variant="bold">{a.title}</T>
-              <T variant="small">{a.readMinutes} min</T>
+            <Card key={a.id} onPress={() => router.push(`/blog/${a.slug}`)} style={{ marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+              <ArticleImage article={a} size={64} />
+              <View style={{ flex: 1 }}>
+                <T variant="bold">{a.title}</T>
+                <T variant="small">{a.readMinutes} min</T>
+              </View>
             </Card>
           ))}
         </>

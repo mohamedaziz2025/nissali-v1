@@ -48,9 +48,12 @@ export default function BlogAdmin() {
               {list.map((a) => (
                 <tr key={a._id}>
                   <td>
-                    <Link href={`/admin/blog/${a._id}`}>
-                      <strong>{a.title}</strong>
-                    </Link>
+                    <div className="row" style={{ gap: 12, flexWrap: 'nowrap' }}>
+                      {a.coverUrl ? <img src={a.coverUrl} alt={a.coverAlt || ''} className="thumb-sm" /> : <span className="thumb-sm" style={{ background: 'var(--blush, #F7E8EA)' }} title="Sans photo" />}
+                      <Link href={`/admin/blog/${a._id}`}>
+                        <strong>{a.title}</strong>
+                      </Link>
+                    </div>
                     {a.featured ? <span className="badge" style={{ marginLeft: 8 }}>À la une</span> : null}
                   </td>
                   <td>{CATEGORIES[a.category]}</td>

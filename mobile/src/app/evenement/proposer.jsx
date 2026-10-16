@@ -31,8 +31,9 @@ export default function ProposeEvent() {
   }, [id, toast]);
 
   const price = Number(String(f.price).replace(',', '.')) || 0;
-  const ticketUrl = /^https?:\/\//i.test(f.ticketUrl.trim()) ? f.ticketUrl.trim() : f.ticketUrl.trim() ? `https://${f.ticketUrl.trim()}` : '';
-  const ticketOk = /^https?:\/\/[^\s.]+\.[^\s]{2,}$/i.test(ticketUrl);
+  // 17 / 18 — lien de billetterie externe sécurisé (https) : « billetweb.fr/… » est complété, « http:// » est refusé.
+  const ticketUrl = /^[a-z]+:\/\//i.test(f.ticketUrl.trim()) ? f.ticketUrl.trim() : f.ticketUrl.trim() ? `https://${f.ticketUrl.trim()}` : '';
+  const ticketOk = /^https:\/\/[^\s.]+\.[^\s]{2,}$/i.test(ticketUrl);
   const pickImage = async () => {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: 0.7 });
     if (r.canceled) return;
@@ -123,16 +124,16 @@ export default function ProposeEvent() {
           <Field label="Prix du billet (€)" value={f.price} onChangeText={(v) => set('price')(v.replace(/[^\d,.]/g, ''))} keyboardType="decimal-pad" />
           <Gap h={12} />
           <Field
-            label="Lien de la billetterie"
+            label="Lien de billetterie externe"
             value={f.ticketUrl}
             onChangeText={set('ticketUrl')}
-            placeholder="https://www.helloasso.com/…"
+            placeholder="https://www.billetweb.fr/…"
             icon="external"
             keyboardType="url"
             autoCapitalize="none"
             autoCorrect={false}
-            hint="Obligatoire pour un événement payant : la page où les sœurs achètent leur billet (HelloAsso, Billetweb, Weezevent…)."
-            error={f.ticketUrl.trim() && !ticketOk ? 'Lien invalide' : undefined}
+            hint="Obligatoire pour un événement payant : la page Billetweb (ou HelloAsso, Weezevent…) où les sœurs réservent et paient leur place."
+            error={f.ticketUrl.trim() && !ticketOk ? (/^http:\/\//i.test(f.ticketUrl.trim()) ? 'Le lien doit être sécurisé (https://)' : 'Lien invalide') : undefined}
           />
           <Card tone="soft" style={{ marginTop: 12, gap: 4 }}>
             <Label color={colors.or}>Commission Nissali : 15 %</Label>

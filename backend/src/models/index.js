@@ -2,7 +2,7 @@ export { User } from './User.js';
 export { Period } from './Period.js';
 export { DailyLog, MOODS, SYMPTOMS } from './DailyLog.js';
 export { PrayerLog } from './PrayerLog.js';
-export { MissedFast, MadeUpFast, FastPlan } from './Fast.js';
+export { MissedFast, MadeUpFast, FastPlan, PriorMadeUp } from './Fast.js';
 export { Pregnancy } from './Pregnancy.js';
 export { Appointment } from './Appointment.js';
 export { Article, CATEGORIES } from './Article.js';

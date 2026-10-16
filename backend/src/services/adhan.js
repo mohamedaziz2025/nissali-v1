@@ -16,5 +16,9 @@ export const ADHAN_KEYS = ADHANS.map((a) => a.key);
 /** Adhan choisi par l'utilisatrice (null si le son est désactivé). */
 export function adhanFor(prefs = {}) {
   if (prefs.adhan === false || prefs.adhanMode === 'notification') return null;
-  return ADHANS.find((a) => a.key === prefs.adhanVoice) || ADHANS.find((a) => a.key === DEFAULT_ADHAN);
+  const voice = ADHANS.find((a) => a.key === prefs.adhanVoice) || ADHANS.find((a) => a.key === DEFAULT_ADHAN);
+  // Prières pour lesquelles l'adhan est joué (toutes par défaut).
+  const p = prefs.adhanPrayers || {};
+  const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => p[k] !== false);
+  return prayers.length ? { ...voice, prayers } : null;
 }

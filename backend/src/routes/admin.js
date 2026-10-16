@@ -464,6 +464,9 @@ const articleSchema = z.object({
   publishAt: z.string().datetime({ offset: true }).or(z.string().refine(isDay)).optional(),
   published: z.boolean().optional(),
   color: z.enum(['rose', 'or', 'blush', 'bordeaux']).optional(),
+  coverUrl: z.string().max(500).regex(/^(https?:\/\/\S+)?$/, 'Lien d’image invalide').optional(),
+  coverAlt: z.string().max(200).optional(),
+  coverCredit: z.string().max(160).optional(),
 });
 
 router.get('/articles', async (_req, res) => res.json(await Article.find().sort({ publishAt: -1 }).lean()));

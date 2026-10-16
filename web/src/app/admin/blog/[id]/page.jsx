@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import CoverCropper from '@/components/CoverCropper';
 import { Chips, Field, Loading, useToast } from '@/components/ui';
 import { api } from '@/lib/api';
 
@@ -46,7 +47,7 @@ export default function ArticleEditor() {
   const isNew = id === 'nouveau';
   const router = useRouter();
   const toast = useToast();
-  const [a, setA] = useState(isNew ? { title: '', slug: '', category: 'cycle', excerpt: '', body: '', readMinutes: 4, featured: false, phases: [], validation: 'a_valider', reviewer: '', sources: '', publishAt: new Date().toISOString().slice(0, 10), published: true, color: 'rose' } : null);
+  const [a, setA] = useState(isNew ? { title: '', slug: '', category: 'cycle', excerpt: '', body: '', readMinutes: 4, featured: false, phases: [], validation: 'a_valider', reviewer: '', sources: '', publishAt: new Date().toISOString().slice(0, 10), published: true, color: 'rose', coverUrl: '', coverAlt: '', coverCredit: '' } : null);
 
   useEffect(() => {
     if (isNew) return;
@@ -57,6 +58,7 @@ export default function ArticleEditor() {
 
   const save = async (e) => {
     e.preventDefault();
+    if (a.coverUrl && !String(a.coverAlt || '').trim()) return toast('Ajoute un texte alternatif à la photo de couverture', 'error');
     const body = {
       title: a.title,
       slug: a.slug || slugify(a.title),
@@ -72,6 +74,9 @@ export default function ArticleEditor() {
       publishAt: a.publishAt,
       published: a.published,
       color: a.color,
+      coverUrl: a.coverUrl || '',
+      coverAlt: a.coverAlt || '',
+      coverCredit: a.coverCredit || '',
     };
     try {
       if (isNew) {
@@ -108,6 +113,9 @@ export default function ArticleEditor() {
           </Field>
           <Field label="Adresse (slug)" hint="Générée depuis le titre si vide.">
             <input className="input" value={a.slug} onChange={set('slug')} placeholder={slugify(a.title)} />
+          </Field>
+          <Field label="Photo de couverture" hint="Recadrée en 16:9 ; la miniature des listes utilise la même photo. Elle doit correspondre au sujet de l’article.">
+            <CoverCropper value={a.coverUrl} alt={a.coverAlt} credit={a.coverCredit} onChange={(patch) => setA((x) => ({ ...x, ...patch }))} />
           </Field>
           <Field label="Résumé">
             <textarea className="textarea" style={{ minHeight: 70 }} value={a.excerpt} onChange={set('excerpt')} />

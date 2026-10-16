@@ -40,7 +40,7 @@ export function Label({ children, color = colors.bordeaux, style, numberOfLines 
 
 // --- Écran --------------------------------------------------------------------
 
-export function Screen({ children, title, right, subtitle, onRefresh, refreshing = false, scroll = true, back, padded = true, footer, contentStyle, scrollRef }) {
+export function Screen({ children, title, right, subtitle, onRefresh, refreshing = false, scroll = true, back, padded = true, footer, contentStyle, scrollRef, top }) {
   const insets = useSafeAreaInsets();
   const header = (title || back) && (
     <View style={styles.header}>
@@ -67,11 +67,13 @@ export function Screen({ children, title, right, subtitle, onRefresh, refreshing
       keyboardShouldPersistTaps="handled"
       refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.bordeaux} /> : undefined}
     >
+      {top}
       {header}
       {children}
     </ScrollView>
   ) : (
     <View style={[{ flex: 1 }, padded && styles.screenPad, contentStyle]}>
+      {top}
       {header}
       {children}
     </View>

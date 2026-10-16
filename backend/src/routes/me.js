@@ -64,6 +64,7 @@ const profileSchema = z.object({
       followLocation: z.boolean().optional(),
       adhanVoice: z.enum(ADHAN_KEYS).optional(),
       adhanMode: z.enum(['notification', 'adhan']).optional(),
+      adhanPrayers: z.object({ fajr: z.boolean(), dhuhr: z.boolean(), asr: z.boolean(), maghrib: z.boolean(), isha: z.boolean() }).partial().optional(),
       adhkarMorning: z.boolean().optional(),
       adhkarEvening: z.boolean().optional(),
       jumua: z.boolean().optional(),
@@ -100,9 +101,10 @@ router.patch('/', validate(profileSchema), async (req, res) => {
   if (b.age !== undefined) u.birthYear = new Date().getUTCFullYear() - b.age;
   if (b.goal) u.onboarding.goal = b.goal;
   if (b.prayerSettings) {
-    const { adjustments, ...rest } = b.prayerSettings;
+    const { adjustments, adhanPrayers, ...rest } = b.prayerSettings;
     Object.assign(u.prayerSettings, rest);
     if (adjustments) Object.assign(u.prayerSettings.adjustments, adjustments);
+    if (adhanPrayers) Object.assign(u.prayerSettings.adhanPrayers, adhanPrayers);
   }
   if (b.notificationPrefs) Object.assign(u.notificationPrefs, b.notificationPrefs);
   if (b.contraception) Object.assign(u.contraception, b.contraception);

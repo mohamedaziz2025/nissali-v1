@@ -61,9 +61,12 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
     strokeWidth = 3;
     if (fill === 'transparent') textColor = colors.muted;
   }
+  // Aujourd'hui : cerclé (maquette « Mon calendrier »), sans masquer les règles notées.
   if (info?.today) {
-    fill = colors.prune;
-    textColor = colors.white;
+    stroke = colors.prune;
+    strokeWidth = 2.5;
+    dash = null;
+    if (fill === 'transparent' || fill === colors.rose) textColor = colors.prune;
     bold = true;
   }
   if (selected) {
@@ -147,15 +150,16 @@ export function Legend() {
   );
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 10 }}>
-      {item(<View style={[s.legendDot, { backgroundColor: colors.bordeaux }]} />, 'Règles')}
+      {item(<View style={[s.legendDot, { backgroundColor: colors.bordeaux }]} />, 'Règles notées')}
       {item(
         <Svg width={20} height={20}>
           <Circle cx={10} cy={10} r={8} stroke={colors.bordeaux} strokeWidth={2.5} strokeDasharray="4 3" fill="none" />
         </Svg>,
-        'Règles prévues',
+        'Règles prévues (estimation)',
       )}
-      {item(<View style={[s.legendDot, { backgroundColor: colors.rose }]} />, 'Fertile')}
-      {item(<View style={[s.legendDot, { backgroundColor: colors.rose, borderWidth: 3, borderColor: colors.or }]} />, 'Ovulation')}
+      {item(<View style={[s.legendDot, { backgroundColor: colors.rose }]} />, 'Fertile (estimation)')}
+      {item(<View style={[s.legendDot, { backgroundColor: colors.rose, borderWidth: 3, borderColor: colors.or }]} />, 'Ovulation (estimation)')}
+      {item(<View style={[s.legendDot, { borderWidth: 2.5, borderColor: colors.prune }]} />, 'Aujourd’hui')}
       {item(<View style={[s.legendDot, { borderWidth: 3, borderColor: '#E2CBB0' }]} />, 'Rendez-vous')}
     </View>
   );

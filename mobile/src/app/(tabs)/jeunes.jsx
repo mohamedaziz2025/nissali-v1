@@ -1,61 +1,95 @@
-// 5.8 — Jeûnes : compteur automatique, plan de rattrapage, Ramadan, jeûnes surérogatoires
-// (maquette du cahier, page 8).
+// 08 / 09 / 10 — Mes jeûnes (maquette du 16 octobre 2026, page 4) : « À rattraper » (Ramadan, solde, historique,
+// jours déjà rattrapés hors application) et « Volontaires » (jours blancs, jeûnes surérogatoires).
+// Solde = total des jours à rattraper − total des jours déjà rattrapés, dans et hors application.
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Button, Card, Chips, ErrorState, Field, Gap, Label, ListItem, Loader, Notice, OfflineBanner, ProgressBar, Row, Screen, Sheet, Stepper, T, Toggle, useToast } from '../../components/ui';
+import { useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { BrandBar } from '../../components/Brand';
+import { PriorSheet } from '../../components/FastsPrior';
+import { DateField } from '../../components/forms';
+import Icon from '../../components/Icon';
+import { Button, Card, Chips, ErrorState, Field, Gap, Label, ListItem, Loader, Notice, OfflineBanner, Row, Screen, Segmented, Sheet, Stepper, T, Toggle, useToast } from '../../components/ui';
 import { api, sendOrQueue } from '../../lib/api';
-import { dayMonth, inDays, longDate, shortDate, WEEKDAY_NAMES } from '../../lib/format';
+import { dayMonth, inDays, longDate, shortDate, toDay, WEEKDAY_NAMES } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const REASONS = [
-  { key: 'maladie', label: 'Maladie' },
-  { key: 'voyage', label: 'Voyage' },
-  { key: 'grossesse', label: 'Grossesse' },
-  { key: 'allaitement', label: 'Allaitement' },
-  { key: 'regles', label: 'Règles' },
-  { key: 'autre', label: 'Autre' },
-];
 const WEEKDAY_CHIPS = [1, 2, 3, 4, 5, 6, 0].map((k) => ({ key: k, label: WEEKDAY_NAMES[k].slice(0, 3) }));
+const plural = (n, w = 'jour') => `${n} ${w}${n > 1 ? 's' : ''}`;
+
+function confirm(title, message, action) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n${message}`)) action();
+    return;
+  }
+  Alert.alert(title, message, [{ text: 'Annuler', style: 'cancel' }, { text: 'Supprimer', style: 'destructive', onPress: action }]);
+}
+
+/** Lanterne au trait fin (carte Ramadan). */
+function Lantern() {
+  return (
+    <Svg width={44} height={52} viewBox="0 0 44 52">
+      <Path d="M22 2v5M15 9h14l3 6H12z" stroke={colors.bordeaux} strokeWidth={1.8} fill="none" strokeLinejoin="round" />
+      <Path d="M12 15h20v24a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4z" stroke={colors.bordeaux} strokeWidth={1.8} fill="rgba(122,31,53,0.08)" />
+      <Path d="M22 22c-3 4-3 8 0 12 3-4 3-8 0-12z" fill={colors.or} opacity={0.85} />
+      <Path d="M14 46h16" stroke={colors.bordeaux} strokeWidth={1.8} strokeLinecap="round" />
+      <Circle cx="22" cy="49.5" r="1.6" fill={colors.bordeaux} />
+    </Svg>
+  );
+}
 
 export default function Fasts() {
   const toast = useToast();
   const { section } = useLocalSearchParams();
-  const scrollRef = useRef(null);
-  const whiteY = useRef(0);
-  const [highlight, setHighlight] = useState(false);
+  const [tab, setTab] = useState(section === 'blancs' ? 'volontaires' : 'rattraper');
   const { data, loading, error, offline, reload } = useApi('/fasts');
-  const [planOpen, setPlanOpen] = useState(false);
+  const [yearKey, setYearKey] = useState(null);
+  const [sheet, setSheet] = useState(null); // 'prior' | 'madeup' | 'total' | 'plan'
+  const [priorEntry, setPriorEntry] = useState(null);
+  const [madeUpEdit, setMadeUpEdit] = useState(null); // { id, day } en correction
+  const [madeUpDay, setMadeUpDay] = useState(toDay(new Date()));
+  const [total, setTotal] = useState(0);
   const [plan, setPlan] = useState(null);
-  const [missedOpen, setMissedOpen] = useState(false);
-  const [missed, setMissed] = useState({ count: 1, reason: 'maladie', hijriYear: null, note: '' });
   const [calendar, setCalendar] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  // Depuis la carte « Jours blancs » de l'accueil : défilement direct jusqu'à la section.
   useEffect(() => {
-    if (section !== 'blancs' || !data) return undefined;
-    const t = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: Math.max(0, whiteY.current - 12), animated: true });
-      setHighlight(true);
-      setTimeout(() => setHighlight(false), 2500);
-    }, 350);
-    return () => clearTimeout(t);
-  }, [section, data]);
+    if (section === 'blancs') setTab('volontaires');
+  }, [section]);
 
-  if (loading && !data) return <Screen title="Jeûnes"><Loader /></Screen>;
-  if (error && !data) return <Screen title="Jeûnes"><ErrorState error={error} onRetry={reload} /></Screen>;
+  const top = <BrandBar />;
+  if (loading && !data) return <Screen top={top}><Loader /></Screen>;
+  if (error && !data) return <Screen top={top}><ErrorState error={error} onRetry={reload} /></Screen>;
 
   const { counter, ramadan } = data;
-  const progress = counter.missed ? counter.madeUp / counter.missed : 0;
-  const currentYear = ramadan.current ? ramadan.hijriYear : ramadan.hijriYear - 1;
+  const byYear = counter.byYear || [];
+  const yearList = data.years || byYear.map((y) => y.hijriYear);
+  const defaultYear = (byYear.find((y) => y.remaining > 0) || byYear[byYear.length - 1])?.hijriYear || yearList[yearList.length - 1];
+  const hijriYear = yearKey && yearList.includes(yearKey) ? yearKey : defaultYear;
+  const year = byYear.find((y) => y.hijriYear === hijriYear) || { hijriYear, missed: 0, madeUp: 0, remaining: 0, auto: 0, prior: 0, inApp: 0 };
+  const progress = year.missed ? year.madeUp / year.missed : 0;
+  const blocked = data.todayStatus.forbidden || data.todayStatus.ramadan || data.todayStatus.inPeriod;
 
-  const fastedToday = async () => {
+  // Historique : jours notés dans l'appli + ajouts hors application, du plus récent au plus ancien.
+  const history = [
+    ...data.madeUp.map((m) => ({ key: `a${m.id}`, kind: 'app', day: m.day, id: m.id })),
+    ...data.prior.map((p) => ({ key: `p${p.id}`, kind: 'prior', day: p.dates?.[p.dates.length - 1] || p.createdAt?.slice(0, 10), entry: p })),
+  ].sort((a, b) => (a.day < b.day ? 1 : -1));
+
+  const openMadeUp = (m) => {
+    setMadeUpEdit(m || null);
+    setMadeUpDay(m?.day || data.today);
+    setSheet('madeup');
+  };
+  const saveMadeUp = async () => {
+    if (busy) return;
     setBusy(true);
     try {
-      const r = await sendOrQueue('POST', '/fasts/made-up', {});
-      toast(r.queued ? 'Noté hors connexion' : 'Qu’Allah l’accepte de toi ! Compteur mis à jour.');
+      if (madeUpEdit && madeUpEdit.day === madeUpDay) return setSheet(null);
+      const r = await sendOrQueue('POST', '/fasts/made-up', { day: madeUpDay });
+      if (madeUpEdit) await api.delete(`/fasts/made-up/${madeUpEdit.id}`);
+      toast(r?.queued ? 'Noté hors connexion' : madeUpEdit ? 'Date corrigée' : 'Qu’Allah l’accepte de toi ! Solde mis à jour.');
+      setSheet(null);
       reload();
     } catch (e) {
       toast(e.message, 'error');
@@ -63,24 +97,39 @@ export default function Fasts() {
       setBusy(false);
     }
   };
-
-  const undoToday = async () => {
-    const m = data.madeUp.find((x) => x.day === data.today);
-    if (!m) return;
-    await api.delete(`/fasts/made-up/${m.id}`).catch(() => {});
-    reload();
+  const removeMadeUp = (m) =>
+    confirm('Supprimer ce jour rattrapé ?', longDate(m.day), async () => {
+      await api.delete(`/fasts/made-up/${m.id}`).catch((e) => toast(e.message, 'error'));
+      reload();
+    });
+  const removePrior = (p) =>
+    confirm('Supprimer cet ajout ?', `${plural(p.count)} rattrapé${p.count > 1 ? 's' : ''} hors application · Ramadan ${p.hijriYear}`, async () => {
+      await api.delete(`/fasts/prior/${p.id}`).catch((e) => toast(e.message, 'error'));
+      toast('Ajout supprimé : solde recalculé');
+      reload();
+    });
+  const saveTotal = async () => {
+    setBusy(true);
+    try {
+      await api.put('/fasts/total', { hijriYear, total });
+      toast('Total mis à jour');
+      setSheet(null);
+      reload();
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
   };
-
   const openPlan = () => {
     setPlan({ active: data.plan?.active ?? true, perWeek: data.plan?.perWeek ?? 2, weekdays: data.plan?.weekdays ?? [1, 4], reminderTime: data.plan?.reminderTime ?? '21:00' });
-    setPlanOpen(true);
+    setSheet('plan');
   };
-
   const savePlan = async () => {
     setBusy(true);
     try {
       await api.put('/fasts/plan', { ...plan, weekdays: plan.weekdays.slice(0, plan.perWeek) });
-      setPlanOpen(false);
+      setSheet(null);
       toast('Plan enregistré');
       reload();
     } catch (e) {
@@ -89,21 +138,6 @@ export default function Fasts() {
       setBusy(false);
     }
   };
-
-  const saveMissed = async () => {
-    setBusy(true);
-    try {
-      await api.post('/fasts/missed', { hijriYear: missed.hijriYear || currentYear, count: missed.count, reason: missed.reason, note: missed.note || undefined });
-      setMissedOpen(false);
-      toast('Jours ajoutés au compteur');
-      reload();
-    } catch (e) {
-      toast(e.message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const openCalendar = async () => {
     try {
       setCalendar(await api.get('/fasts/ramadan-calendar'));
@@ -112,199 +146,208 @@ export default function Fasts() {
     }
   };
 
-  const blocked = data.todayStatus.forbidden || data.todayStatus.ramadan || data.todayStatus.inPeriod;
-
-  const boxes = data.boxes || [];
-  const doneCount = boxes.filter((b) => b.done).length;
-  const next = data.nextRamadan;
-  const toggleBox = async (b) => {
-    try {
-      if (b.done) await api.delete(`/fasts/made-up/${b.id}`);
-      else await sendOrQueue('POST', '/fasts/made-up', {});
-      reload();
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  };
-  const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const short = (day) => `${Number(day.slice(8))} ${MONTHS_SHORT[Number(day.slice(5, 7)) - 1]}`;
-
   return (
-    <Screen title="Jeûnes" onRefresh={reload} scrollRef={scrollRef}>
+    <Screen top={top} onRefresh={reload}>
+      <T variant="h1" accessibilityRole="header" style={{ marginBottom: 14 }}>Mes jeûnes</T>
       <OfflineBanner visible={offline} />
-      {/* 5.8 — En haut, en grand : jours à rattraper avant Ramadan, date estimée, jours restants, conseil de rythme */}
-      <Card tone="hero" style={{ gap: 14 }}>
-        <Row gap={14} align="center">
-          <Text style={s.bigNumber} accessibilityLabel={`${counter.remaining} jours à rattraper`}>{counter.remaining}</Text>
-          <View style={{ flex: 1 }}>
-            <T color={colors.rose}>jour{counter.remaining > 1 ? 's' : ''} à rattraper</T>
-            <T variant="bold" color={colors.white} style={{ fontSize: 18 }}>avant Ramadan {next?.hijriYear}</T>
-          </View>
-        </Row>
-        <View style={s.nextRamadan}>
-          <View style={{ flex: 1 }}>
-            <T variant="small" color={colors.rose}>Prochain Ramadan</T>
-            <T variant="bold" color={colors.white}>{next ? `Vers le ${dayMonth(next.start)} ${next.start.slice(0, 4)}` : '—'}</T>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={s.daysLeft}>{next?.daysLeft ?? '—'}</Text>
-            <T variant="small" color={colors.rose}>jours restants</T>
-          </View>
-        </View>
-        {data.rhythm ? <T color={colors.white} style={{ fontSize: 14.5 }}>{data.rhythm.alert ? data.rhythm.label : `Conseil : ${data.rhythm.label[0].toLowerCase()}${data.rhythm.label.slice(1)}`}</T> : counter.missed ? <T color={colors.white}>Tout est rattrapé, qu’Allah l’accepte !</T> : null}
-      </Card>
-      <Gap h={18} />
+      <Segmented
+        items={[
+          { key: 'rattraper', label: 'À rattraper' },
+          { key: 'volontaires', label: 'Volontaires' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      <Gap h={14} />
 
-      {/* Une case par jour à rattraper : cochée = date du rattrapage (décochable en cas d'erreur) */}
-      {boxes.length ? (
+      {tab === 'rattraper' ? (
         <>
-          <Row justify="space-between" style={{ marginBottom: 10 }}>
-            <T variant="h3">Coche chaque jour rattrapé</T>
-            <T variant="bold" color={colors.bordeaux}>{doneCount} / {boxes.length}</T>
-          </Row>
-          <View style={s.grid}>
-            {boxes.map((b) => (
-              <Pressable key={b.index} onPress={() => toggleBox(b)} disabled={!b.done && (Boolean(blocked) || data.madeUpToday)} accessibilityRole="checkbox" accessibilityState={{ checked: b.done }} accessibilityLabel={b.done ? `Jour rattrapé le ${short(b.day)}, décocher` : `Jour ${b.index} à rattraper`} style={[s.box, b.done && s.boxDone]}>
-                <View style={[s.check, b.done && s.checkOn]}>{b.done ? <Text style={{ color: colors.white, fontSize: 13 }}>✓</Text> : null}</View>
-                <Text style={[s.boxLabel, b.done && { color: colors.bordeaux, fontFamily: fonts.bold }]} numberOfLines={1}>{b.done ? short(b.day) : `Jour ${b.index}`}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Gap h={14} />
-        </>
-      ) : null}
-      <Row gap={10}>
-        {data.madeUpToday ? (
-          <Button title="Noté aujourd’hui ✓" small variant="soft" onPress={undoToday} style={{ flex: 1 }} />
-        ) : (
-          <Button title="Jeûné aujourd’hui" small onPress={fastedToday} loading={busy} disabled={Boolean(blocked) || counter.remaining === 0} style={{ flex: 1 }} />
-        )}
-        <Button title="+ Jour manqué" small variant="outline" onPress={() => setMissedOpen(true)} style={{ flex: 1 }} />
-      </Row>
-      {blocked ? (
-        <T variant="small" style={{ textAlign: 'center', marginTop: 8 }}>
-          {data.todayStatus.forbidden ? `Le jeûne n’est pas permis aujourd’hui (${data.todayStatus.forbidden}).` : data.todayStatus.ramadan ? 'Pendant Ramadan, on ne rattrape pas.' : 'Pas de jeûne pendant tes règles.'}
-        </T>
-      ) : null}
-      <Gap h={18} />
-
-      {/* Section Jours blancs (l'accueil y mène directement) */}
-      <View onLayout={(e) => (whiteY.current = e.nativeEvent.layout.y)}>
-        <Card style={[{ gap: 12 }, highlight && { borderWidth: 2, borderColor: colors.or }]}>
-          <Row justify="space-between">
-            <View>
-              <T variant="h3">Jours blancs</T>
-              <T variant="small">Jeûne recommandé</T>
-            </View>
-            <T variant="bold" color={colors.bordeaux}>{data.whiteDays?.inProgress ? 'En cours' : inDays(data.whiteDays?.daysUntil)}</T>
-          </Row>
-          <Row gap={8}>
-            {(data.whiteDays?.days || []).map((d) => (
-              <View key={d.day} style={[s.white, d.day === data.today && { backgroundColor: colors.or }]}>
-                <Text style={[s.whiteDay, d.day === data.today && { color: colors.white }]}>{short(d.day)}</Text>
-                <Text style={[s.whiteHijri, d.day === data.today && { color: colors.white }]}>{d.hijriDay} {String(d.hijriMonth || '').split(' ')[0].slice(0, 5)}.</Text>
+          {yearList.length > 1 ? (
+            <>
+              <Chips items={yearList.map((y) => ({ key: y, label: `Ramadan ${y}` }))} value={hijriYear} onChange={setYearKey} scroll />
+              <Gap h={12} />
+            </>
+          ) : null}
+          <View style={s.ramadan}>
+            <Row gap={14} align="center">
+              <View style={s.lantern}>
+                <Lantern />
               </View>
-            ))}
-          </Row>
-          <T variant="small">Rappel la veille au soir · Lundis et jeudis aussi possibles</T>
-          <Pressable onPress={() => router.push('/blog/les-jours-blancs')} accessibilityRole="link">
-            <T variant="small" color={colors.bordeaux}>Pourquoi jeûner les jours blancs ? →</T>
-          </Pressable>
-        </Card>
-      </View>
-      <Gap h={22} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.ramadanLabel}>RAMADAN {hijriYear}</Text>
+                <Text style={s.remaining} accessibilityLabel={`${year.remaining} jours restants`}>
+                  {year.missed && !year.remaining ? 'Tout est rattrapé' : `${plural(year.remaining)} restant${year.remaining > 1 ? 's' : ''}`}
+                </Text>
+              </View>
+            </Row>
+            <Text style={s.equation}>
+              {plural(year.missed)} à rattraper − {year.madeUp} déjà rattrapé{year.madeUp > 1 ? 's' : ''} = {year.remaining} restant{year.remaining > 1 ? 's' : ''}
+            </Text>
+            <Row gap={10}>
+              <View style={s.track}>
+                <View style={[s.fill, { width: `${Math.round(progress * 100)}%` }]} />
+              </View>
+              <Text style={s.ratio}>{year.madeUp} / {year.missed}</Text>
+            </Row>
+            {year.remaining > 0 ? (
+              <>
+                <Pressable onPress={() => openMadeUp(null)} disabled={busy} accessibilityRole="button" style={({ pressed }) => [s.primary, pressed && { opacity: 0.88 }]}>
+                  <Icon name="plus" size={18} color={colors.white} />
+                  <Text style={s.primaryText}>Noter un jour rattrapé</Text>
+                </Pressable>
+                <Pressable onPress={() => { setPriorEntry(null); setSheet('prior'); }} accessibilityRole="button" style={({ pressed }) => [s.secondary, pressed && { opacity: 0.88 }]}>
+                  <Icon name="history" size={18} color={colors.bordeaux} />
+                  <Text style={s.secondaryText}>Ajouter des jours déjà rattrapés</Text>
+                </Pressable>
+              </>
+            ) : (
+              <View style={s.allDone}>
+                <Icon name="check" size={18} color={colors.success} strokeWidth={2.6} />
+                <Text style={s.allDoneText}>{year.missed ? 'Tous tes jours sont rattrapés' : 'Aucun jour à rattraper pour ce Ramadan'}</Text>
+              </View>
+            )}
+            {blocked && year.remaining > 0 ? (
+              <T variant="small" style={{ textAlign: 'center' }}>
+                {data.todayStatus.forbidden ? `Le jeûne n’est pas permis aujourd’hui (${data.todayStatus.forbidden}).` : data.todayStatus.ramadan ? 'Pendant Ramadan, on ne rattrape pas.' : 'Pas de jeûne pendant tes règles : tu peux noter un jour passé.'}
+              </T>
+            ) : null}
+          </View>
+          <Gap />
 
-      {counter.remaining > 0 ? (
-        <>
-          <Row justify="space-between" style={{ marginBottom: 12 }}>
-            <Label>{data.plan?.active ? `Ton plan · ${data.plan.perWeek} jour${data.plan.perWeek > 1 ? 's' : ''} par semaine` : 'Ton plan de rattrapage'}</Label>
-            <Pressable onPress={openPlan} hitSlop={10} accessibilityRole="button">
-              <T variant="medium" color={colors.bordeaux}>{data.plan ? 'Modifier' : 'Créer'}</T>
-            </Pressable>
-          </Row>
-          {data.plan?.active ? (
-            data.planDays.slice(0, 4).map((p, i) => (
-              <Card key={p.day} style={{ marginBottom: 10, paddingVertical: 16 }}>
-                <Row justify="space-between">
-                  <View style={{ flex: 1 }}>
-                    <T variant="bold" style={{ fontSize: 17 }}>{longDate(p.day)}</T>
-                    <T variant="muted">{i === 0 ? `Rappel la veille à ${data.plan.reminderTime}` : p.nearPeriod ? 'Hors de tes règles prévues' : [1, 4].includes(p.weekday) ? 'Jour de sunna' : 'Jour de rattrapage'}</T>
+          <Card style={{ gap: 4 }}>
+            <Text style={s.cardTitle}>Mon historique</Text>
+            <Row gap={6}>
+              <T variant="small">Total initial · Ramadan {hijriYear} : {plural(year.missed)}</T>
+              <Pressable onPress={() => { setTotal(year.missed); setSheet('total'); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Modifier le total initial">
+                <Text style={s.link}>Modifier</Text>
+              </Pressable>
+            </Row>
+            {history.length ? (
+              history.map((h, i) => (
+                <View key={h.key} style={[s.histRow, i === history.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={[s.histCheck, h.kind === 'prior' && { backgroundColor: colors.or }]}>
+                    <Icon name={h.kind === 'prior' ? 'history' : 'check'} size={13} color={colors.white} strokeWidth={2.6} />
                   </View>
-                  <T variant="bold" color={colors.or}>{p.day === data.today ? 'Aujourd’hui' : 'Prévu'}</T>
-                </Row>
-              </Card>
-            ))
-          ) : (
-            <Card tone="soft" style={{ gap: 10, marginBottom: 12 }}>
-              <T>Choisis un rythme : Nissali place tes jours en évitant tes règles prévues, le Ramadan et les jours où le jeûne est interdit.</T>
-              <Button title="Créer mon plan" small onPress={openPlan} />
-            </Card>
-          )}
-          <Gap h={8} />
-        </>
-      ) : null}
+                  <View style={{ flex: 1 }}>
+                    {h.kind === 'app' ? (
+                      <Text style={s.histTitle}>
+                        {dayMonth(h.day)} <Text style={s.histMeta}>· Rattrapé</Text>
+                      </Text>
+                    ) : (
+                      <>
+                        <Text style={s.histTitle}>
+                          {plural(h.entry.count)} <Text style={s.histMeta}>· hors application · Ramadan {h.entry.hijriYear}</Text>
+                        </Text>
+                        <Text style={s.histMeta} numberOfLines={2}>{h.entry.dates?.length ? h.entry.dates.map(shortDate).join(', ') : 'Sans date'}</Text>
+                      </>
+                    )}
+                  </View>
+                  <Pressable onPress={() => (h.kind === 'app' ? openMadeUp({ id: h.id, day: h.day }) : (setPriorEntry(h.entry), setYearKey(h.entry.hijriYear), setSheet('prior')))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Corriger" style={s.histBtn}>
+                    <Icon name="edit" size={16} color={colors.bordeaux} />
+                  </Pressable>
+                  <Pressable onPress={() => (h.kind === 'app' ? removeMadeUp(h) : removePrior(h.entry))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Supprimer" style={s.histBtn}>
+                    <Icon name="trash" size={16} color={colors.muted} />
+                  </Pressable>
+                </View>
+              ))
+            ) : (
+              <T variant="muted" style={{ paddingVertical: 8 }}>Aucun jour rattrapé pour l’instant.</T>
+            )}
+            <View style={s.info}>
+              <Icon name="info" size={16} color={colors.muted} />
+              <T variant="small" style={{ flex: 1 }}>Tu peux ajouter des jours rattrapés avant d’utiliser Nissali. Un jour seulement planifié n’est jamais compté comme jeûné.</T>
+            </View>
+          </Card>
+          <Gap />
 
-      <Card tone="soft" style={{ gap: 8 }}>
-        <Label color={colors.or}>Ramadan {ramadan.hijriYear}</Label>
-        {ramadan.current ? (
-          <>
-            <T variant="h2">Jour {ramadan.day}</T>
-            <T>Encore {ramadan.daysLeft} jour{ramadan.daysLeft > 1 ? 's' : ''}. Ton compteur se remplit tout seul pendant tes règles.</T>
-          </>
-        ) : (
-          <>
-            <T variant="h2">{ramadan.daysUntil <= 45 ? inDays(ramadan.daysUntil) : `Dans environ ${ramadan.monthsUntil} mois`}</T>
-            <T>Le compteur se remplira tout seul pendant tes règles.</T>
-          </>
-        )}
-        <Pressable onPress={openCalendar} accessibilityRole="button">
-          <T variant="medium" color={colors.bordeaux}>Calendrier du suhur et de l’iftar →</T>
-        </Pressable>
-      </Card>
-      <Gap />
+          <Card tone="soft" style={{ gap: 6 }}>
+            <Label color={colors.or}>Prochain Ramadan · {data.nextRamadan?.hijriYear}</Label>
+            <T variant="bold">{data.nextRamadan ? `Vers le ${dayMonth(data.nextRamadan.start)} ${data.nextRamadan.start.slice(0, 4)} · ${data.nextRamadan.daysLeft} jours restants` : '—'}</T>
+            {data.rhythm && counter.remaining ? <T>{data.rhythm.alert ? data.rhythm.label : `Conseil : ${data.rhythm.label[0].toLowerCase()}${data.rhythm.label.slice(1)}`}</T> : null}
+          </Card>
+          <Gap />
 
-      <Card style={{ gap: 4 }}>
-        <Label>Jeûnes surérogatoires</Label>
-        {data.supererogatory.map((f, i, arr) => (
-          <ListItem key={f.key} title={f.label} subtitle={`${f.note} · ${shortDate(f.day)}`} right={<T variant="muted">{inDays(f.daysUntil)}</T>} last={i === arr.length - 1} />
-        ))}
-      </Card>
-      <Gap />
-
-      <Card style={{ gap: 4 }}>
-        <Row justify="space-between">
-          <Label>Détail par année</Label>
-          <Pressable onPress={() => setMissedOpen(true)} hitSlop={10} accessibilityRole="button">
-            <T variant="medium" color={colors.bordeaux}>+ Ajouter</T>
-          </Pressable>
-        </Row>
-        {counter.byYear.length ? (
-          counter.byYear.map((y, i, arr) => (
-            <ListItem key={y.hijriYear} title={`Ramadan ${y.hijriYear}`} subtitle={`${y.missed} manqué${y.missed > 1 ? 's' : ''} (${y.auto} automatique${y.auto > 1 ? 's' : ''}, ${y.manual} ajouté${y.manual > 1 ? 's' : ''}) · ${y.madeUp} rattrapé${y.madeUp > 1 ? 's' : ''}`} right={<T variant="bold" color={y.remaining ? colors.bordeaux : colors.success}>{y.remaining}</T>} last={i === arr.length - 1} />
-          ))
-        ) : (
-          <T variant="muted">Aucun jour manqué enregistré.</T>
-        )}
-        {data.manual.length ? (
-          <View style={{ marginTop: 8, gap: 6 }}>
-            <T variant="small">Jours ajoutés à la main :</T>
-            {data.manual.map((m) => (
-              <Row key={m.id} justify="space-between">
-                <T variant="small" style={{ flex: 1 }}>
-                  {m.count} jour{m.count > 1 ? 's' : ''} · {REASONS.find((r) => r.key === m.reason)?.label} · {m.hijriYear}
-                </T>
-                <Pressable onPress={() => api.delete(`/fasts/missed/${m.id}`).then(reload)} hitSlop={10} accessibilityLabel="Supprimer">
-                  <T variant="small" color={colors.danger}>Supprimer</T>
+          {counter.remaining > 0 ? (
+            <>
+              <Row justify="space-between" style={{ marginBottom: 10 }}>
+                <Label>{data.plan?.active ? `Mon plan · ${plural(data.plan.perWeek)} par semaine` : 'Mon plan de rattrapage'}</Label>
+                <Pressable onPress={openPlan} hitSlop={10} accessibilityRole="button">
+                  <Text style={s.link}>{data.plan ? 'Modifier' : 'Créer'}</Text>
                 </Pressable>
               </Row>
+              {data.plan?.active ? (
+                data.planDays.slice(0, 3).map((p, i) => (
+                  <Card key={p.day} style={{ marginBottom: 10, paddingVertical: 14 }}>
+                    <Row justify="space-between">
+                      <View style={{ flex: 1 }}>
+                        <T variant="bold">{longDate(p.day)}</T>
+                        <T variant="small">{i === 0 ? `Rappel la veille à ${data.plan.reminderTime}` : 'Jour prévu, non compté tant qu’il n’est pas noté'}</T>
+                      </View>
+                      <T variant="bold" color={colors.or}>{p.day === data.today ? 'Aujourd’hui' : 'Prévu'}</T>
+                    </Row>
+                  </Card>
+                ))
+              ) : (
+                <Card tone="soft" style={{ gap: 10, marginBottom: 12 }}>
+                  <T>Choisis un rythme : Nissali place tes jours en évitant tes règles prévues, le Ramadan et les jours où le jeûne est interdit.</T>
+                  <Button title="Créer mon plan" small onPress={openPlan} />
+                </Card>
+              )}
+            </>
+          ) : null}
+          <Notice title="Fidya">{data.fidyaInfo}</Notice>
+        </>
+      ) : (
+        <>
+          <Card style={{ gap: 12 }}>
+            <Row justify="space-between">
+              <View>
+                <T variant="h3">Jours blancs</T>
+                <T variant="small">Jeûne recommandé (13, 14 et 15 du mois hégirien)</T>
+              </View>
+              <T variant="bold" color={colors.bordeaux}>{data.whiteDays?.inProgress ? 'En cours' : inDays(data.whiteDays?.daysUntil)}</T>
+            </Row>
+            <Row gap={8}>
+              {(data.whiteDays?.days || []).map((d) => (
+                <View key={d.day} style={[s.white, d.day === data.today && { backgroundColor: colors.or }]}>
+                  <Text style={[s.whiteDay, d.day === data.today && { color: colors.white }]}>{shortDate(d.day)}</Text>
+                  <Text style={[s.whiteHijri, d.day === data.today && { color: colors.white }]}>{d.hijriDay} {String(d.hijriMonth || '').split(' ')[0].slice(0, 5)}.</Text>
+                </View>
+              ))}
+            </Row>
+            <T variant="small">Rappel la veille au soir · lundis et jeudis aussi possibles</T>
+            <Pressable onPress={() => router.push('/blog/les-jours-blancs')} accessibilityRole="link">
+              <Text style={s.link}>Pourquoi jeûner les jours blancs ? →</Text>
+            </Pressable>
+          </Card>
+          <Gap />
+          <Card style={{ gap: 4 }}>
+            <Label>Jeûnes surérogatoires</Label>
+            {data.supererogatory.map((f, i, arr) => (
+              <ListItem key={f.key} title={f.label} subtitle={`${f.note} · ${shortDate(f.day)}`} right={<T variant="muted">{inDays(f.daysUntil)}</T>} last={i === arr.length - 1} />
             ))}
-          </View>
-        ) : null}
-      </Card>
-      <Gap />
-      <Notice title="Fidya">{data.fidyaInfo}</Notice>
+          </Card>
+          <Gap />
+          <Card tone="soft" style={{ gap: 8 }}>
+            <Label color={colors.or}>Ramadan {ramadan.hijriYear}</Label>
+            {ramadan.current ? <T variant="h3">Jour {ramadan.day} · encore {plural(ramadan.daysLeft)}</T> : <T variant="h3">{ramadan.daysUntil <= 45 ? inDays(ramadan.daysUntil) : `Dans environ ${ramadan.monthsUntil} mois`}</T>}
+            <Pressable onPress={openCalendar} accessibilityRole="button">
+              <Text style={s.link}>Calendrier du suhur et de l’iftar →</Text>
+            </Pressable>
+          </Card>
+        </>
+      )}
 
-      <Sheet visible={planOpen} onClose={() => setPlanOpen(false)} title="Mon plan de rattrapage" footer={<Button title="Enregistrer" onPress={savePlan} loading={busy} />}>
+      <PriorSheet visible={sheet === 'prior'} onClose={() => setSheet(null)} year={year} years={yearList} onYear={setYearKey} entry={priorEntry} onSaved={reload} />
+      <Sheet visible={sheet === 'madeup'} onClose={() => setSheet(null)} title={madeUpEdit ? 'Corriger la date' : 'Noter un jour rattrapé'} footer={<Button title={madeUpEdit ? 'Enregistrer' : 'Noter ce jour'} onPress={saveMadeUp} loading={busy} disabled={busy || !madeUpDay} />}>
+        <DateField label="Jour jeûné" value={madeUpDay} onChange={setMadeUpDay} />
+        <T variant="small">Un jour seulement planifié n’est pas compté : note-le une fois jeûné.</T>
+      </Sheet>
+      <Sheet visible={sheet === 'total'} onClose={() => setSheet(null)} title={`Total · Ramadan ${hijriYear}`} footer={<Button title="Enregistrer" onPress={saveTotal} loading={busy} disabled={busy} />}>
+        <T variant="muted">Nombre total de jours à rattraper pour ce Ramadan. Les jours comptés automatiquement pendant tes règles ({year.auto}) sont inclus.</T>
+        <Stepper label="Jours à rattraper" value={total} onChange={setTotal} min={Math.max(year.auto || 0, year.prior || 0)} max={30} />
+      </Sheet>
+      <Sheet visible={sheet === 'plan'} onClose={() => setSheet(null)} title="Mon plan de rattrapage" footer={<Button title="Enregistrer" onPress={savePlan} loading={busy} />}>
         {plan ? (
           <>
             <Toggle label="Plan actif" value={plan.active} onChange={(v) => setPlan((p) => ({ ...p, active: v }))} />
@@ -316,19 +359,10 @@ export default function Fasts() {
           </>
         ) : null}
       </Sheet>
-
-      <Sheet visible={missedOpen} onClose={() => setMissedOpen(false)} title="Ajouter des jours manqués" footer={<Button title="Ajouter" onPress={saveMissed} loading={busy} />}>
-        <Stepper label="Année hégirienne" value={missed.hijriYear || currentYear} onChange={(v) => setMissed((m) => ({ ...m, hijriYear: v }))} min={1400} max={currentYear + 1} />
-        <Stepper label="Nombre de jours" value={missed.count} onChange={(v) => setMissed((m) => ({ ...m, count: v }))} min={1} max={30} />
-        <T variant="fieldLabel">Raison</T>
-        <Chips items={REASONS} value={missed.reason} onChange={(v) => setMissed((m) => ({ ...m, reason: v }))} />
-        <Field label="Note (facultatif)" value={missed.note} onChangeText={(v) => setMissed((m) => ({ ...m, note: v }))} />
-      </Sheet>
-
       <Sheet visible={Boolean(calendar)} onClose={() => setCalendar(null)} title={calendar ? `Ramadan ${calendar.hijriYear}` : ''}>
         {calendar?.days.map((d) => (
           <Row key={d.day} justify="space-between" style={{ paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.line }}>
-            <T variant="medium" style={{ width: 70 }}>J{d.hijriDay}</T>
+            <T variant="medium" style={{ width: 54 }}>J{d.hijriDay}</T>
             <T style={{ flex: 1 }}>{shortDate(d.day)}</T>
             <T variant="small">Suhur {d.suhur}</T>
             <T variant="bold" style={{ marginLeft: 12 }}>Iftar {d.iftar}</T>
@@ -340,15 +374,28 @@ export default function Fasts() {
 }
 
 const s = StyleSheet.create({
-  bigNumber: { fontFamily: fonts.display, fontSize: 84, lineHeight: 92, color: colors.white },
-  nextRamadan: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 18, padding: 14 },
-  daysLeft: { fontFamily: fonts.display, fontSize: 30, color: colors.white, lineHeight: 34 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  box: { width: '18%', minWidth: 56, aspectRatio: 0.92, borderRadius: 16, backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  boxDone: { backgroundColor: colors.blush, borderColor: colors.blush },
-  check: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.prune, alignItems: 'center', justifyContent: 'center' },
-  checkOn: { backgroundColor: colors.bordeaux, borderColor: colors.bordeaux },
-  boxLabel: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted },
+  ramadan: { backgroundColor: colors.blush, borderRadius: 26, padding: 18, gap: 12, borderWidth: 1, borderColor: '#F0D5DA' },
+  lantern: { width: 58, height: 58, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  ramadanLabel: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.4, color: colors.bordeaux },
+  remaining: { fontFamily: fonts.title, fontSize: 28, lineHeight: 34, color: colors.prune },
+  equation: { fontFamily: fonts.medium, fontSize: 14, color: colors.prune },
+  track: { flex: 1, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.85)', overflow: 'hidden' },
+  fill: { height: 10, borderRadius: 5, backgroundColor: colors.bordeaux },
+  ratio: { fontFamily: fonts.bold, fontSize: 14, color: colors.prune },
+  primary: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', minHeight: 50, borderRadius: 16, backgroundColor: colors.bordeaux },
+  primaryText: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.white },
+  secondary: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', minHeight: 50, borderRadius: 16, borderWidth: 1.5, borderColor: colors.bordeaux, backgroundColor: 'rgba(255,255,255,0.7)' },
+  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.bordeaux },
+  allDone: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E6F1EA', borderRadius: 16, padding: 14 },
+  allDoneText: { fontFamily: fonts.bold, fontSize: 15, color: colors.success },
+  cardTitle: { fontFamily: fonts.title, fontSize: 19, color: colors.prune },
+  link: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.bordeaux, textDecorationLine: 'underline' },
+  histRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderBottomWidth: 1, borderBottomColor: colors.line },
+  histCheck: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
+  histTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune },
+  histMeta: { fontFamily: fonts.body, fontSize: 13, color: colors.muted },
+  histBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  info: { flexDirection: 'row', gap: 8, backgroundColor: colors.ivoire, borderRadius: 14, padding: 12, marginTop: 8 },
   white: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#F6EBDD', gap: 2 },
   whiteDay: { fontFamily: fonts.title, fontSize: 18, color: colors.prune },
   whiteHijri: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted },

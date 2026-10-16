@@ -81,6 +81,14 @@ const userSchema = new Schema(
       adhanVoice: { type: String, default: 'a9' }, // voir services/adhan.js
       // À l'heure de la prière : notification seule, ou adhan joué automatiquement avec la notification.
       adhanMode: { type: String, enum: ['notification', 'adhan'], default: 'adhan' },
+      // 07 — prières pour lesquelles l'adhan est joué (le son ne réactive jamais des rappels en pause).
+      adhanPrayers: {
+        fajr: { type: Boolean, default: true },
+        dhuhr: { type: Boolean, default: true },
+        asr: { type: Boolean, default: true },
+        maghrib: { type: Boolean, default: true },
+        isha: { type: Boolean, default: true },
+      },
       dhikrDuringPeriod: { type: Boolean, default: false },
       // Rappels de dhikr calés sur les horaires de la position : matin (Fajr), soir (Asr), vendredi.
       adhkarMorning: { type: Boolean, default: true },

@@ -52,7 +52,12 @@ export default function EventScreen() {
     Alert.alert('Annuler ton inscription ?', e.cancellationPolicy, [{ text: 'Garder ma place', style: 'cancel' }, { text: 'Annuler', style: 'destructive', onPress: go }]);
   };
   const ticketHost = e.ticketUrl ? e.ticketUrl.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0] : null;
-  const openTicket = () => (Platform.OS === 'web' ? Linking.openURL(e.ticketUrl) : WebBrowser.openBrowserAsync(e.ticketUrl)).catch(() => Linking.openURL(e.ticketUrl));
+  // 17 / 18 — la billetterie externe s'ouvre seulement si le lien est sécurisé (https).
+  const secureTicket = /^https:\/\/\S+\.\S+/.test(e.ticketUrl || '');
+  const openTicket = () => {
+    if (!secureTicket) return toast('Lien de billetterie indisponible', 'error');
+    (Platform.OS === 'web' ? Linking.openURL(e.ticketUrl) : WebBrowser.openBrowserAsync(e.ticketUrl)).catch(() => Linking.openURL(e.ticketUrl));
+  };
   const openMap = () => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
 
   return (
@@ -63,12 +68,12 @@ export default function EventScreen() {
             <T variant="bold" style={{ fontSize: 18 }}>{price}</T>
             <T variant="small">{e.placesLeft ? `${e.placesLeft} place${e.placesLeft > 1 ? 's' : ''} restante${e.placesLeft > 1 ? 's' : ''}` : 'Complet'}</T>
           </View>
-          {!e.free && e.ticketUrl ? (
-            <Button title={e.registered ? 'Ma billetterie' : 'Acheter mon billet'} icon="external" onPress={openTicket} disabled={!e.placesLeft && !e.registered} />
+          {!e.free && secureTicket ? (
+            <Button title="Réserver ma place" icon="external" onPress={openTicket} />
           ) : e.registered ? (
             <Button title="Annuler ma place" variant="outline" small onPress={unregister} />
           ) : !e.free ? (
-            <Button title="Billetterie bientôt disponible" small variant="soft" disabled />
+            <Button title="Billetterie à venir" small variant="soft" disabled />
           ) : (
             <Button title="Je m’inscris" onPress={register} loading={busy} disabled={!e.placesLeft} />
           )}
@@ -115,31 +120,32 @@ export default function EventScreen() {
           </Row>
         ) : null}
       </Card>
-      {!e.free && e.ticketUrl && e.status === 'publie' ? (
+      {!e.free && e.status === 'publie' ? (
         <View style={s.ticket}>
           <Row gap={12}>
-            <View style={s.ticketIcon}>
+            <View style={[s.ticketIcon, !secureTicket && { backgroundColor: colors.muted }]}>
               <Icon name="external" size={20} color={colors.white} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.ticketLabel}>BILLETTERIE EN LIGNE</Text>
-              <T variant="bold" numberOfLines={1}>{ticketHost}</T>
-              <T variant="small">Billet à {price}, acheté directement auprès de l’organisatrice.</T>
+              <Text style={s.ticketLabel}>BILLETTERIE EXTERNE</Text>
+              {secureTicket ? (
+                <>
+                  <T variant="bold" numberOfLines={1}>{ticketHost}</T>
+                  <T variant="small">Billet à {price}. La réservation et le paiement se font sur ce site sécurisé, en dehors de Nissali.</T>
+                </>
+              ) : (
+                <>
+                  <T variant="bold">Billetterie à venir</T>
+                  <T variant="small">L’organisatrice n’a pas encore publié son lien de réservation.</T>
+                </>
+              )}
             </View>
           </Row>
-          {!isOrganizer ? (
-            <Button title={e.registered ? 'Ouvrir la billetterie' : 'Acheter mon billet'} icon="external" onPress={openTicket} disabled={!e.placesLeft && !e.registered} />
-          ) : null}
-          {!isOrganizer ? (
-            e.registered ? (
-              <Pressable onPress={unregister} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center' }}>
-                <T variant="small" color={colors.bordeaux}>Retirer de mes événements</T>
-              </Pressable>
-            ) : (
-              <Pressable onPress={register} disabled={busy || !e.placesLeft} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center' }}>
-                <T variant="medium" color={colors.bordeaux} style={{ textAlign: 'center' }}>J’ai déjà mon billet · l’ajouter à mes événements</T>
-              </Pressable>
-            )
+          {!isOrganizer && secureTicket ? <Button title="Réserver ma place" icon="external" onPress={openTicket} /> : null}
+          {!isOrganizer && e.registered ? (
+            <Pressable onPress={unregister} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center' }}>
+              <T variant="small" color={colors.bordeaux}>Retirer de mes événements</T>
+            </Pressable>
           ) : null}
         </View>
       ) : null}
@@ -164,7 +170,7 @@ export default function EventScreen() {
           <Card style={{ gap: 6 }}>
             <Label color={colors.or}>Ton événement</Label>
             <T>{e.registrationsCount} inscrite{e.registrationsCount > 1 ? 's' : ''}</T>
-            {e.ticketUrl ? <T variant="small">Billetterie : {ticketHost}</T> : !e.free ? <T variant="small" color={colors.bordeaux}>Ajoute le lien de ta billetterie pour que les sœurs puissent acheter leur billet.</T> : null}
+            {secureTicket ? <T variant="small">Billetterie externe : {ticketHost}</T> : !e.free ? <T variant="small" color={colors.bordeaux}>Ajoute le lien de billetterie externe (https://) pour que les sœurs puissent réserver leur place.</T> : null}
             {e.commissionRate ? <T variant="small">Commission Nissali : {Math.round(e.commissionRate * 100)} % du prix de chaque billet vendu via Nissali, réglée après l’événement.</T> : null}
           </Card>
         </>

@@ -51,6 +51,8 @@ export function cycleCard(ctx, user) {
       istihada: s.istihada,
       istihadaInfo: s.istihada ? ctx.settings.istihadaInfo : null,
       maxPeriodDays: s.maxPeriodDays,
+      // Flux noté aujourd'hui (null si rien n'a été renseigné : aucun choix pré-coché).
+      flowToday: ((l) => (l === 'traces' ? null : l))(s.currentPeriod.flows?.find((f) => f.day === ctx.today)?.level || null),
       ...common,
     };
   }
@@ -81,7 +83,7 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
   const options = prayerOptionsFor(user, settings);
 
   const weatherPromise = getWeather(options.lat, options.lng).catch(() => null);
-  const [{ timings, meta: source }, qibla, prayerLog, fastCtx, healthLog, reminder, unread] = await Promise.all([
+  const [{ timings, meta: source }, qibla, prayerLog, fastCtx, healthLog, reminder, unread, lastWeight] = await Promise.all([
     userTimings(user, settings, today),
     getQibla(options.lat, options.lng),
     PrayerLog.findOne({ user: user._id, day: today }).lean(),
@@ -89,6 +91,7 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
     DailyLog.findOne({ user: user._id, day: today }).lean(),
     reminderOfTheDay(today),
     Notification.countDocuments({ user: user._id, read: false }),
+    DailyLog.findOne({ user: user._id, weight: { $exists: true, $ne: null } }).sort({ day: -1 }).select('day weight').lean(),
   ]);
   const weather = await weatherPromise;
 
@@ -143,6 +146,8 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
       symptoms: healthLog?.symptoms || [],
       sleepHours: healthLog?.sleepHours ?? null,
       weight: healthLog?.weight ?? null,
+      // Dernière mesure réelle (date comprise) ; null → « Ajouter mon poids », jamais une valeur fictive.
+      lastWeight: lastWeight ? { day: lastWeight.day, weight: lastWeight.weight } : null,
       energy: healthLog?.energy ?? null,
     },
     // Conseil santé du jour (bibliothèque par phase, RG-08 ter) + conseils météo (Open-Meteo).

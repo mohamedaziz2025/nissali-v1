@@ -78,7 +78,8 @@ export async function rescheduleAll(today, user) {
           if (paused) {
             if (range.periodDhikr) await schedule(date, { title: 'Nissali', body: range.periodDhikr }, 'prieres');
           } else {
-            const adhan = range.adhan;
+            // 07 — adhan seulement pour les prières choisies ; jamais pendant une pause des rappels.
+            const adhan = range.adhan && (!range.adhan.prayers || range.adhan.prayers.includes(p)) ? range.adhan : null;
             await schedule(
               date,
               {

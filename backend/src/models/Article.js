@@ -28,6 +28,10 @@ const articleSchema = new Schema(
     published: { type: Boolean, default: true },
     views: { type: Number, default: 0 },
     color: { type: String, enum: ['rose', 'or', 'blush', 'bordeaux'], default: 'rose' },
+    // 14 — Photo de couverture (recadrée en 16:9 dans le back-office) et texte alternatif.
+    coverUrl: String,
+    coverAlt: { type: String, maxlength: 200 },
+    coverCredit: { type: String, maxlength: 160 },
   },
   { timestamps: true },
 );

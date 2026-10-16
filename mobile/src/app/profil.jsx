@@ -3,10 +3,11 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
+import { AdhanSoundSheet } from '../components/AdhanSound';
 import { CityPicker } from '../components/forms';
 import Icon from '../components/Icon';
 import ProSpaceCard from '../components/ProSpaceCard';
-import { Button, Card, Chips, CodeInput, Field, Gap, Label, ListItem, Row, Screen, Segmented, Sheet, Stepper, T, Toggle, useToast } from '../components/ui';
+import { Button, Card, Chips, CodeInput, Field, Gap, Label, ListItem, Row, Screen, Sheet, Stepper, T, Toggle, useToast } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { onAdhan, playAdhan, stopAdhan } from '../lib/adhan';
@@ -43,6 +44,7 @@ export default function Profile() {
   const adhans = useApi('/prayers/adhans');
   const adhanOn = user?.prayerSettings?.adhan !== false && user?.prayerSettings?.adhanMode !== 'notification';
   const [preview, setPreview] = useState(null);
+  const [adhanSound, setAdhanSound] = useState(false);
   useEffect(() => onAdhan((a) => setPreview(a?.prayer === 'Aperçu' ? a.key : null)), []);
   if (!user) return null;
 
@@ -186,17 +188,8 @@ export default function Profile() {
           onChange={followLocation}
         />
         <Toggle label="Notification à l’heure de chaque prière" value={user.prayerSettings?.notifications} onChange={(v) => patch({ prayerSettings: { notifications: v } })} />
-        <T variant="fieldLabel" style={{ marginTop: 8 }}>À l’heure de la prière</T>
-        <Segmented
-          items={[
-            { key: 'notification', label: 'Notification seule' },
-            { key: 'adhan', label: 'Adhan + notification' },
-          ]}
-          value={adhanOn ? 'adhan' : 'notification'}
-          onChange={(k) => patch({ prayerSettings: { adhan: true, adhanMode: k } }, k === 'adhan' ? 'L’adhan se lancera avec la notification' : 'Notification seule à l’heure de la prière')}
-        />
-        <T variant="small" style={{ marginBottom: 4 }}>{adhanOn ? 'L’adhan se lance tout seul avec la notification quand l’appli est ouverte ou dès que tu la rouvres ; sinon touche la notification.' : 'Une notification avec le son habituel du téléphone.'}</T>
-        {adhanOn ? <ListItem icon="volume" title="Voix de l’adhan" subtitle={adhans.data?.items?.find((a) => a.key === (user.prayerSettings?.adhanVoice || 'a9'))?.label || 'Mishary Rashid Alafasy'} onPress={() => open('adhan', { adhanVoice: user.prayerSettings?.adhanVoice || 'a9' })} /> : null}
+        {/* 07 — Son de l'adhan : réglage distinct des rappels (il ne les réactive jamais). */}
+        <ListItem icon="volume" title="Son de l’adhan" subtitle={adhanOn ? `Activé · ${['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => user.prayerSettings?.adhanPrayers?.[k] !== false).length} prière(s) · ${adhans.data?.items?.find((a) => a.key === (user.prayerSettings?.adhanVoice || 'a9'))?.label || 'Mishary Rashid Alafasy'}` : 'Désactivé · notification seule'} onPress={() => setAdhanSound(true)} />
         <ListItem icon="compass" title="Qibla" onPress={() => router.push('/qibla')} />
         <ListItem icon="clock" title="Ajuster les horaires" subtitle="± quelques minutes pour suivre ta mosquée" onPress={() => open('adjust', { ...(user.prayerSettings?.adjustments || {}) })} last />
       </Card>
@@ -346,6 +339,7 @@ export default function Profile() {
           </>
         )}
       </Sheet>
+      <AdhanSoundSheet visible={adhanSound} onClose={() => setAdhanSound(false)} />
     </Screen>
   );
 }

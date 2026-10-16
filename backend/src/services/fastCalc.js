@@ -34,10 +34,10 @@ export function missedRamadanDays({ ramadanDays, periods, now }) {
  * RG-23 — compteur = jours manqués automatiques + jours ajoutés − jours rattrapés.
  * Le détail est conservé par année hégirienne ; les rattrapages soldent d'abord les plus anciennes.
  */
-export function fastCounter({ autoMissed = [], manual = [], madeUp = [] }) {
+export function fastCounter({ autoMissed = [], manual = [], madeUp = [], prior = [] }) {
   const years = new Map();
   const bucket = (y) => {
-    if (!years.has(y)) years.set(y, { hijriYear: y, auto: 0, manual: 0, missed: 0, madeUp: 0, remaining: 0 });
+    if (!years.has(y)) years.set(y, { hijriYear: y, auto: 0, manual: 0, missed: 0, prior: 0, inApp: 0, madeUp: 0, remaining: 0 });
     return years.get(y);
   };
   for (const m of autoMissed) {
@@ -50,19 +50,28 @@ export function fastCounter({ autoMissed = [], manual = [], madeUp = [] }) {
     b.manual += m.count || 1;
     b.missed += m.count || 1;
   }
+  // 09 — Jours rattrapés hors application : comptés pour l'année de Ramadan choisie.
+  for (const p of prior) bucket(p.hijriYear).prior += p.count || 0;
   const ordered = [...years.values()].sort((a, b) => a.hijriYear - b.hijriYear);
+  for (const y of ordered) y.madeUp = Math.min(y.missed, y.prior);
+  // Jours cochés dans l'appli : affectés au Ramadan le plus ancien encore à rattraper.
   let toAllocate = madeUp.length;
   for (const y of ordered) {
-    const used = Math.min(y.missed, toAllocate);
-    y.madeUp = used;
-    y.remaining = y.missed - used;
+    const used = Math.min(y.missed - y.madeUp, toAllocate);
+    y.inApp = used;
+    y.madeUp += used;
+    y.remaining = y.missed - y.madeUp;
     toAllocate -= used;
   }
   const missed = ordered.reduce((a, y) => a + y.missed, 0);
+  const priorTotal = prior.reduce((a, p) => a + (p.count || 0), 0);
+  // Solde = total des jours à rattraper - total des jours déjà rattrapés (dans et hors application).
   return {
     missed,
-    madeUp: madeUp.length,
-    remaining: Math.max(0, missed - madeUp.length),
+    madeUp: madeUp.length + priorTotal,
+    inApp: madeUp.length,
+    prior: priorTotal,
+    remaining: ordered.reduce((a, y) => a + y.remaining, 0),
     extraMadeUp: toAllocate,
     byYear: ordered,
   };

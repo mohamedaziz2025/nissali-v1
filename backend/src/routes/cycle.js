@@ -5,13 +5,13 @@ import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { Appointment, Booking, DailyLog, Period, Practitioner } from '../models/index.js';
 import { GHUSL_STEPS, HEALTH_ALERTS, PHASES, RELIABILITY_LABELS } from '../content/phases.js';
-import { loadCycleContext } from '../services/context.js';
+import { loadCycleContext, nowFor } from '../services/context.js';
 import { phaseOf } from '../services/cycleCalc.js';
 import { isRamadan } from '../services/hijri.js';
 import { notify } from '../services/notifications.js';
 import { prayersAfterPurification } from '../services/prayerService.js';
 import { userTimings } from '../services/prayerSource.js';
-import { addDays, diffDays, eachDay, isDay, isTime, monthBounds } from '../utils/dates.js';
+import { addDays, diffDays, eachDay, isDay, isTime, minDay, monthBounds, weekday } from '../utils/dates.js';
 import { badRequest, conflict, notFound } from '../utils/http.js';
 
 const router = Router();
@@ -75,11 +75,22 @@ async function appointmentsFor(user, from, to) {
   ].sort((a, b) => `${a.day}${a.time || ''}`.localeCompare(`${b.day}${b.time || ''}`));
 }
 
+/** Jours du calendrier (règles notées / prévues, fenêtre fertile…) sur une période qui peut couvrir deux mois. */
+function calendarDays(ctx, appointments, from, to) {
+  const months = [...new Set(eachDay(from, to).map((d) => d.slice(0, 7)))];
+  return months.flatMap((m) => buildCalendar(m, ctx, appointments)).filter((c) => c.day >= from && c.day <= to);
+}
+
 router.get('/', async (req, res) => {
   const ctx = await loadCycleContext(req.user);
   const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : ctx.today.slice(0, 7);
   const { start, end } = monthBounds(month);
-  const appointments = await appointmentsFor(req.user, addDays(start, -7), addDays(end, 60));
+  const monday = addDays(ctx.today, -((weekday(ctx.today) + 6) % 7));
+  const [appointments, todayLog, lastWeight] = await Promise.all([
+    appointmentsFor(req.user, addDays(minDay(start, monday), -7), addDays(end, 60)),
+    DailyLog.findOne({ user: req.user._id, day: ctx.today }).lean(),
+    DailyLog.findOne({ user: req.user._id, weight: { $exists: true, $ne: null } }).sort({ day: -1 }).select('day weight').lean(),
+  ]);
   const s = ctx.summary;
   const current = s.projections[0];
 
@@ -105,9 +116,24 @@ router.get('/', async (req, res) => {
     predictions: s.projections.slice(1).map((c) => ({ start: c.start, end: c.periodEnd, ovulation: c.ovulation, fertileStart: c.fertileStart })),
     periods: [...ctx.periods].reverse(),
     calendar: buildCalendar(month, ctx, appointments),
+    // 11 — semaine en cours (lundi → dimanche) pour la bande du haut de « Mon cycle ».
+    week: calendarDays(ctx, appointments, monday, addDays(monday, 6)),
+    // Raccourcis : dernière mesure de poids réelle (sinon « Ajouter mon poids ») et note du jour.
+    lastWeight: lastWeight ? { day: lastWeight.day, weight: lastWeight.weight } : null,
+    journal: { day: ctx.today, notes: todayLog?.notes || '', mood: todayLog?.mood || null, symptoms: todayLog?.symptoms || [] },
     appointments: appointments.filter((a) => a.day >= ctx.today).slice(0, 10),
     alerts: s.alerts.map((a) => ({ key: a, text: HEALTH_ALERTS[a] })),
   });
+});
+
+// 11 — Vue « Année » du calendrier : les 12 mois (règles notées et prévues distinctes).
+router.get('/year/:year', async (req, res) => {
+  const year = Number(req.params.year);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) throw badRequest('Année invalide');
+  const ctx = await loadCycleContext(req.user, { logsSince: `${year - 1}-12-01` });
+  const appointments = await appointmentsFor(req.user, `${year}-01-01`, `${year}-12-31`);
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  res.json({ year, today: ctx.today, months: months.map((m) => ({ month: m, days: buildCalendar(m, ctx, appointments).map(({ day, period, fertile, ovulation, today }) => ({ day, period, fertile, ovulation, today })) })) });
 });
 
 // RG-09 / RG-18 — « Mes règles ont commencé » (date du jour proposée, modifiable).
@@ -185,20 +211,41 @@ router.post('/periods/past', validate(z.object({ periods: z.array(z.object({ sta
   res.status(201).json({ created });
 });
 
+async function periodCovering(userId, d) {
+  const [period] = await Period.find({ user: userId, start: { $lte: d } }).sort({ start: -1 }).limit(1);
+  return period && (!period.end || period.end >= d) ? period : null;
+}
+
+// 04 / 05 — Flux du jour : un seul niveau par jour (léger, moyen, abondant), retrouvé à la réouverture.
+// Rien n'est pré-sélectionné : `level` vaut null tant que l'utilisatrice n'a rien noté.
+router.get('/flow/:day', async (req, res) => {
+  if (!isDay(req.params.day)) throw badRequest('Date invalide');
+  const [period, log] = await Promise.all([periodCovering(req.user._id, req.params.day), DailyLog.findOne({ user: req.user._id, day: req.params.day }).lean()]);
+  const level = period?.flows.find((f) => f.day === req.params.day)?.level || null;
+  res.json({ day: req.params.day, inPeriod: Boolean(period), level: level === 'traces' ? null : level, spotting: Boolean(log?.spotting) || level === 'traces', symptoms: log?.symptoms || [] });
+});
+
 // RG-10 — flux jour par jour. Les traces seules ne marquent pas le début d'un cycle.
-router.put('/flow', validate(z.object({ day, level: z.enum(['traces', 'leger', 'moyen', 'abondant']) })), async (req, res) => {
-  const { day: d, level } = req.body;
-  const periods = await Period.find({ user: req.user._id, start: { $lte: d } }).sort({ start: -1 }).limit(1);
-  const period = periods[0];
-  const covers = period && (!period.end || period.end >= d);
-  if (!covers) {
+router.put('/flow', validate(z.object({ day, level: z.enum(['traces', 'leger', 'moyen', 'abondant']), symptoms: z.array(z.string().max(40)).max(20).optional() })), async (req, res) => {
+  const { day: d, level, symptoms } = req.body;
+  if (d > nowFor(req.user).today) throw badRequest('Impossible de noter le flux d’un jour futur');
+  if (symptoms) await DailyLog.updateOne({ user: req.user._id, day: d }, { $set: { symptoms } }, { upsert: true });
+  const period = await periodCovering(req.user._id, d);
+  if (!period) {
     if (level !== 'traces') throw badRequest('Pour un nouveau saignement, utilise « Mes règles ont commencé ».', 'NO_PERIOD');
     await DailyLog.updateOne({ user: req.user._id, day: d }, { $set: { spotting: true } }, { upsert: true });
     return res.json({ spotting: true });
   }
   period.flows = [...period.flows.filter((f) => f.day !== d), { day: d, level }];
   await period.save();
-  res.json({ period: period.toPlain() });
+  res.json({ day: d, level, period: period.toPlain() });
+});
+
+// Traces / spotting : saisie distincte du flux (n'ouvre pas de règles).
+router.put('/spotting', validate(z.object({ day, spotting: z.boolean() })), async (req, res) => {
+  if (req.body.day > nowFor(req.user).today) throw badRequest('Impossible de noter un jour futur');
+  await DailyLog.updateOne({ user: req.user._id, day: req.body.day }, { $set: { spotting: req.body.spotting } }, { upsert: true });
+  res.json({ day: req.body.day, spotting: req.body.spotting });
 });
 
 // 6.2 — confirmation d'un cycle aberrant à écarter (ou à garder).

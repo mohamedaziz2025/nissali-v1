@@ -13,7 +13,8 @@ function Inline({ text, variant = 'body', color }) {
 }
 
 export default function Markdown({ source }) {
-  const blocks = source.split(/\n{2,}/);
+  // Un intertitre suivi directement d'une liste ou d'un paragraphe forme son propre bloc.
+  const blocks = source.replace(/^(## .*)$/gm, '$1\n').split(/\n{2,}/).filter((b) => b.trim());
   return (
     <View style={{ gap: 14 }}>
       {blocks.map((block, i) => {

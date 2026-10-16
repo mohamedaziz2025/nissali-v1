@@ -20,6 +20,9 @@ const card = (a) => ({
   validation: a.validation,
   reviewer: a.reviewer,
   color: a.color,
+  coverUrl: a.coverUrl || null,
+  coverAlt: a.coverAlt || '',
+  coverCredit: a.coverCredit || '',
 });
 
 router.get('/categories', (_req, res) => {

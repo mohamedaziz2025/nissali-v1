@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { FastPlan, MadeUpFast, MissedFast } from '../models/index.js';
+import { FastPlan, MadeUpFast, MissedFast, PriorMadeUp } from '../models/index.js';
 import { loadFastContext, nowFor } from '../services/context.js';
 import { rhythmAdvice } from '../services/fastCalc.js';
 import { forbiddenFastReason, isRamadan, ramadanInfo, ramadanRange, supererogatoryFasts, toHijri, whiteDays } from '../services/hijri.js';
@@ -41,6 +41,10 @@ router.get('/', async (req, res) => {
     autoMissed: f.autoMissed,
     manual: f.manual.map(({ _id, ...m }) => ({ id: String(_id), ...m })),
     madeUp: f.madeUp.map(({ _id, day }) => ({ id: String(_id), day })),
+    // 08 — jours déjà rattrapés hors application (par nombre ou par dates).
+    prior: f.prior.map((p) => ({ id: String(p._id), hijriYear: p.hijriYear, mode: p.mode, count: p.count, dates: p.dates, createdAt: p.createdAt })),
+    // Années de Ramadan proposées pour rattacher un ajout : celles qui ont des jours à rattraper, sinon le dernier Ramadan.
+    years: f.counter.byYear.length ? f.counter.byYear.map((y) => y.hijriYear) : [ramadan.current ? ramadan.hijriYear : ramadan.hijriYear - 1],
     madeUpToday: f.madeUp.some((m) => m.day === today),
     plan: f.plan ? { active: f.plan.active, perWeek: f.plan.perWeek, weekdays: f.plan.weekdays, reminderTime: f.plan.reminderTime } : null,
     planDays: f.planDays.slice(0, 8),
@@ -83,6 +87,7 @@ router.post('/made-up', validate(z.object({ day: z.string().refine(isDay).option
   const forbidden = forbiddenFastReason(day, settings.hijriAdjustment);
   if (forbidden) throw badRequest(`Le jeûne n’est pas permis ce jour-là (${forbidden})`);
   if (isRamadan(day, settings.hijriAdjustment)) throw badRequest('Un jour de Ramadan ne peut pas servir de rattrapage');
+  if (await PriorMadeUp.exists({ user: req.user._id, dates: day })) throw badRequest('Ce jour est déjà noté dans tes jours rattrapés hors application', 'DUPLICATE_DATE');
   const doc = await MadeUpFast.findOneAndUpdate({ user: req.user._id, day }, { $setOnInsert: { user: req.user._id, day } }, { upsert: true, new: true });
   res.status(201).json({ id: doc.id, day: doc.day });
 });
@@ -90,6 +95,84 @@ router.post('/made-up', validate(z.object({ day: z.string().refine(isDay).option
 router.delete('/made-up/:id', async (req, res) => {
   await MadeUpFast.deleteOne({ _id: req.params.id, user: req.user._id });
   res.json({ ok: true });
+});
+
+// 08 / 09 / 10 — Jours déjà rattrapés hors application.
+const priorSchema = z
+  .object({
+    hijriYear: z.number().int().min(1380).max(1500),
+    mode: z.enum(['nombre', 'dates']),
+    count: z.number().int().optional(),
+    dates: z.array(z.string().refine(isDay, 'Date invalide')).max(60).default([]),
+    requestId: z.string().min(6).max(80).optional(),
+  })
+  .refine((b) => b.mode === 'dates' || Number.isInteger(b.count), { message: 'Indique le nombre de jours', path: ['count'] });
+
+/** Contrôle d'un ajout : nombre positif, dans le solde du Ramadan choisi, dates passées et sans doublon. */
+async function checkPrior(user, b, { replacing } = {}) {
+  const f = await loadFastContext(user);
+  const { today, settings } = f.ctx;
+  const count = b.mode === 'dates' ? b.dates.length : b.count;
+  if (!count || count < 1) throw badRequest(b.mode === 'dates' ? 'Choisis au moins une date' : 'Le nombre de jours doit être au moins 1');
+  if (b.mode === 'nombre' && b.dates.length > count) throw badRequest(`Tu as choisi ${b.dates.length} dates pour ${count} jour${count > 1 ? 's' : ''}`);
+  const year = f.counter.byYear.find((y) => y.hijriYear === b.hijriYear);
+  const available = (year?.remaining || 0) + (replacing?.hijriYear === b.hijriYear ? replacing.count : 0);
+  if (available <= 0) throw badRequest('Tous tes jours sont rattrapés', 'ALL_MADE_UP');
+  if (count > available) throw badRequest(`Tu ne peux pas ajouter plus de ${available} jour${available > 1 ? 's' : ''} : c’est ton solde pour le Ramadan ${b.hijriYear}`, 'OVER_BALANCE');
+  if (new Set(b.dates).size !== b.dates.length) throw badRequest('Une même date est choisie deux fois');
+  const adj = settings.hijriAdjustment || 0;
+  for (const d of b.dates) {
+    if (d > today) throw badRequest('Une date de rattrapage ne peut pas être dans le futur');
+    if (isRamadan(d, adj)) throw badRequest('Un jour de Ramadan ne peut pas servir de rattrapage');
+  }
+  const taken = new Set([...f.madeUp.map((m) => m.day), ...f.prior.filter((p) => String(p._id) !== String(replacing?._id)).flatMap((p) => p.dates)]);
+  const dup = b.dates.find((d) => taken.has(d));
+  if (dup) throw badRequest(`Le ${new Date(`${dup}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })} est déjà noté comme rattrapé`, 'DUPLICATE_DATE');
+  return count;
+}
+
+router.post('/prior', validate(priorSchema), async (req, res) => {
+  const b = req.body;
+  if (b.requestId) {
+    const same = await PriorMadeUp.findOne({ user: req.user._id, requestId: b.requestId }).lean();
+    if (same) return res.json({ id: String(same._id), duplicate: true });
+  }
+  const count = await checkPrior(req.user, b);
+  try {
+    const doc = await PriorMadeUp.create({ user: req.user._id, hijriYear: b.hijriYear, mode: b.mode, count, dates: [...b.dates].sort(), requestId: b.requestId });
+    res.status(201).json({ id: doc.id, count });
+  } catch (e) {
+    if (e.code === 11000) return res.json({ duplicate: true }); // deuxième clic simultané
+    throw e;
+  }
+});
+
+router.patch('/prior/:id', validate(priorSchema), async (req, res) => {
+  const doc = await PriorMadeUp.findOne({ _id: req.params.id, user: req.user._id });
+  if (!doc) throw notFound();
+  const count = await checkPrior(req.user, req.body, { replacing: doc });
+  Object.assign(doc, { hijriYear: req.body.hijriYear, mode: req.body.mode, count, dates: [...req.body.dates].sort() });
+  await doc.save();
+  res.json({ id: doc.id, count });
+});
+
+router.delete('/prior/:id', async (req, res) => {
+  const r = await PriorMadeUp.deleteOne({ _id: req.params.id, user: req.user._id });
+  if (!r.deletedCount) throw notFound();
+  res.json({ ok: true });
+});
+
+// « Total initial · Modifier » : nombre de jours à rattraper pour un Ramadan (jours comptés automatiquement + ajout manuel).
+router.put('/total', validate(z.object({ hijriYear: z.number().int().min(1380).max(1500), total: z.number().int().min(0).max(30) })), async (req, res) => {
+  const { hijriYear, total } = req.body;
+  const f = await loadFastContext(req.user);
+  const year = f.counter.byYear.find((y) => y.hijriYear === hijriYear);
+  const auto = year?.auto || 0;
+  if (total < auto) throw badRequest(`Le total ne peut pas être inférieur aux ${auto} jours comptés automatiquement pendant tes règles`);
+  if (total < (year?.prior || 0)) throw badRequest(`Le total ne peut pas être inférieur aux ${year.prior} jours déjà rattrapés hors application`);
+  await MissedFast.deleteMany({ user: req.user._id, hijriYear });
+  if (total > auto) await MissedFast.create({ user: req.user._id, hijriYear, count: total - auto, reason: 'autre', note: 'Total saisi' });
+  res.json({ hijriYear, total });
 });
 
 // Plan de rattrapage : rythme choisi (ex. 2 jours par semaine), rappel la veille.

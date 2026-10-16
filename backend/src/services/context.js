@@ -1,7 +1,7 @@
 // Chargement du contexte d'une utilisatrice : cycle, jeûnes, Ramadan.
 // Une seule saisie met tout à jour (3.2) : tout est recalculé à partir des règles enregistrées.
 
-import { DailyLog, FastPlan, MadeUpFast, MissedFast, Period, Pregnancy } from '../models/index.js';
+import { DailyLog, FastPlan, MadeUpFast, MissedFast, Period, Pregnancy, PriorMadeUp } from '../models/index.js';
 import { addDays, diffDays, localParts, maxDay, minDay, safeTimeZone } from '../utils/dates.js';
 import { cycleSummary, projectCycles } from './cycleCalc.js';
 import { fastCounter, missedRamadanDays, planMakeupDays } from './fastCalc.js';
@@ -89,12 +89,13 @@ export async function loadFastContext(user, cycleCtx) {
     autoMissed.push(...missedRamadanDays({ ramadanDays, periods: overlapping, now: { day: today, time } }));
   }
 
-  const [manual, madeUp, plan] = await Promise.all([
+  const [manual, madeUp, plan, prior] = await Promise.all([
     MissedFast.find({ user: user._id }).sort({ hijriYear: 1, createdAt: 1 }).lean(),
     MadeUpFast.find({ user: user._id }).sort({ day: 1 }).lean(),
     FastPlan.findOne({ user: user._id }).lean(),
+    PriorMadeUp.find({ user: user._id }).sort({ createdAt: 1 }).lean(),
   ]);
-  const counter = fastCounter({ autoMissed, manual, madeUp });
+  const counter = fastCounter({ autoMissed, manual, madeUp, prior });
 
   // Plan de rattrapage (RG-24) : jamais sur des règles prévues, jours interdits ou Ramadan.
   let planDays = [];
@@ -126,5 +127,5 @@ export async function loadFastContext(user, cycleCtx) {
     }));
   }
 
-  return { ctx, autoMissed, manual, madeUp, plan, counter, planDays };
+  return { ctx, autoMissed, manual, madeUp, prior, plan, counter, planDays };
 }

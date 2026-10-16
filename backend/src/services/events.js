@@ -26,7 +26,8 @@ export function presentEvent(e, { from, registration, mine } = {}) {
     placesLeft: Math.max(0, e.capacity - (e.registrationsCount || 0)),
     price: e.price || 0,
     free: !e.price,
-    ticketUrl: e.price ? e.ticketUrl || null : null,
+    // Bouton « Réserver ma place » seulement avec un lien HTTPS (sinon « Billetterie à venir »).
+    ticketUrl: e.price && /^https:\/\/\S+\.\S+/.test(e.ticketUrl || '') ? e.ticketUrl : null,
     organizerType: e.organizerType,
     organizerName: e.organizerType === 'nissali' ? 'Nissali' : e.organizerName || 'Une sœur',
     cancellationPolicy: e.cancellationPolicy,

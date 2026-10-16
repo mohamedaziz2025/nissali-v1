@@ -73,8 +73,8 @@ function EventForm({ initial, onSaved, onClose }) {
         </Field>
       </div>
       {Number(f.price) ? (
-        <Field label="Lien de la billetterie" hint="Obligatoire pour un événement payant : page où les sœurs achètent leur billet (HelloAsso, Billetweb, Weezevent…).">
-          <input className="input" type="url" placeholder="https://www.helloasso.com/…" value={f.ticketUrl} onChange={set('ticketUrl')} required pattern="https?://.+" />
+        <Field label="Lien de billetterie externe" hint="Obligatoire pour un événement payant : page Billetweb (ou HelloAsso, Weezevent…) où l’inscription et le paiement se font. Adresse sécurisée https:// uniquement.">
+          <input className="input" type="url" placeholder="https://www.billetweb.fr/…" value={f.ticketUrl} onChange={set('ticketUrl')} required pattern="https://.+\..+" title="Adresse sécurisée commençant par https://" />
         </Field>
       ) : null}
       {f.imageUrl ? <img src={f.imageUrl} alt="" style={{ width: 220, borderRadius: 12 }} /> : null}
@@ -184,7 +184,7 @@ export default function AdminEvents() {
                   <p className="small" style={{ margin: '6px 0 0', maxWidth: 680 }}>{e.description}</p>
                   {!e.free ? (
                     <p className="small" style={{ margin: '6px 0 0' }}>
-                      Billetterie :{' '}
+                      Billetterie externe :{' '}
                       {e.ticketUrl ? (
                         <a href={e.ticketUrl} target="_blank" rel="noreferrer noopener" style={{ color: 'var(--bordeaux)', fontWeight: 600 }}>{e.ticketUrl.replace(/^https?:\/\//, '')}</a>
                       ) : (

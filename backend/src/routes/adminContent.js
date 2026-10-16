@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { CATEGORY_GROUPS } from '../content/categories.js';
 import { requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Practitioner, PushSubscription, User } from '../models/index.js';
+import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Practitioner, PushSubscription, User } from '../models/index.js';
 import { COMMISSION_RATE, presentEvent } from '../services/events.js';
 import { bestCity } from '../services/geo.js';
 import { forgetTips } from '../services/healthTips.js';
@@ -149,10 +149,10 @@ const adminEventSchema = z.object({
   imageUrl: z.string().url().max(500).optional().or(z.literal('')),
   capacity: z.number().int().min(1).max(5000),
   price: z.number().min(0).max(1000).default(0),
-  ticketUrl: z.string().trim().max(500).regex(/^(https?:\/\/\S+)?$/, 'Lien de billetterie invalide').optional(),
+  ticketUrl: z.string().trim().max(500).regex(/^(https:\/\/\S+\.\S+)?$/, 'Le lien de billetterie doit être une adresse sécurisée (https://)').optional(),
   cancellationPolicy: z.string().max(600).optional(),
   status: z.enum(['publie', 'annule']).optional(),
-}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien de la billetterie pour un événement payant', path: ['ticketUrl'] });
+}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien de billetterie externe (https://) pour un événement payant', path: ['ticketUrl'] });
 
 async function eventFields(b) {
   const tz = 'Europe/Paris';
@@ -323,12 +323,19 @@ router.get('/health-tips', async (_req, res) => {
   const tips = await HealthTip.find().sort({ phase: 1, createdAt: 1 }).lean();
   res.json(tips.map((t) => ({ ...t, id: String(t._id) })));
 });
+// 15 / 16 — l'article lié est choisi explicitement (ou aucun) : il doit exister.
+async function checkTipArticle(slug) {
+  if (slug && !(await Article.exists({ slug }))) throw badRequest('Article introuvable : choisis un article du magazine ou « Aucun article »');
+}
+
 router.post('/health-tips', validate(tipSchema), async (req, res) => {
+  await checkTipArticle(req.body.articleSlug);
   const t = await HealthTip.create(req.body);
   forgetTips();
   res.status(201).json({ ...t.toObject(), id: t.id });
 });
 router.patch('/health-tips/:id', validate(tipSchema.partial()), async (req, res) => {
+  await checkTipArticle(req.body.articleSlug);
   const t = await HealthTip.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true }).lean();
   if (!t) throw notFound();
   forgetTips();

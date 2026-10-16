@@ -5,9 +5,10 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { AdhanSoundSheet } from '../components/AdhanSound';
 import { CityPicker } from '../components/forms';
 import Icon from '../components/Icon';
-import { Button, Card, Field, Gap, Label, Row, Screen, Segmented, Sheet, T, Toggle, useToast } from '../components/ui';
+import { Button, Card, Field, Gap, Row, Screen, Segmented, Sheet, T, Toggle, useToast } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { countdown, longDate } from '../lib/format';
@@ -88,6 +89,7 @@ export default function PrayerTimes() {
   const [pos, setPos] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [reminders, setReminders] = useState(false);
+  const [adhanSound, setAdhanSound] = useState(false);
 
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 30000);
@@ -355,19 +357,20 @@ export default function PrayerTimes() {
 
       <Sheet visible={reminders} onClose={() => setReminders(false)} title="Mes rappels de prière">
         <Toggle label="Notification à l’heure de chaque prière" value={notifOn} onChange={(v) => patchSettings({ notifications: v }, v ? 'Rappels de prière activés' : 'Rappels de prière désactivés')} />
-        {notifOn ? (
-          <>
-            <Label>À l’heure de la prière</Label>
-            <Segmented
-              items={[
-                { key: 'notification', label: 'Notification seule' },
-                { key: 'adhan', label: 'Adhan + notification' },
-              ]}
-              value={adhanMode}
-              onChange={(k) => patchSettings({ adhan: true, adhanMode: k }, k === 'adhan' ? 'L’adhan se lancera avec la notification' : 'Notification seule à l’heure de la prière')}
-            />
-          </>
-        ) : null}
+        {/* 07 — son de l'adhan : réglage distinct, il ne réactive pas des rappels désactivés */}
+        <Pressable
+          onPress={() => {
+            setReminders(false);
+            setTimeout(() => setAdhanSound(true), 350);
+          }}
+          accessibilityRole="button"
+          style={s.soundRow}
+        >
+          <Icon name="volume" size={18} color={colors.bordeaux} />
+          <Text style={s.soundText}>Son de l’adhan</Text>
+          <Text style={s.soundState}>{adhanMode === 'adhan' ? 'Activé' : 'Désactivé'}</Text>
+          <Icon name="chevronRight" size={16} color={colors.muted} />
+        </Pressable>
         <Pressable
           onPress={() => {
             setReminders(false);
@@ -379,6 +382,7 @@ export default function PrayerTimes() {
           <T variant="medium" color={colors.bordeaux}>Voix de l’adhan, ajustements et adhkar → Profil</T>
         </Pressable>
       </Sheet>
+      <AdhanSoundSheet visible={adhanSound} onClose={() => setAdhanSound(false)} />
     </Screen>
   );
 }
@@ -404,6 +408,9 @@ const s = StyleSheet.create({
   heroName: { fontFamily: fonts.title, fontSize: 30, color: colors.white, marginTop: 6 },
   heroTime: { fontFamily: fonts.display, fontSize: 54, lineHeight: 62, color: colors.white },
   heroIn: { fontFamily: fonts.medium, fontSize: 15, color: colors.rose },
+  soundRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, borderRadius: 16, backgroundColor: colors.white, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line },
+  soundText: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.prune },
+  soundState: { fontFamily: fonts.body, fontSize: 13.5, color: colors.muted },
   heroJumua: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white, marginTop: 6 },
   heroPill: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 14, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   heroPillText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },

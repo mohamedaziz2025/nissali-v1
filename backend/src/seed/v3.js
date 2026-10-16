@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
 import { connectDb } from '../config/db.js';
 import { HEALTH_TIPS } from '../content/healthTips.js';
 import { THEME_ARTICLES } from '../content/themeArticles.js';
+import { ARTICLE_COVERS } from '../content/covers.js';
+import { env } from '../config/env.js';
 import { Article, Category, Conversation, Event, HealthTip, Message, Mosque, Practitioner, Service, Subscription, Availability, User } from '../models/index.js';
 import { bestCity } from '../services/geo.js';
 import { localTimings } from '../services/prayerService.js';
@@ -156,6 +158,19 @@ async function serviceDetails() {
   console.log(`[v3] ${n} prestations de démonstration détaillées`);
 }
 
+// 14 — photo de couverture de chaque article (sans jamais remplacer une photo choisie dans le back-office).
+async function articleCovers() {
+  let n = 0;
+  for (const c of ARTICLE_COVERS) {
+    const r = await Article.updateOne(
+      { slug: c.slug, $or: [{ coverUrl: { $exists: false } }, { coverUrl: '' }, { coverUrl: null }] },
+      { $set: { coverUrl: `${env.publicApiUrl}/covers/${c.file}`, coverAlt: c.alt, coverCredit: c.credit } },
+    );
+    n += r.modifiedCount;
+  }
+  console.log(`[v3] ${n} photos de couverture ajoutées aux articles`);
+}
+
 async function themeArticles() {
   for (const a of THEME_ARTICLES) await Article.updateOne({ slug: a.slug }, { $setOnInsert: { ...a, validation: 'a_valider', published: true, publishAt: new Date() } }, { upsert: true });
   console.log(`[v3] ${THEME_ARTICLES.length} articles thématiques liés aux conseils (à valider dans le back-office)`);
@@ -168,6 +183,7 @@ export async function seedV3() {
   await serviceDetails();
   await healthTips();
   await themeArticles();
+  await articleCovers();
   await mosques(today);
   await events(today);
   await conversation();
