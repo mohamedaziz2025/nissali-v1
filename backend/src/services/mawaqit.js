@@ -1,7 +1,8 @@
 // Synchronisation des heures de Jumu'a avec Mawaqit, pour toute mosquée choisie (API partenaire : jeton MAWAQIT_API_TOKEN obligatoire).
 // Sans jeton, rien n'est appelé : les heures saisies dans le back-office restent la référence.
-// ⚠️ Non testé contre l'API réelle (jeton partenaire indisponible au moment de l'écriture) : les noms de
-// champs lus (uuid, jumua, jumua2) suivent la documentation publique de Mawaqit et sont lus de façon tolérante.
+// Appels calés sur la bibliothèque officielle mawaqit-py 2.3.2 : en-tête Api-Access-Token, recherche par
+// position (lat, lon) ou par nom, champs jumua / jumua2 / jumuaAsDuhr. ⚠️ Mawaqit indique que son API n'est pas
+// autorisée hors de ses applications officielles : l'usage ici suppose leur accord. Non testé (pas de jeton).
 import { env } from '../config/env.js';
 import { Mosque } from '../models/index.js';
 import { forgetMosque } from './prayerSource.js';
@@ -22,7 +23,7 @@ async function api(path) {
 
 /** Trouve la mosquée Mawaqit correspondant à une mosquée Nissali (même ville, nom proche, puis la plus proche). */
 export async function findMawaqitMosque(m) {
-  const list = await api(`/mosque/search?word=${encodeURIComponent(m.name)}`);
+  const list = await api(`/2.0/mosque/search?lat=${m.lat}&lon=${m.lng}`);
   const items = Array.isArray(list) ? list : list?.data || [];
   const city = norm(m.city);
   const name = norm(m.name);
@@ -37,7 +38,7 @@ export async function syncMosqueJumua(mosque) {
   if (!mawaqitEnabled()) return { ok: false, reason: 'MAWAQIT_API_TOKEN absent' };
   const found = await findMawaqitMosque(mosque);
   if (!found) return { ok: false, reason: 'Mosquée introuvable sur Mawaqit' };
-  const jumua = hhmm(found.jumua);
+  const jumua = found.jumuaAsDuhr ? null : hhmm(found.jumua); // « Jumu'a à l'heure de Dhuhr » : pas d'heure propre
   const jumua2 = hhmm(found.jumua2);
   if (!jumua) return { ok: false, reason: 'Heure de Jumu’a non publiée sur Mawaqit' };
   await Mosque.updateOne({ _id: mosque._id }, { $set: { jumua, jumua2: jumua2 || '', mawaqitId: found.uuid || found.id || '', mawaqitSyncedAt: new Date() } });

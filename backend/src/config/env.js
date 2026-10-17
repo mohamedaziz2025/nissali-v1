@@ -46,7 +46,7 @@ export const env = {
     subject: process.env.VAPID_SUBJECT || 'mailto:nissali@gmail.com',
   },
   mawaqitToken: process.env.MAWAQIT_API_TOKEN || '',
-  mawaqitBase: process.env.MAWAQIT_BASE_URL || 'https://mawaqit.net/api/2.0',
+  mawaqitBase: process.env.MAWAQIT_BASE_URL || 'https://mawaqit.net/api',
   aladhanBase: process.env.ALADHAN_BASE_URL || 'https://api.aladhan.com/v1',
   enableJobs: process.env.ENABLE_JOBS !== 'false',
   // Cookie « secure » : uniquement servi en HTTPS. À désactiver tant que le serveur est en HTTP (IP sans certificat).
