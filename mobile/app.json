@@ -78,7 +78,11 @@
       "typedRoutes": false
     },
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "eas": {
+        "projectId": "7a2e397c-d8f2-43e3-8de6-29ddd183db14"
+      }
+    },
+    "owner": "nissali"
   }
 }
