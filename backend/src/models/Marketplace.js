@@ -48,6 +48,8 @@ const practitionerSchema = new Schema(
     timezone: { type: String, default: 'Europe/Paris' },
     minNoticeHours: { type: Number, default: 12 },
     autoConfirm: { type: Boolean, default: false },
+    // Client Stripe de la praticienne : créé à la première souscription payante, réutilisé ensuite.
+    stripeCustomerId: String,
   },
   { timestamps: true },
 );
@@ -84,11 +86,18 @@ const subscriptionSchema = new Schema(
     plan: { type: String, required: true }, // clé de formule
     billing: { type: String, enum: ['mensuel', 'annuel'], default: 'mensuel' },
     amount: { type: Number, default: 0 },
-    // Une formule payante reste « en_attente » jusqu'à la confirmation du paiement par l'équipe.
+    // Une formule payante reste « en_attente » jusqu'à la confirmation du paiement
+    // (webhook Stripe, ou l'équipe depuis le back-office si le paiement en ligne est coupé).
     status: { type: String, enum: ['en_attente', 'active', 'expiree', 'annulee'], default: 'en_attente' },
     startedAt: Date,
     endsAt: Date,
     paymentReference: String,
+    // Paiement en ligne (Stripe Checkout) : la session et l'abonnement côté Stripe.
+    // Un abonnement payant reste « en_attente » jusqu'à la confirmation du paiement (webhook).
+    stripeSessionId: String,
+    stripeSubscriptionId: { type: String, index: true },
+    stripeCustomerId: String,
+    cancelAtPeriodEnd: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

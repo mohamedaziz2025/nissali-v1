@@ -89,7 +89,7 @@ export function StatusBanner({ practitioner, pending }) {
           <T>
             « {pending.plan} » · {price(pending.amount)} {pending.billing === 'annuel' ? '/ an' : '/ mois'} · réf. {pending.paymentReference}
           </T>
-          <T variant="small">L’équipe Nissali te contacte pour le règlement, puis active ta formule.</T>
+          <T variant="small">Termine le règlement (en ligne ou avec l’équipe Nissali) pour activer ta formule.</T>
         </Card>
       ) : null}
     </View>

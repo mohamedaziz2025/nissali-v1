@@ -1,6 +1,7 @@
 // Inscription professionnelle : choix de la formule d'abonnement puis profil pro.
 // Même compte que l'espace personnel : on bascule ensuite sans se déconnecter.
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { View } from 'react-native';
 import PlanCard from '../components/PlanCard';
@@ -29,8 +30,9 @@ export default function ProRegister() {
     try {
       const r = await api.post('/pro/register', { ...form, displayName: form.displayName.trim(), plan, billing, supportsVideo: form.supportsVideo && Boolean(selectedPlan?.features?.video) });
       await setSession({ user: r.user, practitioner: r.practitioner });
-      toast(r.subscription?.status === 'active' ? 'Bienvenue dans ton espace pro !' : `Demande enregistrée (réf. ${r.subscription?.paymentReference}). L’équipe te contacte pour le règlement.`);
+      toast(r.subscription?.status === 'active' ? 'Bienvenue dans ton espace pro !' : r.checkoutUrl ? 'Termine le paiement pour activer ta formule' : `Demande enregistrée (réf. ${r.subscription?.paymentReference}). L’équipe te contacte pour le règlement.`);
       await switchSpace('pro');
+      if (r.checkoutUrl) await WebBrowser.openBrowserAsync(r.checkoutUrl);
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -64,7 +66,7 @@ export default function ProRegister() {
           {data.plans.map((p) => (
             <PlanCard key={p.key} plan={p} billing={billing} selected={plan === p.key} onPress={() => setPlan(p.key)} />
           ))}
-          <T variant="small">Les formules payantes sont activées par l’équipe Nissali après règlement. Tu peux commencer gratuitement et changer de formule à tout moment.</T>
+          <T variant="small">Les formules payantes s’activent après règlement (en ligne par carte, ou auprès de l’équipe Nissali). Tu peux commencer gratuitement et changer de formule à tout moment.</T>
         </>
       ) : (
         <View style={{ gap: 14 }}>

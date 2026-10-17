@@ -1,5 +1,6 @@
 // Profil pro : profil public, photo, formule d'abonnement, avis, disponibilités, bascule.
 import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
@@ -80,10 +81,27 @@ export default function ProProfile() {
   const choosePlan = async (key) => {
     try {
       const r = await api.post('/pro/subscription', { plan: key, billing });
-      toast(r.message);
       setPlanSheet(false);
+      if (r.checkoutUrl) {
+        toast('Termine le paiement pour activer ta formule');
+        await WebBrowser.openBrowserAsync(r.checkoutUrl);
+        me.reload();
+        refresh();
+        return;
+      }
+      toast(r.message);
       me.reload();
       refresh();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+
+  const openPortal = async () => {
+    try {
+      const r = await api.post('/pro/subscription/portal');
+      await WebBrowser.openBrowserAsync(r.url);
+      me.reload();
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -132,9 +150,10 @@ export default function ProProfile() {
         {me.data.subscription?.endsAt ? <T variant="small">Active jusqu’au {new Date(me.data.subscription.endsAt).toLocaleDateString('fr-FR')}</T> : null}
         {me.data.pendingSubscription ? (
           <T variant="small" color={colors.or}>
-            Demande « {me.data.pendingSubscription.plan} » en attente de règlement (réf. {me.data.pendingSubscription.paymentReference})
+            Demande « {me.data.pendingSubscription.plan} » en attente de règlement (réf. {me.data.pendingSubscription.paymentReference}) · {me.data.billing?.online ? 'termine le paiement en ligne' : 'l’équipe Nissali te contacte'}
           </T>
         ) : null}
+        {me.data.billing?.online && me.data.billing?.portal ? <Button title="Gérer mon moyen de paiement" variant="ghost" small onPress={openPortal} /> : null}
       </Card>
       <Gap />
 
@@ -194,7 +213,7 @@ export default function ProProfile() {
         {(plans.data?.plans || []).map((pl) => (
           <PlanCard key={pl.key} plan={pl} billing={billing} current={plans.data.current === pl.key} selected={false} onPress={() => choosePlan(pl.key)} />
         ))}
-        <T variant="small">Les formules payantes sont activées après règlement auprès de l’équipe Nissali.</T>
+        <T variant="small">{plans.data?.online ? 'Paiement sécurisé par carte : ta formule s’active après le règlement.' : 'Les formules payantes sont activées après règlement auprès de l’équipe Nissali.'}</T>
       </Sheet>
       <Sheet visible={Boolean(reply)} onClose={() => setReply(null)} title="Répondre à l’avis" footer={<Button title="Publier" onPress={sendReply} disabled={!reply?.text?.trim()} />}>
         <Field value={reply?.text || ''} onChangeText={(v) => setReply((r) => ({ ...r, text: v }))} multiline placeholder="Merci pour ton retour…" />

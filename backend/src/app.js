@@ -26,6 +26,7 @@ import practitionerRoutes from './routes/practitioners.js';
 import prayerRoutes from './routes/prayers.js';
 import pregnancyRoutes from './routes/pregnancy.js';
 import proRoutes from './routes/pro.js';
+import stripeRoutes from './routes/stripe.js';
 import todayRoutes from './routes/today.js';
 
 export function createApp() {
@@ -40,6 +41,8 @@ export function createApp() {
       credentials: true,
     }),
   );
+  // Webhook Stripe : monté avant express.json pour recevoir le corps brut (signature).
+  app.use('/api/stripe', stripeRoutes);
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use('/uploads', express.static(path.resolve(env.uploadDir), { maxAge: '7d' }));

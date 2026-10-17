@@ -13,6 +13,7 @@ import { validate } from '../middleware/validate.js';
 import { Availability, Booking, BOOKING_STATUSES, Category, ClientRecord, Conversation, Message, Plan, Practitioner, Review, Service, Subscription, TimeOff, User } from '../models/index.js';
 import { bestCity } from '../services/geo.js';
 import { activePlanFor, ACTIVE_BOOKING, assertFeature, assertServiceQuota, FREE_PLAN_KEY, getPractitionerFor, touchClientRecord } from '../services/marketplace.js';
+import { cancelAtPeriodEnd as stripeCancelAtPeriodEnd, createPortalSession, createSubscriptionCheckout, stripeEnabled } from '../services/stripe.js';
 import { sendMail } from '../services/mailer.js';
 import { notify } from '../services/notifications.js';
 import { createJitsiLink } from '../services/video.js';
@@ -50,6 +51,28 @@ async function subscribe(practitioner, planKey, billing) {
     startedAt: free ? new Date() : undefined,
     paymentReference: free ? undefined : `NIS-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
   });
+}
+
+/**
+ * Ouvre une session Stripe Checkout pour un abonnement payant et renvoie l'URL de paiement.
+ * Retourne null (paiement manuel par l'équipe) si Stripe est coupé ou si la formule est gratuite.
+ */
+async function attachCheckout(practitioner, sub, user) {
+  if (!stripeEnabled() || !sub?.amount) return null;
+  const plan = await Plan.findOne({ key: sub.plan });
+  if (!plan) return null;
+  const returnUrl = `${env.appUrl}/pro/abonnement`;
+  try {
+    const session = await createSubscriptionCheckout({ practitioner, user, plan, billing: sub.billing, subscriptionId: sub._id, returnUrl });
+    sub.stripeSessionId = session.id;
+    sub.stripeCustomerId = practitioner.stripeCustomerId;
+    await sub.save();
+    return session.url;
+  } catch (err) {
+    // Stripe indisponible : on retombe sur le règlement manuel par l'équipe (référence déjà créée).
+    console.warn('[stripe] session Checkout impossible :', err.message);
+    return null;
+  }
 }
 
 // --- Inscription ------------------------------------------------------------
@@ -96,6 +119,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   await locate(p);
   await p.save();
   const sub = await subscribe(p, b.plan, b.billing);
+  const checkoutUrl = await attachCheckout(p, sub, req.user);
   req.user.lastSpace = 'pro';
   await req.user.save();
 
@@ -103,7 +127,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   for (const a of admins) {
     if (a.email) await sendMail({ to: a.email, subject: 'Nouvelle inscription praticienne', html: `<p>${p.displayName} (${b.specialty}, ${b.city}) vient de s’inscrire avec la formule « ${b.plan} ».</p>`, text: `Nouvelle praticienne : ${p.displayName}` });
   }
-  res.status(201).json({ ...(await sessionPayload(req.user)), subscription: sub });
+  res.status(201).json({ ...(await sessionPayload(req.user)), subscription: sub, checkoutUrl });
 });
 
 // --- Profil -----------------------------------------------------------------
@@ -118,6 +142,8 @@ router.get('/me', async (req, res) => {
     subscription,
     pendingSubscription: pending,
     videoActive: Boolean(p.supportsVideo && plan?.features?.video),
+    // Paiement en ligne : activé par l'équipe, portail disponible dès qu'un client Stripe existe.
+    billing: { online: stripeEnabled(), portal: Boolean(p.stripeCustomerId) },
     counts: {
       services: await Service.countDocuments({ practitioner: p._id, active: true }),
       pending: await Booking.countDocuments({ practitioner: p._id, status: 'en_attente' }),
@@ -193,16 +219,43 @@ router.get('/plans', async (req, res) => {
   const p = await getPractitionerFor(req.user);
   const plans = await Plan.find({ active: true }).sort({ order: 1 }).lean();
   const current = p ? (await activePlanFor(p)).plan?.key : null;
-  res.json({ plans, current });
+  res.json({ plans, current, online: stripeEnabled() });
 });
 
 router.post('/subscription', validate(z.object({ plan: z.string(), billing: z.enum(['mensuel', 'annuel']).default('mensuel') })), async (req, res) => {
   const p = await loadPro(req);
   const sub = await subscribe(p, req.body.plan, req.body.billing);
+  const checkoutUrl = await attachCheckout(p, sub, req.user);
   res.status(201).json({
     subscription: sub,
-    message: sub.status === 'active' ? 'Ta formule est active.' : `Ta demande est enregistrée (référence ${sub.paymentReference}). L’équipe Nissali te contacte pour le règlement, puis active ta formule.`,
+    checkoutUrl,
+    message:
+      sub.status === 'active'
+        ? 'Ta formule est active.'
+        : checkoutUrl
+          ? `Termine le règlement en ligne (référence ${sub.paymentReference}) pour activer ta formule « ${sub.plan} ».`
+          : `Ta demande est enregistrée (référence ${sub.paymentReference}). L’équipe Nissali te contacte pour le règlement, puis active ta formule.`,
   });
+});
+
+/** Portail de paiement Stripe : gérer moyen de paiement et résiliation. */
+router.post('/subscription/portal', async (req, res) => {
+  const p = await loadPro(req);
+  if (!stripeEnabled() || !p.stripeCustomerId) throw badRequest('La gestion en ligne de l’abonnement n’est pas disponible');
+  const returnUrl = `${env.appUrl}/pro/abonnement`;
+  const session = await createPortalSession(p.stripeCustomerId, returnUrl);
+  res.json({ url: session.url });
+});
+
+/** Résiliation à la fin de la période en cours : la formule reste active jusque-là. */
+router.post('/subscription/cancel', async (req, res) => {
+  const p = await loadPro(req);
+  const sub = await Subscription.findOne({ practitioner: p._id, status: 'active', stripeSubscriptionId: { $ne: null } }).sort({ createdAt: -1 });
+  if (!sub?.stripeSubscriptionId) throw badRequest('Aucun abonnement en ligne à résilier');
+  await stripeCancelAtPeriodEnd(sub.stripeSubscriptionId);
+  sub.cancelAtPeriodEnd = true;
+  await sub.save();
+  res.json({ subscription: sub, message: `Ta formule reste active jusqu’au ${sub.endsAt ? sub.endsAt.toISOString().slice(0, 10) : 'terme de la période'}, puis repassera en formule gratuite.` });
 });
 
 // --- Prestations ------------------------------------------------------------

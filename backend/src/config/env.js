@@ -45,6 +45,13 @@ export const env = {
     privateKey: process.env.VAPID_PRIVATE_KEY,
     subject: process.env.VAPID_SUBJECT || 'mailto:nissali@gmail.com',
   },
+  // Paiement des abonnements praticiennes (Stripe Checkout). Vide = paiement en ligne coupé :
+  // l'équipe confirme alors les règlements manuellement depuis le back-office (comme avant).
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    currency: process.env.STRIPE_CURRENCY || 'eur',
+  },
   mawaqitToken: process.env.MAWAQIT_API_TOKEN || '',
   mawaqitBase: process.env.MAWAQIT_BASE_URL || 'https://mawaqit.net/api',
   aladhanBase: process.env.ALADHAN_BASE_URL || 'https://api.aladhan.com/v1',

@@ -18,6 +18,11 @@ export default function Subscription() {
   const choose = async (key) => {
     try {
       const r = await api.post('/pro/subscription', { plan: key, billing });
+      if (r.checkoutUrl) {
+        toast('Redirection vers le paiement sécurisé…');
+        window.location.href = r.checkoutUrl;
+        return;
+      }
       toast(r.message);
       reload();
       me.reload();
@@ -26,6 +31,25 @@ export default function Subscription() {
       toast(e.message, 'error');
     }
   };
+  const openPortal = async () => {
+    try {
+      const r = await api.post('/pro/subscription/portal');
+      window.location.href = r.url;
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const cancelSub = async () => {
+    try {
+      const r = await api.post('/pro/subscription/cancel');
+      toast(r.message);
+      me.reload();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const online = Boolean(data.online);
+  const portal = Boolean(me.data.billing?.portal);
   const sub = me.data.subscription;
   const pending = me.data.pendingSubscription;
   return (
@@ -45,7 +69,15 @@ export default function Subscription() {
       </div>
       {pending ? (
         <div className="card dashed">
-          <Badge status="en_attente" map={SUB_STATUS} /> Demande « {pending.plan} » · {euros(pending.amount)} · référence <strong>{pending.paymentReference}</strong>. L’équipe Nissali te contacte pour le règlement.
+          <Badge status="en_attente" map={SUB_STATUS} /> Demande « {pending.plan} » · {euros(pending.amount)} · référence <strong>{pending.paymentReference}</strong>.{' '}
+          {online ? 'Termine le règlement en ligne pour activer ta formule.' : 'L’équipe Nissali te contacte pour le règlement.'}
+        </div>
+      ) : null}
+      {online && sub ? (
+        <div className="card dashed" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {sub.cancelAtPeriodEnd ? <span>Résiliation programmée : ta formule reste active jusqu’au {sub.endsAt ? new Date(sub.endsAt).toLocaleDateString('fr-FR') : 'terme de la période'}.</span> : null}
+          {portal ? <button className="btn outline" onClick={openPortal}>Gérer mon moyen de paiement</button> : null}
+          {sub.stripeSubscriptionId && !sub.cancelAtPeriodEnd ? <button className="btn ghost" onClick={cancelSub}>Résilier à la fin de la période</button> : null}
         </div>
       ) : null}
       <div className="grid grid-3">
@@ -70,7 +102,11 @@ export default function Subscription() {
           );
         })}
       </div>
-      <p className="muted small">Les formules payantes sont activées par l’équipe après règlement (virement ou lien de paiement envoyé par e-mail). Tout reste gratuit pour les utilisatrices.</p>
+      <p className="muted small">
+        {online
+          ? 'Paiement sécurisé par carte (Stripe). Ta formule s’active automatiquement après le règlement et se renouvelle jusqu’à résiliation. Tout reste gratuit pour les utilisatrices.'
+          : 'Les formules payantes sont activées par l’équipe après règlement (virement ou lien de paiement envoyé par e-mail). Tout reste gratuit pour les utilisatrices.'}
+      </p>
     </div>
   );
 }

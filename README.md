@@ -164,14 +164,31 @@ docker compose up -d --build web expo
 Mise à jour : envoyer le code (rsync sans `node_modules`, `.env`, `.data`), puis `docker compose build <service>` et `docker compose up -d --no-deps <service>`.
 Le premier bundle Expo prend environ 4 minutes sur 2 vCPU ; il est ensuite en cache.
 
+### Paiement des abonnements praticiennes (Stripe)
+
+Le règlement en ligne est facultatif : sans clés Stripe, l’équipe confirme les paiements depuis le
+back-office (`/admin/abonnements`), comme avant. Pour l’activer, renseigner dans `deploy/.env` :
+
+```bash
+STRIPE_SECRET_KEY=sk_live_…          # ou sk_test_… pour les essais
+STRIPE_WEBHOOK_SECRET=whsec_…        # « Ajouter un endpoint », événements checkout.session.completed,
+                                     # customer.subscription.updated/deleted, invoice.payment_failed
+STRIPE_CURRENCY=eur
+```
+
+Le webhook pointe vers `http://<IP>:8101/api/stripe/webhook` (domaine en HTTPS recommandé en production :
+Stripe n’accepte pas un endpoint HTTP avec IP). La formule s’active automatiquement après le paiement ;
+les prix restent gérés dans le back-office (formules).
+
 ## Tests
 
 ```bash
 npm test
 ```
 
-Les 20 tests reprennent les exemples chiffrés de la partie 6 (moyenne pondérée, prédictions, ovulation,
-cycles irréguliers, grossesse, Ramadan, plan de rattrapage, purification, qibla, calendrier hégirien).
+Les tests reprennent les exemples chiffrés de la partie 6 (moyenne pondérée, prédictions, ovulation,
+cycles irréguliers, grossesse, Ramadan, plan de rattrapage, purification, qibla, calendrier hégirien)
+et la vérification de signature des webhooks Stripe.
 
 ## Points à trancher
 
@@ -180,7 +197,8 @@ cycles irréguliers, grossesse, Ramadan, plan de rattrapage, purification, qibla
    (ovulatoire J12–J15) la placent à J14. L’app applique la règle 6.4. Pour obtenir les bornes de 6.5, passer la
    « phase lutéale » à 15 jours dans le back-office (l’exemple daté donnerait alors le 27 octobre).
 2. **Connexion Apple / Google (RG-01, RG-02)** : remplacée par l’OTP e-mail ou SMS comme demandé.
-3. **Paiement des formules praticiennes** : référence de paiement + activation manuelle par l’équipe ; Stripe peut être branché ensuite.
+3. **Paiement des formules praticiennes** : Stripe Checkout (abonnement récurrent) activé dès que les clés sont renseignées,
+   avec repli sur référence de paiement + activation manuelle par l’équipe quand il est coupé.
 4. **Méthode de prière** : Ligue islamique mondiale (18° / 17°) et règle du septième de la nuit par défaut, modifiables dans le back-office.
    Vérification (octobre 2026) : Fajr, lever, Dhuhr, Maghrib et Isha d’Aladhan concordent à la minute avec le calcul
    astronomique ; l’Asr d’Aladhan arrive 2 à 5 min plus tard en automne (Paris 16 h 30 contre 16 h 28 calculé par la
