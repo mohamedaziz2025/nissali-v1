@@ -22,6 +22,7 @@ export function presentEvent(e, { from, registration, mine } = {}) {
     location: e.location,
     distanceKm: from?.lat != null && e.location?.lat != null ? Math.round(distanceKm(from, e.location) * 10) / 10 : null,
     imageUrl: e.imageUrl || null,
+    photos: (e.photos || []).filter(Boolean),
     capacity: e.capacity,
     placesLeft: Math.max(0, e.capacity - (e.registrationsCount || 0)),
     price: e.price || 0,

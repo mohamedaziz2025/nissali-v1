@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { DateField, TimeField } from '../../components/forms';
+import { PhotoEditor } from '../../components/EventPhotos';
 import Icon from '../../components/Icon';
 import { Button, Card, Field, Gap, Label, Loader, Row, Screen, Segmented, Stepper, T, useToast } from '../../components/ui';
 import { api, assetUrl, uploadImage } from '../../lib/api';
@@ -18,14 +19,14 @@ export default function ProposeEvent() {
   const toast = useToast();
   const [loading, setLoading] = useState(Boolean(id));
   const [busy, setBusy] = useState(false);
-  const [f, setF] = useState({ title: '', description: '', programme: '', day: addDays(toDay(new Date()), 14), time: '14:00', endTime: '', name: '', address: '', city: '', capacity: 20, paid: false, price: '10', ticketUrl: '', imageUrl: null });
+  const [f, setF] = useState({ title: '', description: '', programme: '', day: addDays(toDay(new Date()), 14), time: '14:00', endTime: '', name: '', address: '', city: '', capacity: 20, paid: false, price: '10', ticketUrl: '', imageUrl: null, photos: [] });
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
 
   useEffect(() => {
     if (!id) return;
     api
       .get(`/events/${id}`)
-      .then((e) => setF({ title: e.title, description: e.description, programme: e.programme || '', day: e.day, time: e.time, endTime: e.endTime || '', name: e.location?.name || '', address: e.location?.address || '', city: e.location?.city || '', capacity: e.capacity, paid: !e.free, price: String(e.price || 10), ticketUrl: e.ticketUrl || '', imageUrl: e.imageUrl }))
+      .then((e) => setF({ title: e.title, description: e.description, programme: e.programme || '', day: e.day, time: e.time, endTime: e.endTime || '', name: e.location?.name || '', address: e.location?.address || '', city: e.location?.city || '', capacity: e.capacity, paid: !e.free, price: String(e.price || 10), ticketUrl: e.ticketUrl || '', imageUrl: e.imageUrl, photos: e.photos || [] }))
       .catch((err) => toast(err.message, 'error'))
       .finally(() => setLoading(false));
   }, [id, toast]);
@@ -63,6 +64,7 @@ export default function ProposeEvent() {
         price: f.paid ? price : 0,
         ...(f.paid ? { ticketUrl } : {}),
         ...(f.imageUrl ? { imageUrl: f.imageUrl } : {}),
+        photos: f.photos,
       };
       const e = id ? await api.patch(`/events/${id}`, body) : await api.post('/events', body);
       toast('Merci ! Notre équipe vérifie ton événement avant publication.');
@@ -89,6 +91,8 @@ export default function ProposeEvent() {
           </View>
         ) : null}
       </Pressable>
+      <Gap />
+      <PhotoEditor photos={f.photos} onChange={set('photos')} />
       <Gap />
       <Field label="Titre" value={f.title} onChangeText={set('title')} placeholder="Ex. Brunch entre sœurs" />
       <Gap h={12} />

@@ -17,7 +17,7 @@ const STATUS = {
 };
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 const PAY = { gratuit: 'Gratuit', a_regler: 'À régler', paye: 'Payé', rembourse: 'Remboursé' };
-const emptyForm = { title: '', description: '', programme: '', day: '', time: '14:00', endTime: '', name: '', address: '', city: '', capacity: 30, price: 0, ticketUrl: '', imageUrl: '' };
+const emptyForm = { title: '', description: '', programme: '', day: '', time: '14:00', endTime: '', name: '', address: '', city: '', capacity: 30, price: 0, ticketUrl: '', imageUrl: '', photos: [] };
 
 function EventForm({ initial, onSaved, onClose }) {
   const toast = useToast();
@@ -35,11 +35,25 @@ function EventForm({ initial, onSaved, onClose }) {
       toast(err.message, 'error');
     }
   };
+  const addPhotos = async (files) => {
+    const list = [...(files || [])].slice(0, 12 - (f.photos || []).length);
+    const urls = [];
+    for (const file of list) {
+      const fd = new FormData();
+      fd.append('image', file);
+      try {
+        urls.push((await api.upload('/admin/upload-image', fd)).url);
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
+    setF((x) => ({ ...x, photos: [...(x.photos || []), ...urls] }));
+  };
   const save = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const body = { title: f.title, description: f.description, programme: f.programme, day: f.day, time: f.time, endTime: f.endTime || '', location: { name: f.name, address: f.address, city: f.city }, capacity: Number(f.capacity), price: Number(f.price) || 0, ticketUrl: Number(f.price) ? f.ticketUrl.trim() : '', imageUrl: f.imageUrl || '' };
+      const body = { title: f.title, description: f.description, programme: f.programme, day: f.day, time: f.time, endTime: f.endTime || '', location: { name: f.name, address: f.address, city: f.city }, capacity: Number(f.capacity), price: Number(f.price) || 0, ticketUrl: Number(f.price) ? f.ticketUrl.trim() : '', imageUrl: f.imageUrl || '', photos: f.photos || [] };
       if (f.id) await api.put(`/admin/events/${f.id}`, body);
       else await api.post('/admin/events', body);
       toast(f.id ? 'Événement mis à jour' : 'Événement Nissali publié');
@@ -78,6 +92,19 @@ function EventForm({ initial, onSaved, onClose }) {
         </Field>
       ) : null}
       {f.imageUrl ? <img src={f.imageUrl} alt="" style={{ width: 220, borderRadius: 12 }} /> : null}
+      <Field label={`Photos de l’événement (${(f.photos || []).length}/12)`} hint="Affichées en grille dans l’appli, avec visionneuse plein écran.">
+        <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }} />
+      </Field>
+      {(f.photos || []).length ? (
+        <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+          {f.photos.map((u, i) => (
+            <div key={u + i} style={{ position: 'relative' }}>
+              <img src={u} alt="" style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+              <button type="button" className="btn sm danger" style={{ position: 'absolute', top: 4, right: 4, padding: '0 6px' }} aria-label="Retirer la photo" onClick={() => setF((x) => ({ ...x, photos: x.photos.filter((_, j) => j !== i) }))}>✕</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="btn ghost" onClick={onClose}>Annuler</button>
         <button className="btn" disabled={busy}>{f.id ? 'Enregistrer' : 'Publier l’événement'}</button>
@@ -212,7 +239,7 @@ export default function AdminEvents() {
                   <div className="row" style={{ gap: 6 }}>
                     <button className="btn sm ghost" onClick={() => openRegs(e)}>Inscriptions</button>
                     {e.organizerType === 'nissali' ? (
-                      <button className="btn sm ghost" onClick={() => setCreating({ id: e.id, title: e.title, description: e.description, programme: e.programme || '', day: e.day, time: e.time, endTime: e.endTime || '', name: e.location?.name || '', address: e.location?.address || '', city: e.location?.city || '', capacity: e.capacity, price: e.price, ticketUrl: e.ticketUrl || '', imageUrl: e.imageUrl || '' })}>
+                      <button className="btn sm ghost" onClick={() => setCreating({ id: e.id, title: e.title, description: e.description, programme: e.programme || '', day: e.day, time: e.time, endTime: e.endTime || '', name: e.location?.name || '', address: e.location?.address || '', city: e.location?.city || '', capacity: e.capacity, price: e.price, ticketUrl: e.ticketUrl || '', imageUrl: e.imageUrl || '', photos: e.photos || [] })}>
                         Modifier
                       </button>
                     ) : null}

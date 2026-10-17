@@ -68,6 +68,7 @@ const eventSchema = z.object({
   endTime: z.string().refine(isTime).optional(),
   location: z.object({ name: z.string().max(120).optional().default(''), address: z.string().max(200).optional().default(''), city: z.string().trim().min(1, 'Indique la ville').max(80), online: z.boolean().optional().default(false) }),
   imageUrl: z.string().url().max(500).optional(),
+  photos: z.array(z.string().max(500).refine((u) => /^https?:\/\/\S+$/.test(u) || u.startsWith('/uploads/'), 'Adresse de photo invalide')).max(12, '12 photos au maximum').optional(),
   capacity: z.number().int().min(1).max(5000),
   price: z.number().min(0).max(1000).default(0),
   // 17 / 18 — billetterie externe sécurisée (Billetweb, HelloAsso…) : lien HTTPS obligatoire.
@@ -88,6 +89,7 @@ async function buildEvent(b, tz) {
     timezone: tz,
     location: { ...b.location, region: place?.admin || '', lat: place?.lat, lng: place?.lng },
     imageUrl: b.imageUrl,
+    photos: b.photos || [],
     capacity: b.capacity,
     price: Math.round(b.price * 100) / 100,
     ticketUrl: b.price ? b.ticketUrl : undefined,

@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Alert, Image, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PhotoGrid } from '../../components/EventPhotos';
 import Icon from '../../components/Icon';
 import { Button, Card, ErrorState, Gap, Label, Loader, Row, Screen, T, useToast } from '../../components/ui';
 import { api, assetUrl } from '../../lib/api';
@@ -150,6 +151,8 @@ export default function EventScreen() {
         </View>
       ) : null}
       <Gap />
+      <PhotoGrid photos={e.photos} title={e.title} />
+      {e.photos?.length ? <Gap /> : null}
       <Label>Description</Label>
       <T style={{ marginTop: 6 }}>{e.description}</T>
       {e.programme ? (

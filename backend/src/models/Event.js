@@ -21,6 +21,7 @@ const eventSchema = new Schema(
       online: { type: Boolean, default: false },
     },
     imageUrl: String,
+    photos: { type: [String], default: [] }, // galerie : photos de l'événement (affichées en grille)
     capacity: { type: Number, default: 30, min: 1, max: 5000 },
     price: { type: Number, default: 0, min: 0 }, // en euros ; 0 = gratuit
     // Événement payant : billets vendus sur la billetterie en ligne de l'organisatrice (HelloAsso, Weezevent…).
