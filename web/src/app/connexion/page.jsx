@@ -1,5 +1,5 @@
 'use client';
-// Connexion : praticienne (code OTP par e-mail ou SMS, ou mot de passe) ou équipe Nissali (mot de passe + code).
+// Connexion : praticienne (code OTP par e-mail, ou mot de passe) ou équipe Nissali (mot de passe + code).
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -92,7 +92,6 @@ export default function Login() {
   }, [wait]);
 
   const usesPassword = mode === 'admin' || method === 'password';
-  const isPhone = mode === 'pro' && /^[+\d][\d\s.-]*$/.test(identifier.trim()) && identifier.trim().length > 2;
 
   const switchMode = (m) => {
     setMode(m);
@@ -146,7 +145,7 @@ export default function Login() {
         <h1>{sent ? 'Vérifie ton code' : 'Connexion'}</h1>
         <p className="muted">
           {sent
-            ? `Nous avons envoyé un code à 6 chiffres ${sent.channel === 'sms' ? 'par SMS' : 'par e-mail'} à ${sent.target}.`
+            ? `Nous avons envoyé un code à 6 chiffres par e-mail à ${sent.target}.`
             : mode === 'admin'
               ? 'Accès réservé à l’équipe Nissali, avec double authentification.'
               : 'Heureuse de te revoir. Gère tes rendez-vous, tes clientes et ton profil.'}
@@ -170,7 +169,7 @@ export default function Login() {
             {mode === 'pro' ? (
               <div className="method-grid" role="radiogroup" aria-label="Méthode de connexion">
                 {[
-                  { key: 'code', icon: 'mail', title: 'Code unique', text: 'E-mail ou SMS' },
+                  { key: 'code', icon: 'mail', title: 'Code unique', text: 'Reçu par e-mail' },
                   { key: 'password', icon: 'lock', title: 'Mot de passe', text: 'Si tu en as un' },
                 ].map((m) => (
                   <button key={m.key} type="button" role="radio" aria-checked={method === m.key} className={`method ${method === m.key ? 'on' : ''}`} onClick={() => { setMethod(m.key); setError(null); }}>
@@ -187,15 +186,16 @@ export default function Login() {
             ) : null}
 
             <label className="field">
-              <span>{mode === 'admin' ? 'E-mail professionnel' : 'E-mail ou téléphone'}</span>
-              <InputIcon icon={isPhone ? 'phone' : 'mail'}>
+              <span>{mode === 'admin' ? 'E-mail professionnel' : 'E-mail'}</span>
+              <InputIcon icon="mail">
                 <input
                   className="input lg"
+                  type="email"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
-                  inputMode={isPhone ? 'tel' : 'email'}
-                  placeholder={mode === 'admin' ? 'prenom@nissali.app' : 'toi@exemple.com ou 06 12 34 56 78'}
+                  inputMode="email"
+                  placeholder={mode === 'admin' ? 'prenom@nissali.app' : 'toi@exemple.com'}
                   required
                   autoFocus
                 />
