@@ -13,6 +13,9 @@ export default function Subscription() {
   const me = useFetch('/pro/me');
   const { data, error, loading, reload } = useFetch('/pro/plans');
   const [billing, setBilling] = useState('mensuel');
+  // Retour de Stripe Checkout (success_url / cancel_url) : on affiche le résultat du paiement.
+  // Lu avant les retours anticipés, sinon le nombre de hooks change entre les rendus (React #310).
+  const paiement = useSearchParams().get('paiement');
   if ((loading && !data) || (me.loading && !me.data)) return <Loading />;
   if (error) return <ErrorBox error={error} />;
 
@@ -53,8 +56,6 @@ export default function Subscription() {
   const portal = Boolean(me.data.billing?.portal);
   const sub = me.data.subscription;
   const pending = me.data.pendingSubscription;
-  // Retour de Stripe Checkout (success_url / cancel_url) : on affiche le résultat du paiement.
-  const paiement = useSearchParams().get('paiement');
   return (
     <div className="stack" style={{ gap: 20 }}>
       {paiement === 'ok' ? (
