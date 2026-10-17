@@ -1,4 +1,4 @@
-// Synchronisation des heures de Jumu'a avec Mawaqit (API partenaire : jeton MAWAQIT_API_TOKEN obligatoire).
+// Synchronisation des heures de Jumu'a avec Mawaqit, pour toute mosquée choisie (API partenaire : jeton MAWAQIT_API_TOKEN obligatoire).
 // Sans jeton, rien n'est appelé : les heures saisies dans le back-office restent la référence.
 // ⚠️ Non testé contre l'API réelle (jeton partenaire indisponible au moment de l'écriture) : les noms de
 // champs lus (uuid, jumua, jumua2) suivent la documentation publique de Mawaqit et sont lus de façon tolérante.
@@ -45,11 +45,28 @@ export async function syncMosqueJumua(mosque) {
   return { ok: true, jumua, jumua2 };
 }
 
+const tried = new Map(); // mosquée → dernier essai (évite de rappeler Mawaqit à chaque affichage)
+const FRESH_MS = 24 * 3600_000;
+const RETRY_MS = 6 * 3600_000;
+
+/** Rafraîchit en arrière-plan la Jumu'a d'une mosquée (partenaire ou non) choisie par une utilisatrice. */
+export function refreshJumuaInBackground(mosque) {
+  if (!mawaqitEnabled() || !mosque?._id) return;
+  const id = String(mosque._id);
+  const fresh = mosque.mawaqitSyncedAt && Date.now() - new Date(mosque.mawaqitSyncedAt).getTime() < FRESH_MS;
+  if (fresh || Date.now() - (tried.get(id) || 0) < RETRY_MS) return;
+  tried.set(id, Date.now());
+  syncMosqueJumua(mosque).catch((e) => console.error('[mawaqit]', mosque.name, e.message));
+}
+
 export async function syncAllJumua() {
   if (!mawaqitEnabled()) return { synced: 0, failed: 0 };
   let synced = 0;
   let failed = 0;
-  for (const m of await Mosque.find({ partner: true, active: true }).lean()) {
+  // Toutes les mosquées choisies par des utilisatrices (OpenStreetMap comprises), pas seulement les partenaires.
+  const { User } = await import('../models/index.js');
+  const ids = await User.distinct('prayerSource.mosque', { 'prayerSource.mode': 'mosquee' });
+  for (const m of await Mosque.find({ _id: { $in: ids.filter(Boolean) } }).lean()) {
     try {
       (await syncMosqueJumua(m)).ok ? (synced += 1) : (failed += 1);
     } catch (e) {

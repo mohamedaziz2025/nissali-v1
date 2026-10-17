@@ -4,6 +4,7 @@ import { Mosque } from '../models/index.js';
 import { addDays, eachDay, timeToMinutes, zonedToDate } from '../utils/dates.js';
 import { getTimings, getTimingsRange, prayerOptionsFor } from './prayerService.js';
 import { isFriday } from './dhikr.js';
+import { refreshJumuaInBackground } from './mawaqit.js';
 
 const mosqueCache = new Map();
 
@@ -13,6 +14,7 @@ export async function mosqueOf(user) {
   const hit = mosqueCache.get(id);
   if (hit && Date.now() - hit.at < 60_000) return hit.doc;
   const doc = await Mosque.findById(id).lean();
+  refreshJumuaInBackground(doc); // Mawaqit : heures de Jumu'a à jour pour la mosquée choisie
   mosqueCache.set(id, { at: Date.now(), doc });
   return doc;
 }

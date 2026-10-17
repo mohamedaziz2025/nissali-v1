@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { CATEGORY_GROUPS } from '../content/categories.js';
 import { requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { syncMosqueJumua } from '../services/mawaqit.js';
 import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Practitioner, PushSubscription, User } from '../models/index.js';
 import { COMMISSION_RATE, presentEvent } from '../services/events.js';
 import { bestCity } from '../services/geo.js';
@@ -241,15 +240,6 @@ router.post('/mosques', validate(mosqueSchema), async (req, res) => {
   const m = await Mosque.create({ ...(await mosqueFields(req.body)), partner: true });
   await audit(req, 'mosquee_ajoutee', m._id);
   res.status(201).json({ ...m.toObject(), id: m.id });
-});
-
-// Synchronise la Jumu'a de cette mosquée depuis Mawaqit (jeton partenaire requis).
-router.post('/mosques/:id/mawaqit-sync', async (req, res) => {
-  const m = await Mosque.findById(req.params.id).lean();
-  if (!m) throw notFound();
-  const r = await syncMosqueJumua(m).catch((e) => ({ ok: false, reason: e.message }));
-  if (!r.ok) throw badRequest(r.reason);
-  res.json(r);
 });
 
 router.patch('/mosques/:id', validate(mosqueSchema.partial()), async (req, res) => {
