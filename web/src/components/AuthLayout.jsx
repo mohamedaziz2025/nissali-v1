@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import Icon, { Logo } from './Icons';
 
 const POINTS = [
@@ -45,6 +46,11 @@ export default function AuthLayout({ children, wide = false }) {
             Nissali
           </div>
           {wide ? children : <div className="auth-panel">{children}</div>}
+          <nav className="auth-links" aria-label="Liens utiles">
+            <Link href="/support">Support</Link>
+            <Link href="/privacy">Confidentialité</Link>
+            <Link href="/marketing">Devenir praticienne</Link>
+          </nav>
         </div>
       </section>
     </div>
