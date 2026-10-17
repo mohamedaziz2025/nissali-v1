@@ -111,6 +111,19 @@ export function mapStripeStatus(status) {
 }
 
 /**
+ * Abonnement Stripe d'une facture, quelle que soit la version d'API du compte :
+ * `invoice.subscription` (avant 2025-03-31) ou `invoice.parent.subscription_details.subscription`.
+ */
+export function subscriptionIdOf(invoice) {
+  const ref = invoice?.subscription || invoice?.parent?.subscription_details?.subscription;
+  if (!ref) return null;
+  return (typeof ref === 'string' ? ref : ref.id) || null;
+}
+
+/** Un abonnement résilié ou remplacé chez nous ne doit pas être réactivé par un webhook en retard. */
+export const canActivate = (localStatus) => localStatus !== 'annulee';
+
+/**
  * Vérifie la signature d'un webhook Stripe (en-tête `Stripe-Signature`) contre le corps brut.
  * Payload signé = `${timestamp}.${rawBody}`, HMAC SHA-256 avec le secret du webhook.
  * Rejette aussi un horodatage trop éloigné (rejeu).

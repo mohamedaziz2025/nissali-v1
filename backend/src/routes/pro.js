@@ -12,7 +12,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { Availability, Booking, BOOKING_STATUSES, Category, ClientRecord, Conversation, Message, Plan, Practitioner, Review, Service, Subscription, TimeOff, User } from '../models/index.js';
 import { bestCity } from '../services/geo.js';
-import { activePlanFor, ACTIVE_BOOKING, assertFeature, assertServiceQuota, FREE_PLAN_KEY, getPractitionerFor, touchClientRecord } from '../services/marketplace.js';
+import { activePlanFor, ACTIVE_BOOKING, assertFeature, assertServiceQuota, endOtherOnlineSubscriptions, FREE_PLAN_KEY, getPractitionerFor, touchClientRecord } from '../services/marketplace.js';
 import { cancelAtPeriodEnd as stripeCancelAtPeriodEnd, createPortalSession, createSubscriptionCheckout, stripeEnabled } from '../services/stripe.js';
 import { sendMail } from '../services/mailer.js';
 import { notify } from '../services/notifications.js';
@@ -40,6 +40,11 @@ async function subscribe(practitioner, planKey, billing) {
   if (!plan) throw badRequest('Formule introuvable');
   const amount = billing === 'annuel' ? plan.priceYearly : plan.priceMonthly;
   const free = amount === 0;
+  // Formule déjà active : on ne crée pas un second abonnement (Stripe facturerait deux fois).
+  const current = await Subscription.findOne({ practitioner: practitioner._id, plan: plan.key, billing, status: 'active' });
+  if (current) return current;
+  // Retour à la formule gratuite : l'abonnement en ligne précédent cesse de facturer.
+  if (free) await endOtherOnlineSubscriptions(practitioner._id);
   await Subscription.updateMany({ practitioner: practitioner._id, status: 'en_attente' }, { $set: { status: 'annulee' } });
   if (free) await Subscription.updateMany({ practitioner: practitioner._id, status: 'active' }, { $set: { status: 'annulee' } });
   return Subscription.create({
@@ -58,7 +63,8 @@ async function subscribe(practitioner, planKey, billing) {
  * Retourne null (paiement manuel par l'équipe) si Stripe est coupé ou si la formule est gratuite.
  */
 async function attachCheckout(practitioner, sub, user) {
-  if (!stripeEnabled() || !sub?.amount) return null;
+  // Formule déjà active : il n'y a rien à acheter (sinon double facturation).
+  if (!stripeEnabled() || !sub?.amount || sub.status === 'active') return null;
   const plan = await Plan.findOne({ key: sub.plan });
   if (!plan) return null;
   const returnUrl = `${env.appUrl}/pro/abonnement`;

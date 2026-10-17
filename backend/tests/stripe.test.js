@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
-import { mapStripeStatus, stripeForm, verifyStripeSignature } from '../src/services/stripe.js';
+import { canActivate, mapStripeStatus, stripeForm, subscriptionIdOf, verifyStripeSignature } from '../src/services/stripe.js';
 
 test('stripeForm — notation x-www-form-urlencoded imbriquée de Stripe', () => {
   const body = stripeForm({
@@ -47,4 +47,23 @@ test('mapStripeStatus — statuts Stripe vers statuts locaux', () => {
   assert.equal(mapStripeStatus('canceled'), 'annulee');
   assert.equal(mapStripeStatus('past_due'), 'en_attente');
   assert.equal(mapStripeStatus('unpaid'), 'en_attente');
+});
+
+test('subscriptionIdOf — abonnement d’une facture selon la version d’API du compte', () => {
+  // Avant 2025-03-31.
+  assert.equal(subscriptionIdOf({ subscription: 'sub_ancien' }), 'sub_ancien');
+  // 2025-03-31.basil et après : l'abonnement vit sous parent.subscription_details.
+  assert.equal(subscriptionIdOf({ parent: { subscription_details: { subscription: 'sub_basil' } } }), 'sub_basil');
+  // Objet développé (expand) plutôt qu'un identifiant.
+  assert.equal(subscriptionIdOf({ parent: { subscription_details: { subscription: { id: 'sub_objet' } } } }), 'sub_objet');
+  // Rien d'exploitable (facture manuelle, événement inattendu).
+  assert.equal(subscriptionIdOf({}), null);
+  assert.equal(subscriptionIdOf(null), null);
+});
+
+test('canActivate — un abonnement remplacé ou résilié ne reprend pas la main', () => {
+  assert.equal(canActivate('active'), true);
+  assert.equal(canActivate('en_attente'), true);
+  assert.equal(canActivate('expiree'), true);
+  assert.equal(canActivate('annulee'), false);
 });

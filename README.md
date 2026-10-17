@@ -172,6 +172,7 @@ back-office (`/admin/abonnements`), comme avant. Pour l’activer, renseigner da
 ```bash
 STRIPE_SECRET_KEY=sk_live_…          # ou sk_test_… pour les essais
 STRIPE_WEBHOOK_SECRET=whsec_…        # « Ajouter un endpoint », événements checkout.session.completed,
+                                     # checkout.session.async_payment_succeeded/failed (paiements différés),
                                      # invoice.paid (renouvellements), customer.subscription.updated/deleted,
                                      # invoice.payment_failed
 STRIPE_CURRENCY=eur
@@ -179,6 +180,8 @@ STRIPE_CURRENCY=eur
 
 Le webhook pointe vers `https://api.nissali.fr/api/stripe/webhook` (Stripe n’accepte pas un endpoint HTTP avec IP).
 La formule s’active automatiquement après le paiement ; les prix restent gérés dans le back-office (formules).
+Une seule formule payante à la fois : changer de formule résilie l’abonnement Stripe précédent à la fin de la
+période en cours (le temps déjà payé est conservé, rien n’est facturé deux fois).
 
 ## Tests
 

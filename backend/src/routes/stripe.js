@@ -3,8 +3,9 @@
 // Reçoit le paiement, bascule l'abonnement local en « active » et notifie la praticienne.
 import express, { Router } from 'express';
 import { Practitioner, Subscription } from '../models/index.js';
+import { endOtherOnlineSubscriptions } from '../services/marketplace.js';
 import { notify } from '../services/notifications.js';
-import { mapStripeStatus, retrieveSubscription, stripeEnabled, verifyStripeSignature } from '../services/stripe.js';
+import { canActivate, mapStripeStatus, retrieveSubscription, stripeEnabled, subscriptionIdOf, verifyStripeSignature } from '../services/stripe.js';
 
 const router = Router();
 
@@ -34,29 +35,29 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 async function handle(event) {
   const object = event.data?.object || {};
   switch (event.type) {
-    case 'checkout.session.completed': {
+    case 'checkout.session.completed':
+    case 'checkout.session.async_payment_succeeded': {
+      // Moyen de paiement différé (prélèvement, virement) : la session se termine avant
+      // l'encaissement, la confirmation arrive par l'événement async_payment_succeeded.
+      if (event.type === 'checkout.session.completed' && object.payment_status === 'unpaid') return;
+      await activateFromSession(object);
+      return;
+    }
+    case 'checkout.session.async_payment_failed': {
       const sub = await findBySession(object);
-      if (!sub) return;
-      sub.stripeSessionId = object.id;
-      sub.stripeSubscriptionId = object.subscription || sub.stripeSubscriptionId;
-      sub.stripeCustomerId = object.customer || sub.stripeCustomerId;
-      sub.paymentReference = object.payment_intent || sub.paymentReference;
-      let stripeSub = null;
-      try {
-        stripeSub = object.subscription ? await retrieveSubscription(object.subscription) : null;
-      } catch (err) {
-        console.warn('[stripe:webhook] abonnement non récupéré :', err.message);
-      }
-      await activate(sub, stripeSub);
+      if (!sub || sub.status !== 'en_attente') return;
+      await notifyPractitioner(sub, 'Paiement en échec', `Le paiement de ta formule « ${sub.plan} » n’a pas abouti. Tu peux réessayer depuis ton espace pro.`, `sub-${sub.id}-paiement-echoue`);
       return;
     }
     case 'invoice.paid': {
       // Renouvellement (ou paiement récupéré) : la période et le statut viennent de Stripe.
-      const sub = object.subscription ? await Subscription.findOne({ stripeSubscriptionId: object.subscription }) : null;
-      if (!sub) return;
+      const stripeSubscriptionId = subscriptionIdOf(object);
+      const sub = stripeSubscriptionId ? await Subscription.findOne({ stripeSubscriptionId }) : null;
+      // Un abonnement remplacé ou résilié chez nous ne doit pas reprendre la main.
+      if (!sub || !canActivate(sub.status)) return;
       let stripeSub = null;
       try {
-        stripeSub = await retrieveSubscription(object.subscription);
+        stripeSub = await retrieveSubscription(stripeSubscriptionId);
       } catch (err) {
         console.warn('[stripe:webhook] abonnement non récupéré :', err.message);
       }
@@ -72,7 +73,9 @@ async function handle(event) {
       if (end) sub.endsAt = end;
       const mapped = event.type === 'customer.subscription.deleted' ? 'annulee' : mapStripeStatus(object.status);
       if (mapped === 'active') {
-        await activate(sub, object);
+        // Statut Stripe « active » même résilié en fin de période : on ne réactive jamais
+        // un abonnement que nous avons annulé (il a été remplacé par une autre formule).
+        if (canActivate(sub.status)) await activate(sub, object);
         return;
       }
       if (sub.status !== mapped) {
@@ -83,7 +86,8 @@ async function handle(event) {
       return;
     }
     case 'invoice.payment_failed': {
-      const sub = object.subscription ? await Subscription.findOne({ stripeSubscriptionId: object.subscription }) : null;
+      const stripeSubscriptionId = subscriptionIdOf(object);
+      const sub = stripeSubscriptionId ? await Subscription.findOne({ stripeSubscriptionId }) : null;
       if (!sub || sub.status !== 'active') return;
       sub.status = 'en_attente';
       await sub.save();
@@ -93,6 +97,23 @@ async function handle(event) {
     default:
       return undefined;
   }
+}
+
+/** Paiement d'une formule confirmé : on enregistre les identifiants Stripe et on active. */
+async function activateFromSession(session) {
+  const sub = await findBySession(session);
+  if (!sub) return;
+  sub.stripeSessionId = session.id;
+  sub.stripeSubscriptionId = session.subscription || sub.stripeSubscriptionId;
+  sub.stripeCustomerId = session.customer || sub.stripeCustomerId;
+  sub.paymentReference = session.payment_intent || sub.paymentReference;
+  let stripeSub = null;
+  try {
+    stripeSub = session.subscription ? await retrieveSubscription(session.subscription) : null;
+  } catch (err) {
+    console.warn('[stripe:webhook] abonnement non récupéré :', err.message);
+  }
+  await activate(sub, stripeSub);
 }
 
 /** Abonnement local concerné par une session Checkout (par les métadonnées, sinon par la session). */
@@ -112,6 +133,9 @@ async function findBySession(session) {
 /** Active l'abonnement (une seule formule active à la fois) et notifie la praticienne à l'activation. */
 async function activate(sub, stripeSub) {
   const wasActive = sub.status === 'active';
+  // Les autres abonnements en ligne cessent de facturer, puis sont marqués « annulee »
+  // pour qu'un webhook en retard ne les réactive pas.
+  await endOtherOnlineSubscriptions(sub.practitioner, sub._id);
   await Subscription.updateMany({ practitioner: sub.practitioner, status: 'active', _id: { $ne: sub._id } }, { $set: { status: 'annulee' } });
   sub.status = 'active';
   sub.startedAt = sub.startedAt || new Date();

@@ -1,6 +1,7 @@
 // Espace praticiennes : formules, créneaux disponibles, fiches clientes.
 import { distanceKm } from './geo.js';
 import { Availability, Booking, ClientRecord, Plan, Practitioner, Service, Subscription, TimeOff } from '../models/index.js';
+import { cancelAtPeriodEnd } from './stripe.js';
 import { addDays, localParts, minutesToTime, timeToMinutes, weekday, zonedToDate } from '../utils/dates.js';
 import { forbidden } from '../utils/http.js';
 
@@ -31,6 +32,30 @@ export async function activePlanFor(practitioner) {
   const key = sub && sub.status === 'active' ? sub.plan : FREE_PLAN_KEY;
   const plan = (await Plan.findOne({ key })) || (await Plan.findOne({ key: FREE_PLAN_KEY }));
   return { plan, subscription: sub && sub.status === 'active' ? sub : null };
+}
+
+/**
+ * Une seule formule payante à la fois : résilie chez Stripe les abonnements en ligne précédents.
+ * Résiliation à la fin de la période : le temps déjà payé est conservé, rien n'est remboursé,
+ * et l'ancien abonnement ne peut plus facturer ni renouveler (donc plus de double facturation).
+ */
+export async function endOtherOnlineSubscriptions(practitionerId, keepId) {
+  const filter = {
+    practitioner: practitionerId,
+    stripeSubscriptionId: { $ne: null },
+    status: { $in: ['active', 'en_attente', 'expiree'] },
+  };
+  if (keepId) filter._id = { $ne: keepId };
+  const previous = await Subscription.find(filter).lean();
+  for (const sub of previous) {
+    try {
+      await cancelAtPeriodEnd(sub.stripeSubscriptionId);
+    } catch (err) {
+      // Stripe injoignable : l'abonnement local sera tout de même « annulee » (webhook ignoré
+      // ensuite pour un abonnement annulé) ; à surveiller dans les logs.
+      console.warn('[stripe] résiliation de l’abonnement précédent impossible :', err.message);
+    }
+  }
 }
 
 export async function assertFeature(practitioner, feature) {

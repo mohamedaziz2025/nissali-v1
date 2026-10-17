@@ -28,6 +28,7 @@ import { removeClientFiles } from '../services/purge.js';
 import { notify } from '../services/notifications.js';
 import { METHODS, HIGH_LATITUDE_RULES } from '../services/prayerService.js';
 import { getSettings, SETTING_DEFINITIONS, updateSettings } from '../services/settings.js';
+import { cancelAtPeriodEnd, stripeEnabled } from '../services/stripe.js';
 import { isDay } from '../utils/dates.js';
 import { badRequest, escapeRegex, notFound } from '../utils/http.js';
 
@@ -387,6 +388,12 @@ router.patch('/subscriptions/:id', validate(z.object({ status: z.enum(['active',
     sub.endsAt = end;
     const p = await Practitioner.findById(sub.practitioner);
     if (p) await notify(p.user, { key: `sub-${sub.id}-active`, type: 'pro', title: 'Nissali Pro', body: 'Ta formule est active', detail: `Ta formule « ${sub.plan} » est active jusqu’au ${end.toISOString().slice(0, 10)}.`, link: '/pro/abonnement' });
+  }
+  if (req.body.status !== 'active' && sub.stripeSubscriptionId && stripeEnabled()) {
+    // Abonnement payé en ligne : on arrête aussi la facturation Stripe, sinon elle continue
+    // alors que la formule est annulée côté Nissali.
+    await cancelAtPeriodEnd(sub.stripeSubscriptionId).catch((err) => console.warn('[stripe] résiliation depuis le back-office impossible :', err.message));
+    sub.cancelAtPeriodEnd = true;
   }
   sub.status = req.body.status;
   await sub.save();
