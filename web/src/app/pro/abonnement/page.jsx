@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Badge, ErrorBox, Loading, useToast } from '@/components/ui';
 import { api } from '@/lib/api';
 import { euros, SUB_STATUS } from '@/lib/format';
@@ -52,8 +53,16 @@ export default function Subscription() {
   const portal = Boolean(me.data.billing?.portal);
   const sub = me.data.subscription;
   const pending = me.data.pendingSubscription;
+  // Retour de Stripe Checkout (success_url / cancel_url) : on affiche le résultat du paiement.
+  const paiement = useSearchParams().get('paiement');
   return (
     <div className="stack" style={{ gap: 20 }}>
+      {paiement === 'ok' ? (
+        <div className="card dashed">
+          <Badge status="active" map={SUB_STATUS} /> Paiement reçu : ta formule s’active automatiquement. Pour un prélèvement ou un virement, la confirmation arrive en quelques jours.
+        </div>
+      ) : null}
+      {paiement === 'annule' ? <div className="card dashed">Paiement annulé : ta formule reste inchangée.</div> : null}
       <div className="page-head">
         <div>
           <h1>Abonnement</h1>
