@@ -22,6 +22,12 @@ if (Platform.OS !== 'web') {
 }
 
 const DISCREET = { title: 'Nissali', body: 'Petit rappel du jour' };
+
+// Adhan joué par le système du téléphone (appli fermée ou téléphone verrouillé) : son de notification intégré
+// à l'appli compilée (EAS). En entier sur Android (canal « Adhan »), 30 premières secondes sur iPhone (limite d'Apple).
+// Expo Go n'accepte pas de son personnalisé : la notification y garde le son standard.
+export const SYSTEM_ADHAN = Platform.OS !== 'web' && Constants.executionEnvironment !== 'storeClient';
+const ADHAN_SOUND = Platform.OS === 'ios' ? 'adhan_ios.caf' : 'adhan_full.mp3';
 const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
 
 export async function ensurePermission() {
@@ -30,6 +36,15 @@ export async function ensurePermission() {
     await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels', importance: Notifications.AndroidImportance.DEFAULT });
     await Notifications.setNotificationChannelAsync('prieres', { name: 'Prières', importance: Notifications.AndroidImportance.HIGH });
     await Notifications.setNotificationChannelAsync('annonces', { name: 'Annonces et messages', importance: Notifications.AndroidImportance.HIGH });
+    if (SYSTEM_ADHAN) {
+      await Notifications.setNotificationChannelAsync('adhan', {
+        name: 'Adhan',
+        description: 'L’adhan à l’heure de chaque prière, même appli fermée',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'adhan_full.mp3',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      });
+    }
   }
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -46,7 +61,7 @@ const at = (day, time) => {
 async function schedule(date, content, channelId = 'rappels') {
   if (date.getTime() <= Date.now() + 30_000) return;
   await Notifications.scheduleNotificationAsync({
-    content: { ...content, sound: true },
+    content: { sound: true, ...content },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId },
   });
 }
@@ -80,14 +95,16 @@ export async function rescheduleAll(today, user) {
           } else {
             // 07 — adhan seulement pour les prières choisies ; jamais pendant une pause des rappels.
             const adhan = range.adhan && (!range.adhan.prayers || range.adhan.prayers.includes(p)) ? range.adhan : null;
+            const system = Boolean(adhan) && SYSTEM_ADHAN;
             await schedule(
               date,
               {
                 title: `${label} · ${time}`,
-                body: adhan ? `C’est l’heure de ${label} · l’adhan va retentir` : `C’est l’heure de ${label}`,
-                data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanUrl: adhan.url, adhanLabel: adhan.label } : {}) },
+                body: adhan ? `C’est l’heure de ${label} · l’adhan retentit` : `C’est l’heure de ${label}`,
+                ...(system ? { sound: ADHAN_SOUND } : {}),
+                data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanUrl: adhan.url, adhanLabel: adhan.label } : {}), ...(system ? { systemAdhan: Platform.OS === 'ios' ? 'extrait' : 'complet' } : {}) },
               },
-              'prieres',
+              system ? 'adhan' : 'prieres',
             );
           }
         }

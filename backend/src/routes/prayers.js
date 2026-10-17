@@ -8,7 +8,7 @@ import { loadCycleContext, prayerPause } from '../services/context.js';
 import { ADHANS, DEFAULT_ADHAN, adhanFor } from '../services/adhan.js';
 import { dhikrReminders } from '../services/dhikr.js';
 import { reverseGeocode } from '../services/geo.js';
-import { userTimings, userTimingsRange } from '../services/prayerSource.js';
+import { nextJumua, userTimings, userTimingsRange } from '../services/prayerSource.js';
 import { getQibla, getTimings, METHODS, nextPrayer, prayerOptionsFor, PRAYERS, withInstants, KAABA } from '../services/prayerService.js';
 import { getSettings } from '../services/settings.js';
 import { addDays, isDay, localParts, safeTimeZone } from '../utils/dates.js';
@@ -53,6 +53,8 @@ router.get('/', async (req, res) => {
     qibla: { ...qibla, kaaba: KAABA },
     method: METHODS[ctx.settings.prayerMethod]?.label,
     adjustments: req.user.prayerSettings?.adjustments,
+    // Prochaine Jumu'a, affichée en bas de la page Horaires (mosquée choisie ou estimation à l'heure de Dhuhr).
+    jumuaNext: day === ctx.today ? await nextJumua(req.user, ctx.settings, day, ctx.time) : null,
   });
 });
 

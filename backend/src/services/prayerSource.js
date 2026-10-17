@@ -1,7 +1,7 @@
 // 5.7 — Horaires de l'utilisatrice selon sa source : « Ma ville » (calcul à sa position, API Aladhan)
 // ou « Ma mosquée » (horaires publiés par la mosquée, sinon calcul à la mosquée — RG-16 bis).
 import { Mosque } from '../models/index.js';
-import { addDays, eachDay, zonedToDate } from '../utils/dates.js';
+import { addDays, eachDay, timeToMinutes, zonedToDate } from '../utils/dates.js';
 import { getTimings, getTimingsRange, prayerOptionsFor } from './prayerService.js';
 import { isFriday } from './dhikr.js';
 
@@ -40,6 +40,24 @@ export function jumuaOf(mosque, day) {
   if (!times.length) return null;
   const tz = mosque.timezone || 'Europe/Paris';
   return { day: friday, today: friday === day, times, instants: times.map((t) => zonedToDate(friday, t, tz).toISOString()), published: Boolean(row?.jumua) };
+}
+
+/**
+ * Prochaine Jumu'a (page Horaires) : heure(s) publiées par la mosquée choisie, sinon heure de Dhuhr du vendredi
+ * à la mosquée ou à la position (estimation). Une heure après la dernière Jumu'a du jour, on passe au vendredi suivant.
+ */
+export async function nextJumua(user, settings, day, time) {
+  const mosque = await mosqueOf(user);
+  const build = async (friday) => {
+    const known = mosque ? jumuaOf(mosque, friday) : null;
+    if (known) return { day: friday, times: known.times, instants: known.instants, estimated: false, published: known.published, mosque: mosque.name };
+    const { timings, opts } = await userTimings(user, settings, friday);
+    return { day: friday, times: [timings.dhuhr], instants: [zonedToDate(friday, timings.dhuhr, opts.tz).toISOString()], estimated: true, mosque: mosque?.name || null };
+  };
+  const friday = nextFriday(day);
+  let j = await build(friday);
+  if (friday === day && time && timeToMinutes(time) > timeToMinutes(j.times[j.times.length - 1]) + 60) j = await build(addDays(friday, 7));
+  return { ...j, today: j.day === day };
 }
 
 function metaFor(user, mosque, fallback, day) {

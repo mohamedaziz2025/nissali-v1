@@ -59,7 +59,11 @@
       [
         "expo-notifications",
         {
-          "color": "#7A1F35"
+          "color": "#7A1F35",
+          "sounds": [
+            "./assets/sounds/adhan_ios.caf",
+            "./assets/sounds/adhan_full.mp3"
+          ]
         }
       ],
       [

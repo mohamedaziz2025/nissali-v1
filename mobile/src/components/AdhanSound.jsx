@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { onAdhan, playAdhan, stopAdhan } from '../lib/adhan';
+import { SYSTEM_ADHAN } from '../lib/notifications';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/useApi';
@@ -93,9 +94,12 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
       {paused ? <Notice title="Rappels en pause">Tes rappels de prière sont en pause pendant tes règles. Le réglage du son est mémorisé pour leur reprise : il ne les réactive pas.</Notice> : null}
       {!prefs.notifications ? <Notice title="Rappels désactivés">Tes notifications de prière sont désactivées (Horaires › Mes rappels). Le son de l’adhan ne les réactive pas.</Notice> : null}
       <T variant="small">
-        {Platform.OS === 'ios'
-          ? 'Sur iPhone, l’adhan complet est joué quand Nissali est ouverte. Téléphone verrouillé ou appli fermée, iOS ne permet qu’une notification avec un son court ; touche-la pour lancer l’adhan.'
-          : 'Sur Android, l’adhan complet est joué quand Nissali est ouverte. Téléphone verrouillé ou appli fermée, Android affiche la notification avec un son court ; touche-la pour lancer l’adhan.'}
+        {!SYSTEM_ADHAN
+          ? 'Version de test (Expo Go) : l’adhan est joué quand Nissali est ouverte ; appli fermée, la notification garde le son standard du téléphone. L’adhan joué par le téléphone fonctionne dans l’appli installée.'
+          : Platform.OS === 'ios'
+            ? 'Appli fermée ou téléphone verrouillé, ton iPhone joue l’adhan avec la notification : les 30 premières secondes (limite d’Apple), si le téléphone n’est pas en mode silencieux. Touche la notification pour l’écouter en entier.'
+            : 'Appli fermée ou téléphone verrouillé, ton téléphone joue l’adhan en entier avec la notification (canal « Adhan », réglable dans les paramètres Android). En mode Ne pas déranger, Android peut le couper.'}
+        {SYSTEM_ADHAN ? ' Hors de l’appli, la voix est celle de Mishary Rashid Alafasy ; la voix choisie ici est jouée quand Nissali est ouverte.' : ''}
       </T>
     </Sheet>
   );

@@ -17,7 +17,7 @@ const handled = new Set(); // notifications déjà ouvertes au démarrage // une
 function fromNotification(notification) {
   const data = notification?.request?.content?.data;
   if (data?.kind !== 'prayer' || !data.adhanUrl) return null;
-  return { url: data.adhanUrl, label: data.adhanLabel, prayer: data.prayerLabel, time: data.time, at: data.at };
+  return { url: data.adhanUrl, label: data.adhanLabel, prayer: data.prayerLabel, time: data.time, at: data.at, system: data.systemAdhan || null };
 }
 
 export default function AdhanBar() {
@@ -70,7 +70,8 @@ export default function AdhanBar() {
         const shown = await Notifications.getPresentedNotificationsAsync();
         const fresh = shown
           .map((n) => ({ n, a: fromNotification(n) }))
-          .filter(({ n, a }) => a && a.at && Date.now() - new Date(a.at).getTime() < FRESH_MS && !handled.has(n.request.identifier))
+          // L'adhan déjà joué par le téléphone (appli compilée) n'est pas relancé à l'ouverture.
+          .filter(({ n, a }) => a && !a.system && a.at && Date.now() - new Date(a.at).getTime() < FRESH_MS && !handled.has(n.request.identifier))
           .sort((x, y) => new Date(y.a.at) - new Date(x.a.at))[0];
         if (!fresh) return;
         handled.add(fresh.n.request.identifier);

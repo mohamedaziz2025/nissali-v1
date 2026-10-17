@@ -204,6 +204,7 @@ export default function PrayerTimes() {
   const meta = today?.source;
   const t = today?.timings;
   const jumua = jumuaOf(meta);
+  const nextJ = today?.jumuaNext || (jumua ? { ...jumua, estimated: false, mosque: meta?.label } : null);
   const isMosque = meta?.mode === 'mosquee';
   const placeName = isMosque ? meta.label : today?.city?.name || user?.city?.name || 'Ma ville';
   const placeHint = isMosque ? [meta.city, meta.fallback ? 'horaires calculés à son adresse' : meta.partner ? 'horaires publiés par la mosquée' : 'horaires calculés à son adresse'].filter(Boolean).join(' · ') : user?.city?.source === 'gps' ? 'Ma position · horaires calculés' : 'Ma ville · horaires calculés';
@@ -328,25 +329,32 @@ export default function PrayerTimes() {
             })}
           </View>
 
-          {jumua ? (
-            <View style={[s.jumua, jumua.today && s.jumuaToday]} accessibilityLabel={`Jumu’a ${jumua.today ? 'aujourd’hui' : longDate(jumua.day)} à ${jumua.times.join(' et ')}`}>
-              <View style={[s.jumuaIcon, jumua.today && { backgroundColor: colors.bordeaux }]}>
-                <Icon name="home" size={20} color={jumua.today ? colors.white : colors.or} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.jumuaLabel}>{jumua.today ? 'JUMU’A · AUJOURD’HUI' : `JUMU’A · ${longDate(jumua.day).toUpperCase()}`}</Text>
-                <Text style={s.rowHint} numberOfLines={1}>{meta.label}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[s.jumuaTime, jumua.today && { color: colors.bordeaux }]}>{jumua.times[0]}</Text>
-                {jumua.times[1] ? <Text style={s.rowHint}>2ᵉ Jumu’a {jumua.times[1]}</Text> : null}
-              </View>
-            </View>
-          ) : null}
-
           <T variant="small" style={{ marginTop: 10, textAlign: 'center' }}>
             {isMosque && !meta.fallback ? 'Horaires publiés par la mosquée.' : meta?.fallback ? 'Horaires de la mosquée indisponibles aujourd’hui : calculés à son adresse.' : today.method || ''}
           </T>
+
+          {/* Prochaine Jumu'a, en bas, juste avant Qibla et Mes rappels */}
+          {nextJ ? (
+            <View style={[s.jumua, nextJ.today && s.jumuaToday]} accessibilityLabel={`Prochaine Jumu’a ${nextJ.today ? 'aujourd’hui' : longDate(nextJ.day)} à ${nextJ.times.join(' et ')}${nextJ.estimated ? ', heure de Dhuhr' : ''}`}>
+              <View style={[s.jumuaIcon, nextJ.today && { backgroundColor: colors.bordeaux }]}>
+                <Icon name="home" size={20} color={nextJ.today ? colors.white : colors.or} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.jumuaLabel}>{nextJ.today ? 'JUMU’A · AUJOURD’HUI' : `PROCHAINE JUMU’A · ${longDate(nextJ.day).toUpperCase()}`}</Text>
+                <Text style={s.rowHint} numberOfLines={3}>
+                  {nextJ.estimated
+                    ? nextJ.mosque
+                      ? `${nextJ.mosque} · heure non communiquée : heure de Dhuhr`
+                      : 'Heure de Dhuhr · à confirmer auprès de ta mosquée'
+                    : nextJ.mosque}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[s.jumuaTime, nextJ.today && { color: colors.bordeaux }]}>{nextJ.estimated ? `≈ ${nextJ.times[0]}` : nextJ.times[0]}</Text>
+                {nextJ.times[1] ? <Text style={s.rowHint}>2ᵉ Jumu’a {nextJ.times[1]}</Text> : null}
+              </View>
+            </View>
+          ) : null}
 
           <Row gap={12} style={{ marginTop: 18 }}>
             <BottomButton icon="compass" label={`Qibla${today.qibla?.direction != null ? ` · ${Math.round(today.qibla.direction)}°` : ''}`} onPress={() => router.push('/qibla')} />
@@ -422,7 +430,7 @@ const s = StyleSheet.create({
   rowName: { fontFamily: fonts.medium, fontSize: 16.5, color: colors.prune },
   rowHint: { fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 1 },
   rowTime: { fontFamily: fonts.display, fontSize: 20, color: colors.prune, marginRight: 2 },
-  jumua: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 14, marginTop: 12, borderWidth: 1, borderColor: colors.line },
+  jumua: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 14, marginTop: 16, borderWidth: 1, borderColor: colors.line },
   jumuaToday: { backgroundColor: colors.blush, borderColor: colors.rose },
   jumuaIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F6EBDD', alignItems: 'center', justifyContent: 'center' },
   jumuaLabel: { fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1, color: colors.or },
