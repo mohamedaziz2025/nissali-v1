@@ -78,11 +78,7 @@
       "typedRoutes": false
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "bb95a87b-b727-49cb-af3a-21b3d1da9812"
-      }
-    },
-    "owner": "medaziz29"
+      "router": {}
+    }
   }
 }

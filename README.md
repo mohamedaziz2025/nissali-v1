@@ -172,13 +172,13 @@ back-office (`/admin/abonnements`), comme avant. Pour l’activer, renseigner da
 ```bash
 STRIPE_SECRET_KEY=sk_live_…          # ou sk_test_… pour les essais
 STRIPE_WEBHOOK_SECRET=whsec_…        # « Ajouter un endpoint », événements checkout.session.completed,
-                                     # customer.subscription.updated/deleted, invoice.payment_failed
+                                     # invoice.paid (renouvellements), customer.subscription.updated/deleted,
+                                     # invoice.payment_failed
 STRIPE_CURRENCY=eur
 ```
 
-Le webhook pointe vers `http://<IP>:8101/api/stripe/webhook` (domaine en HTTPS recommandé en production :
-Stripe n’accepte pas un endpoint HTTP avec IP). La formule s’active automatiquement après le paiement ;
-les prix restent gérés dans le back-office (formules).
+Le webhook pointe vers `https://api.nissali.fr/api/stripe/webhook` (Stripe n’accepte pas un endpoint HTTP avec IP).
+La formule s’active automatiquement après le paiement ; les prix restent gérés dans le back-office (formules).
 
 ## Tests
 
