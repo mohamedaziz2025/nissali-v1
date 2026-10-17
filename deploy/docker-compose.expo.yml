@@ -1,0 +1,47 @@
+# Metro pour essayer l'app dans Expo Go, à côté de la pile de production.
+# Volontairement séparé de docker-compose.prod.yml : aucun service partagé, aucun
+# volume partagé, projet Compose distinct (nissali-expo) → il ne monte et ne
+# descend jamais avec la production.
+#
+# Pour les vraies testrices, l'app s'installe depuis les stores (build EAS) :
+# ce fichier ne sert qu'aux essais rapides, pas au déploiement.
+#
+# Prérequis :
+#   - deploy/.env contient EXPO_TOKEN (compte Expo propriétaire du projet) ;
+#     sans lui Expo Go (iOS) refuse d'ouvrir un projet « anonymous ».
+#   - api.nissali.fr répond (l'app ne peut pas joindre l'API sinon).
+#
+# Usage, depuis deploy/ :
+#   docker compose -f docker-compose.expo.yml up -d --build
+#   docker compose -f docker-compose.expo.yml logs -f expo      # lien + QR code
+#   curl http://127.0.0.1:8102/_expo/open                       # le lien exp:// en JSON
+#
+# EXPO_PUBLIC_API_URL est figée dans le bundle au build : pour changer d'API,
+# relancer avec --build.
+name: nissali-expo
+
+services:
+  expo:
+    build:
+      context: ../mobile
+      args:
+        EXPO_PUBLIC_API_URL: https://api.nissali.fr/api
+        METRO_PORT: "8102"
+    restart: unless-stopped
+    environment:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+      # ${…:?} : échoue au démarrage avec un message clair plutôt que de lancer
+      # un Metro anonyme qu'Expo Go refusera d'ouvrir.
+      EXPO_TOKEN: "${EXPO_TOKEN:?EXPO_TOKEN manquant dans deploy/.env}"
+    ports:
+      # Le tunnel ngrok suffit à Expo Go : ce port n'est là que pour le lien de
+      # secours exp://<IP>:8102 quand le tunnel est en panne. Le retirer ferme
+      # l'accès public à Metro (et au code source de l'app).
+      - "${METRO_PORT:-8102}:8102"
+    volumes:
+      # Conserve urlRandomness : le lien du tunnel reste le même après redémarrage.
+      - expo-state:/app/.expo
+
+volumes:
+  expo-state:

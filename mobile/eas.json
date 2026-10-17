@@ -27,6 +27,9 @@
     "production": {
       "android": {
         "track": "internal"
+      },
+      "ios": {
+        "language": "fr-FR"
       }
     }
   }

@@ -8,7 +8,7 @@ RUN npm ci --no-audit --no-fund
 RUN npm install -g @expo/ngrok@^4.1.0 --no-audit --no-fund
 COPY . .
 # Metro fige EXPO_PUBLIC_* dans le bundle : adresse publique de l'API.
-ARG EXPO_PUBLIC_API_URL=http://72.62.71.97:8101/api
+ARG EXPO_PUBLIC_API_URL=https://api.nissali.fr/api
 ENV EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL
 ARG METRO_PORT=8102
 ENV METRO_PORT=$METRO_PORT
