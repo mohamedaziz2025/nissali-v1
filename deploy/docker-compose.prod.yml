@@ -1,0 +1,86 @@
+# Déploiement production Nissali sur nissali.fr.
+#   web  (back-office + espace pro) : https://nissali.fr        -> web:3001
+#   api  (API Express)              : https://api.nissali.fr    -> api:4000
+#   mongo : base interne, non exposée hors réseau Docker.
+#
+# Le TLS est terminé par le nginx du VPS (certificats déjà en place), qui relaie
+# vers le nginx de ce projet sur 127.0.0.1:33000. Voir deploy/nginx.conf pour les
+# en-têtes à transmettre.
+#
+# Prérequis sur le serveur :
+#   - DNS : nissali.fr et api.nissali.fr pointent vers l'IP du serveur.
+#   - deploy/.env existe (chmod 600) avec JWT_SECRET, SMTP, etc.
+#   - nginx du VPS : proxy_pass vers http://127.0.0.1:33000 avec l'en-tête Host.
+#
+# Usage :
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# L'Expo Metro (expo) est EXCLU du production : l'app s'installe depuis
+# les stores (build EAS APK / TestFlight), pas depuis Expo Go.
+
+name: nissali-prod
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    # 127.0.0.1 : seul le nginx du VPS (sur l'hôte) doit pouvoir joindre ce port.
+    # Si le nginx du VPS tourne lui aussi dans Docker, remplacer par un réseau partagé.
+    ports:
+      - "127.0.0.1:33000:33000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [web, api]
+    networks: [nissali]
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 40s
+    networks: [nissali]
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/nissali
+      PORT: "4000"
+      NODE_ENV: production
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+      - private-files:/app/private
+    networks: [nissali]
+
+  web:
+    build:
+      context: ../web
+      # URL interne : le proxy /api de Next.js (figé au build) reste dans le réseau Docker.
+      args:
+        API_URL: http://api:4000
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_URL: http://api:4000
+      NODE_ENV: production
+    depends_on: [api]
+    networks: [nissali]
+
+volumes:
+  mongo-data:
+  uploads:
+  private-files:
+
+networks:
+  nissali:
+    driver: bridge
