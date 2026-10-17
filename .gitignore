@@ -1,16 +1,8 @@
 node_modules
 .env
-.env*
-!.env.example
 .data
 .next
 .expo
 dist
-*.log
-.DS_Store
-.claude/settings.local.json
 backend/uploads/*
 !backend/uploads/.gitkeep
-# Fichiers privés des utilisatrices (photos de messagerie, justificatifs) : jamais dans le dépôt
-backend/private/
-Nissali_Cahier_des_charges.pdf
