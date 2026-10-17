@@ -53,7 +53,7 @@ services:
     build:
       context: ../mobile
       args:
-        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://72.62.71.97:8101/api}
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-https://api.nissali.fr/api}
         METRO_PORT: "8102"
     restart: unless-stopped
     environment:
