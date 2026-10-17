@@ -217,12 +217,26 @@ export default function Shell({ area, children, badges = {} }) {
   const { status, user, practitioner } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'anon') router.replace('/connexion');
     else if (status === 'ready' && area === 'admin' && user?.role !== 'admin') router.replace('/');
     else if (status === 'ready' && area === 'pro' && !practitioner) router.replace('/inscription');
   }, [status, area, user, practitioner, router]);
+
+  useEffect(() => setNavOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setNavOpen(false);
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [navOpen]);
 
   if (status !== 'ready' || (area === 'admin' && user?.role !== 'admin') || (area === 'pro' && !practitioner)) {
     return (
@@ -240,7 +254,8 @@ export default function Shell({ area, children, badges = {} }) {
 
   return (
     <div className="shell">
-      <aside className="sidebar" aria-label="Navigation principale">
+      <div className={`nav-backdrop ${navOpen ? 'open' : ''}`} onClick={() => setNavOpen(false)} aria-hidden="true" />
+      <aside id="app-sidebar" className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="Navigation principale">
         <div className="brand">
           <span className="brand-mark">
             <Logo />
@@ -249,13 +264,16 @@ export default function Shell({ area, children, badges = {} }) {
             <strong>Nissali</strong>
             <small>{area === 'admin' ? 'Back-office' : 'Espace pro'}</small>
           </div>
+          <button className="sidebar-close" onClick={() => setNavOpen(false)} aria-label="Fermer le menu">
+            <Icon name="close" />
+          </button>
         </div>
         <nav>
           {nav.map(([section, links]) => (
             <div key={section}>
               <div className="nav-section">{section}</div>
               {links.map(([href, label, icon]) => (
-                <Link key={href} href={href} className={`nav-link ${isActive(href) ? 'active' : ''}`} aria-current={isActive(href) ? 'page' : undefined}>
+                <Link key={href} href={href} className={`nav-link ${isActive(href) ? 'active' : ''}`} aria-current={isActive(href) ? 'page' : undefined} onClick={() => setNavOpen(false)}>
                   <Icon name={icon} />
                   {label}
                   {badges[href] ? <span className="count">{badges[href]}</span> : null}
@@ -279,6 +297,15 @@ export default function Shell({ area, children, badges = {} }) {
       </aside>
       <div className="content">
         <header className="topbar">
+          <button className="nav-toggle icon-btn" aria-label="Ouvrir le menu" aria-controls="app-sidebar" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
+            <Icon name="menu" />
+          </button>
+          <div className="topbar-brand">
+            <span className="brand-mark">
+              <Logo />
+            </span>
+            <strong>{area === 'admin' ? 'Back-office' : 'Espace pro'}</strong>
+          </div>
           <div className="crumbs">
             <span>{area === 'admin' ? 'Back-office' : 'Espace pro'}</span>
             {current ? (
