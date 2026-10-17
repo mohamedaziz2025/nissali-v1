@@ -32,6 +32,8 @@ const mosqueSchema = new Schema(
     osmId: { type: String, index: true, sparse: true },
     partner: { type: Boolean, default: false },
     jumua: { type: String, default: '' }, // heure habituelle de la Jumu'a
+    mawaqitId: { type: String, default: '' }, // identifiant Mawaqit, rempli par la synchronisation
+    mawaqitSyncedAt: Date,
     jumua2: { type: String, default: '' }, // 2e Jumu'a, quand la mosquée en organise deux
     timetable: { type: [timetableRowSchema], default: [] },
     timetableNote: String,

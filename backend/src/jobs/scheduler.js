@@ -1,6 +1,7 @@
 // Tâches planifiées : notifications du 5.12 (discrètes, RG-17), rappels de prière en push,
 // rappels de rendez-vous, clôture des réservations passées, purge RGPD (8.2).
 import cron from 'node-cron';
+import { syncAllJumua } from '../services/mawaqit.js';
 import { Booking, Event, EventRegistration, FastPlan, Practitioner, PushSubscription, User } from '../models/index.js';
 import { loadCycleContext, loadFastContext, nowFor, prayerPause } from '../services/context.js';
 import { ramadanInfo, whiteDays } from '../services/hijri.js';
@@ -134,6 +135,8 @@ async function dailyMaintenance() {
 export function startScheduler() {
   cron.schedule('*/10 * * * *', () => notificationsJob().catch((e) => console.error('[jobs]', e)));
   cron.schedule('* * * * *', () => prayerPushJob().catch((e) => console.error('[jobs] prières', e)));
+  // Jumu'a des mosquées partenaires depuis Mawaqit (si MAWAQIT_API_TOKEN est défini), chaque nuit.
+  cron.schedule('40 3 * * *', () => syncAllJumua().catch((e) => console.error('[jobs] mawaqit', e)));
   cron.schedule('15 3 * * *', () => dailyMaintenance().catch((e) => console.error('[jobs] maintenance', e)));
   setTimeout(() => dailyMaintenance().catch(() => {}), 10_000);
   console.log('[jobs] tâches planifiées démarrées');

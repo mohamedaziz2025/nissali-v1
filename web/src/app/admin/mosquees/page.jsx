@@ -94,6 +94,7 @@ export default function AdminMosques() {
                   <td className="num">{m.followers}</td>
                   <td>
                     <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+                      <button className="btn sm ghost" onClick={() => api.post(`/admin/mosques/${m.id}/mawaqit-sync`, {}).then((r) => { toast(`Jumu’a Mawaqit : ${r.jumua}${r.jumua2 ? ` et ${r.jumua2}` : ''}`); reload(); }).catch((err) => toast(err.message, 'error'))}>Synchroniser Mawaqit</button>
                       <button className="btn sm outline" onClick={() => setTimetable({ mosque: m, csv: '', replace: false })}>Importer des horaires</button>
                       <button className="btn sm ghost" onClick={() => setEdit({ id: m.id, name: m.name, address: m.address || '', city: m.city, jumua: m.jumua || '', jumua2: m.jumua2 || '' })}>Modifier</button>
                       <button className="btn sm ghost" onClick={() => remove(m)} aria-label="Retirer"><Icon name="trash" /></button>
