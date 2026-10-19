@@ -50,7 +50,7 @@ export const SETTING_DEFINITIONS = {
   notifCapModeree: { group: 'notifications', label: 'Conseils et actualités par semaine, niveau « Modérée »', type: 'number', default: 3, min: 0, max: 14 },
   notifCapElevee: { group: 'notifications', label: 'Conseils et actualités par semaine, niveau « Élevée »', type: 'number', default: 5, min: 0, max: 14 },
   practitionersMode: { group: 'application', label: 'Onglet Praticiennes (annuaire et réservation)', type: 'select', default: 'auto', options: ['auto', 'ouvert', 'ferme'] },
-  contactEmail: { group: 'application', label: 'E-mail de contact des professionnelles', type: 'text', default: 'nissali@gmail.com' },
+  contactEmail: { group: 'application', label: 'E-mail de contact des professionnelles', type: 'text', default: 'contact@nissali.fr' },
 };
 
 export const SETTING_DEFAULTS = Object.fromEntries(Object.entries(SETTING_DEFINITIONS).map(([k, d]) => [k, d.default]));

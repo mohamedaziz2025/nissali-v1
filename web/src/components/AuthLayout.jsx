@@ -34,7 +34,7 @@ export default function AuthLayout({ children, wide = false }) {
           </div>
         </div>
         <p className="small" style={{ color: 'var(--rose)', position: 'relative', zIndex: 1 }}>
-          Une question ? nissali@gmail.com
+          Une question ? contact@nissali.fr
         </p>
       </aside>
       <section className="auth-main">

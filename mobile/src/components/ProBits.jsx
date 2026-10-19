@@ -73,8 +73,8 @@ export function StatusBanner({ practitioner, pending }) {
   if (practitioner?.status === 'validee' && !pending) return null;
   const text = {
     en_attente: 'Ton profil est en cours de validation par l’équipe Nissali. Prépare tes prestations et tes disponibilités en attendant.',
-    refusee: 'Ton inscription n’a pas été retenue. Contacte-nous sur nissali@gmail.com.',
-    suspendue: 'Ton profil est suspendu. Contacte-nous sur nissali@gmail.com.',
+    refusee: 'Ton inscription n’a pas été retenue. Contacte-nous sur contact@nissali.fr.',
+    suspendue: 'Ton profil est suspendu. Contacte-nous sur contact@nissali.fr.',
   }[practitioner?.status];
   return (
     <View style={{ gap: 10, marginBottom: 14 }}>

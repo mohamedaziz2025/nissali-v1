@@ -21,7 +21,7 @@ const DOCS = {
       ['Communication', 'Tes coordonnées ne servent à t’envoyer des actualités que si tu l’as accepté. Lien de désinscription dans chaque e-mail, « STOP » pour les SMS.'],
       ['Tes droits', 'Export et suppression de tes données à tout moment depuis ton profil. Consentements modifiables à tout moment.'],
       ['Conservation', 'Tant que ton compte est actif ; suppression sous 30 jours après la fermeture du compte, et après 3 ans d’inactivité.'],
-      ['Contact', 'nissali@gmail.com'],
+      ['Contact', 'contact@nissali.fr'],
     ],
   },
 };

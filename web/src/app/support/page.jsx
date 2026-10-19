@@ -26,9 +26,9 @@ export default function Support() {
           répondons dans les plus brefs délais.
         </p>
         <div className="row mt">
-          <a className="btn" href="mailto:nissali@gmail.com">
+          <a className="btn" href="mailto:contact@nissali.fr">
             <Icon name="mail" />
-            nissali@gmail.com
+            contact@nissali.fr
           </a>
         </div>
       </section>
@@ -46,7 +46,7 @@ export default function Support() {
       <section className="card soft mt-lg">
         <h2>Tu ne trouves pas ta réponse ?</h2>
         <p className="muted mt">
-          Écris-nous à <a href="mailto:nissali@gmail.com">nissali@gmail.com</a> en précisant ton adresse de compte.
+          Écris-nous à <a href="mailto:contact@nissali.fr">contact@nissali.fr</a> en précisant ton adresse de compte.
           Pour la gestion de tes données personnelles, consulte notre{' '}
           <Link href="/privacy">politique de confidentialité</Link>.
         </p>

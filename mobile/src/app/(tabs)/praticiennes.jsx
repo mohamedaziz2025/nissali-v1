@@ -53,8 +53,8 @@ function ProCard({ status }) {
       ) : (
         <>
           <T>Inscrivez-vous en tant que professionnelle et choisissez la formule qui vous convient, ou contactez-nous sur</T>
-          <Pressable onPress={() => Linking.openURL(`mailto:${status?.contactEmail || 'nissali@gmail.com'}`)} accessibilityRole="link">
-            <T variant="bold" color={colors.bordeaux} style={{ fontSize: 18 }}>{status?.contactEmail || 'nissali@gmail.com'}</T>
+          <Pressable onPress={() => Linking.openURL(`mailto:${status?.contactEmail || 'contact@nissali.fr'}`)} accessibilityRole="link">
+            <T variant="bold" color={colors.bordeaux} style={{ fontSize: 18 }}>{status?.contactEmail || 'contact@nissali.fr'}</T>
           </Pressable>
           <Button title="Je m’inscris comme praticienne" onPress={() => router.push('/pro-inscription')} />
         </>

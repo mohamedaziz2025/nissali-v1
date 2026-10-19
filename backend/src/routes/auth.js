@@ -72,7 +72,7 @@ router.post('/otp', validate(otpRequest), async (req, res) => {
   if (req.body.purpose === 'login') {
     if (!existing) throw notFound('Aucun compte avec cet identifiant. Inscris-toi en quelques secondes.');
     if (existing.role === 'admin') throw forbidden('Utilise la connexion administratrice.', 'ADMIN_LOGIN_REQUIRED');
-    if (existing.status === 'suspendue') throw forbidden('Ce compte est suspendu. Contacte nissali@gmail.com.', 'SUSPENDED');
+    if (existing.status === 'suspendue') throw forbidden('Ce compte est suspendu. Contacte contact@nissali.fr.', 'SUSPENDED');
   }
   res.json(await sendOtp({ ...id, purpose: req.body.purpose, user: existing }));
 });

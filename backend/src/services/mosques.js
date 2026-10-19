@@ -3,7 +3,7 @@
 import { Mosque } from '../models/index.js';
 import { distanceKm } from './geo.js';
 
-const UA = { 'User-Agent': 'Nissali/1.0 (nissali@gmail.com)' };
+const UA = { 'User-Agent': 'Nissali/1.0 (contact@nissali.fr)' };
 const cache = new Map();
 const TTL = 6 * 3600_000;
 

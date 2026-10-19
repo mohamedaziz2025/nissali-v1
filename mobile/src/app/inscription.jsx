@@ -165,8 +165,8 @@ export default function Register() {
         <ProgressBar progress={(step + 1) / STEPS.length} color={colors.bordeaux} track={colors.blush} height={6} />
         {content}
         {STEPS[step] === 'prenom' ? (
-          <T variant="small" style={{ marginTop: 10 }} onPress={() => Linking.openURL('mailto:nissali@gmail.com')}>
-            Besoin d’aide ? nissali@gmail.com
+          <T variant="small" style={{ marginTop: 10 }} onPress={() => Linking.openURL('mailto:contact@nissali.fr')}>
+            Besoin d’aide ? contact@nissali.fr
           </T>
         ) : null}
       </View>

@@ -257,7 +257,7 @@ export default function Profile() {
       </Card>
       <Gap />
       <T variant="small" style={{ textAlign: 'center' }}>Les règles présentées sont l’avis retenu par notre comité. En cas de doute, rapproche-toi d’une personne de science.</T>
-      <T variant="small" style={{ textAlign: 'center', marginTop: 6 }}>Nissali · 100 % gratuite · nissali@gmail.com</T>
+      <T variant="small" style={{ textAlign: 'center', marginTop: 6 }}>Nissali · 100 % gratuite · contact@nissali.fr</T>
 
       <Sheet visible={sheet === 'frequency'} onClose={() => setSheet(null)} title="Fréquence des notifications">
         <FrequencyPicker value={user.notificationPrefs?.frequency || 'faible'} onChange={(v) => patch({ notificationPrefs: { frequency: v, frequencyAsked: true } }).then(() => setSheet(null))} />
