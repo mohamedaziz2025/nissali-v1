@@ -26,6 +26,7 @@ const eventSchema = new Schema(
     price: { type: Number, default: 0, min: 0 }, // en euros ; 0 = gratuit
     // Événement payant : billets vendus sur la billetterie en ligne de l'organisatrice (HelloAsso, Weezevent…).
     ticketUrl: String,
+    commissionAcceptedAt: Date, // RG-29 : commission de 15 % acceptée par l'organisatrice avant l'envoi
     organizerType: { type: String, enum: ['nissali', 'soeur'], required: true },
     organizer: { type: Schema.Types.ObjectId, ref: 'User' },
     organizerName: String,

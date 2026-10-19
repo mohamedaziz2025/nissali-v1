@@ -97,16 +97,23 @@ export async function loadFastContext(user, cycleCtx) {
   ]);
   const counter = fastCounter({ autoMissed, manual, madeUp, prior });
 
+  // Règles prévues ou en cours (RG-24, RG-33) : aucun jour de jeûne programmé n'y est placé.
+  const predicted = [];
+  if (summary.hasData && !summary.noPrediction && user.mode === 'cycle') {
+    const last = periods.filter((p) => p.kind !== 'nifas').pop();
+    const cycles = projectCycles({ lastStart: last.start, cycleLength: summary.cycleLength, periodLength: summary.periodLength, count: 14 }).slice(1);
+    for (const c of cycles) predicted.push([c.start, c.periodEnd]);
+  }
+  const ongoing = summary.inPeriod && !summary.istihada;
+  const periodOn = (day) => {
+    if (ongoing && day >= today && diffDays(day, today) < Math.max(1, summary.periodLength - summary.periodDay + 1)) return 'regles';
+    if (predicted.some(([s, e]) => day >= s && day <= e)) return 'regles_prevues';
+    return null;
+  };
+
   // Plan de rattrapage (RG-24) : jamais sur des règles prévues, jours interdits ou Ramadan.
   let planDays = [];
   if (plan?.active && counter.remaining > 0) {
-    const predicted = [];
-    if (summary.hasData && !summary.noPrediction && user.mode === 'cycle') {
-      const last = periods.filter((p) => p.kind !== 'nifas').pop();
-      const cycles = projectCycles({ lastStart: last.start, cycleLength: summary.cycleLength, periodLength: summary.periodLength, count: 14 }).slice(1);
-      for (const c of cycles) predicted.push([c.start, c.periodEnd]);
-    }
-    const ongoing = summary.inPeriod && !summary.istihada;
     const done = new Set(madeUp.map((m) => m.day));
     const from = madeUp.some((m) => m.day === today) || time >= '12:00' ? addDays(today, 1) : today;
     planDays = planMakeupDays({
@@ -127,5 +134,5 @@ export async function loadFastContext(user, cycleCtx) {
     }));
   }
 
-  return { ctx, autoMissed, manual, madeUp, prior, plan, counter, planDays };
+  return { ctx, autoMissed, manual, madeUp, prior, plan, counter, planDays, periodOn };
 }

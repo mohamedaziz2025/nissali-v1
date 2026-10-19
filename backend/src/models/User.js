@@ -89,6 +89,14 @@ const userSchema = new Schema(
         maghrib: { type: Boolean, default: true },
         isha: { type: Boolean, default: true },
       },
+      // 5.7 / 5.13 — rappel à l'heure de chaque prière, réglé prière par prière.
+      notifyPrayers: {
+        fajr: { type: Boolean, default: true },
+        dhuhr: { type: Boolean, default: true },
+        asr: { type: Boolean, default: true },
+        maghrib: { type: Boolean, default: true },
+        isha: { type: Boolean, default: true },
+      },
       dhikrDuringPeriod: { type: Boolean, default: false },
       // Rappels de dhikr calés sur les horaires de la position : matin (Fajr), soir (Asr), vendredi.
       adhkarMorning: { type: Boolean, default: true },
@@ -105,6 +113,22 @@ const userSchema = new Schema(
       },
     },
 
+    // 5.8 — Me programmer (jeûnes volontaires) : jours de la semaine et jeûnes du calendrier, rappel la veille.
+    voluntaryPlan: {
+      weekdays: { type: [Number], default: [] },
+      blancs: { type: Boolean, default: false },
+      arafat: { type: Boolean, default: false },
+      achoura: { type: Boolean, default: false },
+      chawwal: { type: Boolean, default: false },
+      reminderTime: { type: String, default: '21:00' },
+    },
+    // 5.7 bis — Mes dhikr du jour (clé + objectif), vibration au comptage, rappel quotidien facultatif.
+    dhikr: {
+      list: { type: [{ _id: false, key: String, goal: Number }], default: undefined },
+      haptics: { type: Boolean, default: true },
+      reminder: { type: Boolean, default: false },
+      reminderTime: { type: String, default: '20:30' },
+    },
     notificationPrefs: {
       periodSoon: { type: Boolean, default: true },
       fertileWindow: { type: Boolean, default: true },
@@ -113,6 +137,13 @@ const userSchema = new Schema(
       ramadan: { type: Boolean, default: true },
       whiteDays: { type: Boolean, default: true },
       dailyReminder: { type: Boolean, default: true },
+      // 5.12 — fréquence des conseils et actualités (RG-36 : « faible » par défaut). Ne touche jamais
+      // aux rappels de prière ni aux rappels personnels (notes, jeûnes).
+      frequency: { type: String, enum: ['faible', 'moderee', 'elevee'], default: 'faible' },
+      frequencyAsked: { type: Boolean, default: false }, // proposé une fois après l'inscription
+      // RG-35 — aperçu des rappels de notes masqué (« Rappel Nissali »).
+      hideNotePreview: { type: Boolean, default: false },
+      fastPlanned: { type: Boolean, default: true }, // veille d'un jeûne volontaire programmé
     },
 
     contraception: {
@@ -158,6 +189,7 @@ userSchema.methods.toPublic = function toPublic() {
     prayerSettings: this.prayerSettings,
     prayerSource: { mode: this.prayerSource?.mode || 'ville', mosque: this.prayerSource?.mosque ? String(this.prayerSource.mosque) : null },
     notificationPrefs: this.notificationPrefs,
+    dhikr: { haptics: this.dhikr?.haptics !== false, reminder: Boolean(this.dhikr?.reminder), reminderTime: this.dhikr?.reminderTime || '20:30' },
     contraception: this.contraception,
     profileComplete: Boolean(this.firstName && this.birthYear && this.city?.name && this.situation),
     createdAt: this.createdAt,

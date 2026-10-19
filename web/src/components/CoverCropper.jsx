@@ -8,7 +8,11 @@ import { Field, useToast } from './ui';
 const W = 1600;
 const H = 900;
 
-export default function CoverCropper({ value, alt, credit, onChange }) {
+/**
+ * withMeta : texte alternatif et crédit (articles). maxBytes : poids maximal du JPEG envoyé
+ * (événements : 1 Mo) — la qualité est réduite jusqu'à passer sous la limite.
+ */
+export default function CoverCropper({ value, alt, credit, onChange, withMeta = true, maxBytes }) {
   const toast = useToast();
   const [src, setSrc] = useState(null); // image choisie, pas encore recadrée
   const [img, setImg] = useState(null);
@@ -63,7 +67,13 @@ export default function CoverCropper({ value, alt, credit, onChange }) {
   const upload = async () => {
     setBusy(true);
     try {
-      const blob = await new Promise((r) => canvas.current.toBlob(r, 'image/jpeg', 0.86));
+      let quality = 0.86;
+      let blob = await new Promise((r) => canvas.current.toBlob(r, 'image/jpeg', quality));
+      while (maxBytes && blob.size > maxBytes && quality > 0.4) {
+        quality -= 0.1;
+        blob = await new Promise((r) => canvas.current.toBlob(r, 'image/jpeg', quality));
+      }
+      if (maxBytes && blob.size > maxBytes) throw new Error('Image trop lourde : 1 Mo maximum');
       const fd = new FormData();
       fd.append('image', new File([blob], 'couverture.jpg', { type: 'image/jpeg' }));
       const r = await api.upload('/admin/upload-image', fd);
@@ -113,12 +123,16 @@ export default function CoverCropper({ value, alt, credit, onChange }) {
           {value ? <button type="button" className="btn ghost sm" onClick={() => onChange({ coverUrl: '' })}>Retirer</button> : null}
         </div>
       ) : null}
+      {withMeta ? (
+        <>
       <Field label="Texte alternatif" hint="Décris la photo pour les lectrices malvoyantes (obligatoire avec une photo).">
         <input className="input" value={alt || ''} onChange={(e) => onChange({ coverAlt: e.target.value })} maxLength={200} required={Boolean(value)} placeholder="Ex. Bol de lentilles et d’épinards" />
       </Field>
       <Field label="Crédit photo (facultatif)">
         <input className="input" value={credit || ''} onChange={(e) => onChange({ coverCredit: e.target.value })} maxLength={160} placeholder="Photo : Prénom Nom / Unsplash" />
       </Field>
+        </>
+      ) : null}
     </div>
   );
 }

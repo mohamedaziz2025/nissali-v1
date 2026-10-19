@@ -58,9 +58,9 @@ export async function push(userId, payload) {
  * Crée une notification une seule fois par clé (dédoublonnage) et l'envoie en push.
  * title/body : texte discret ; detail : texte complet visible dans l'appli.
  */
-export async function notify(userId, { key, type, title = DISCREET.title, body = DISCREET.body, detail, link, imageUrl }, { sendPush = true } = {}) {
+export async function notify(userId, { key, type, title = DISCREET.title, body = DISCREET.body, detail, link, imageUrl, category }, { sendPush = true } = {}) {
   try {
-    const n = await Notification.create({ user: userId, key, type, title, body, detail, link, imageUrl });
+    const n = await Notification.create({ user: userId, key, type, title, body, detail, link, imageUrl, category });
     if (sendPush) {
       const sent = await push(userId, { title, body, link, image: imageUrl, data: { notificationId: String(n._id), type } });
       n.pushed = sent > 0;
@@ -71,4 +71,27 @@ export async function notify(userId, { key, type, title = DISCREET.title, body =
     if (err.code === 11000) return null; // déjà envoyée
     throw err;
   }
+}
+
+/**
+ * 5.12 — Conseils et actualités selon la fréquence choisie (RG-36 : « faible » par défaut, aucun ;
+ * « modérée » et « élevée » : plafonds hebdomadaires réglables dans le back-office). RG-37 : jamais deux
+ * le même jour ; jamais de push la nuit (22:00–08:00) ni à l'heure d'une prière (la notification reste
+ * alors dans le centre de notifications, sans son). Retourne { send, push }.
+ */
+export async function adviceGate(user, settings, { now = new Date(), timings } = {}) {
+  const freq = user.notificationPrefs?.frequency || 'faible';
+  const cap = freq === 'elevee' ? Number(settings.notifCapElevee ?? 5) : freq === 'moderee' ? Number(settings.notifCapModeree ?? 3) : Number(settings.notifCapFaible ?? 0);
+  if (!(cap > 0)) return { send: false, push: false };
+  const tz = user.city?.timezone || 'Europe/Paris';
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now).map((p) => [p.type, p.value]));
+  const hm = `${parts.hour}:${parts.minute}`;
+  const recent = await Notification.find({ user: user._id, category: 'conseil', createdAt: { $gte: new Date(now.getTime() - 7 * 86_400_000) } }).select('createdAt').lean();
+  if (recent.length >= cap) return { send: false, push: false };
+  const dayOf = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
+  if (recent.some((n) => dayOf(n.createdAt) === dayOf(now))) return { send: false, push: false };
+  const night = hm >= '22:00' || hm < '08:00';
+  const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const atPrayer = timings ? ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].some((p) => timings[p] && Math.abs(toMin(hm) - toMin(timings[p])) <= 15) : false;
+  return { send: true, push: !night && !atPrayer };
 }

@@ -15,7 +15,7 @@ export function errorHandler(err, req, res, _next) {
   if (err?.name === 'CastError') return res.status(400).json({ error: 'Identifiant invalide', code: 'INVALID_ID' });
   if (err?.code === 11000) return res.status(409).json({ error: 'Cette valeur est déjà utilisée', code: 'DUPLICATE', fields: Object.keys(err.keyValue || {}) });
   if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON invalide', code: 'BAD_JSON' });
-  if (err?.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'Fichier trop volumineux (5 Mo max)', code: 'FILE_TOO_LARGE' });
+  if (err?.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: req.path.endsWith('/events/image') || req.originalUrl?.includes('/events/image') ? 'Image trop lourde : 1 Mo maximum pour un événement' : 'Fichier trop volumineux (5 Mo max)', code: 'FILE_TOO_LARGE' });
   console.error('[erreur]', err);
   return res.status(500).json({ error: 'Une erreur est survenue. Réessaie dans un instant.', code: 'SERVER_ERROR' });
 }

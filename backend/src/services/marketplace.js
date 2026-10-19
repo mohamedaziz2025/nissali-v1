@@ -246,6 +246,7 @@ export function publicPractitioner(p, { plan } = {}, from = null) {
     createdAt: p.createdAt,
     languages: p.languages,
     inPerson: p.inPerson,
+    atHome: Boolean(p.atHome),
     supportsVideo: Boolean(p.supportsVideo && plan?.features?.video),
     rating: p.rating,
     reviewsCount: p.reviewsCount,

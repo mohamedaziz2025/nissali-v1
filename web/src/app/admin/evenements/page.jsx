@@ -3,6 +3,7 @@
 // modification), événements Nissali, inscriptions, ventes, commission de 15 % et reversements.
 import { useState } from 'react';
 import Icon from '@/components/Icons';
+import CoverCropper from '@/components/CoverCropper';
 import { Badge, Empty, ErrorBox, Field, Kpi, Loading, Modal, PageHeader, Tabs, useToast } from '@/components/ui';
 import { api } from '@/lib/api';
 import { dateTime, euros } from '@/lib/format';
@@ -24,17 +25,6 @@ function EventForm({ initial, onSaved, onClose }) {
   const [f, setF] = useState(initial || emptyForm);
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const upload = async (file) => {
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('image', file);
-    try {
-      const r = await api.upload('/admin/upload-image', fd);
-      setF((x) => ({ ...x, imageUrl: r.url }));
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  };
   const addPhotos = async (files) => {
     const list = [...(files || [])].slice(0, 12 - (f.photos || []).length);
     const urls = [];
@@ -64,47 +54,67 @@ function EventForm({ initial, onSaved, onClose }) {
       setBusy(false);
     }
   };
+  const paid = Number(f.price) > 0;
   return (
-    <form className="stack" onSubmit={save}>
-      <Field label="Titre"><input className="input" value={f.title} onChange={set('title')} required minLength={3} /></Field>
-      <Field label="Description"><textarea className="textarea" rows={3} value={f.description} onChange={set('description')} required minLength={10} /></Field>
-      <Field label="Programme (facultatif)"><textarea className="textarea" rows={3} value={f.programme} onChange={set('programme')} /></Field>
-      <div className="grid grid-3">
-        <Field label="Date"><input className="input" type="date" value={f.day} onChange={set('day')} required /></Field>
-        <Field label="Début"><input className="input" type="time" value={f.time} onChange={set('time')} required /></Field>
-        <Field label="Fin"><input className="input" type="time" value={f.endTime} onChange={set('endTime')} /></Field>
-      </div>
-      <div className="grid grid-3">
-        <Field label="Lieu"><input className="input" value={f.name} onChange={set('name')} /></Field>
-        <Field label="Adresse"><input className="input" value={f.address} onChange={set('address')} /></Field>
-        <Field label="Ville"><input className="input" value={f.city} onChange={set('city')} required /></Field>
-      </div>
-      <div className="grid grid-3">
-        <Field label="Places"><input className="input" type="number" min={1} value={f.capacity} onChange={set('capacity')} required /></Field>
-        <Field label="Prix (€, 0 = gratuit)" hint="Événements Nissali : sans commission."><input className="input" type="number" min={0} step="0.5" value={f.price} onChange={set('price')} /></Field>
-        <Field label="Image">
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => upload(e.target.files?.[0])} />
-        </Field>
-      </div>
-      {Number(f.price) ? (
-        <Field label="Lien de billetterie externe" hint="Obligatoire pour un événement payant : page Billetweb (ou HelloAsso, Weezevent…) où l’inscription et le paiement se font. Adresse sécurisée https:// uniquement.">
-          <input className="input" type="url" placeholder="https://www.billetweb.fr/…" value={f.ticketUrl} onChange={set('ticketUrl')} required pattern="https://.+\..+" title="Adresse sécurisée commençant par https://" />
-        </Field>
-      ) : null}
-      {f.imageUrl ? <img src={f.imageUrl} alt="" style={{ width: 220, borderRadius: 12 }} /> : null}
-      <Field label={`Photos de l’événement (${(f.photos || []).length}/12)`} hint="Affichées en grille dans l’appli, avec visionneuse plein écran.">
-        <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }} />
-      </Field>
-      {(f.photos || []).length ? (
-        <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-          {f.photos.map((u, i) => (
-            <div key={u + i} style={{ position: 'relative' }}>
-              <img src={u} alt="" style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
-              <button type="button" className="btn sm danger" style={{ position: 'absolute', top: 4, right: 4, padding: '0 6px' }} aria-label="Retirer la photo" onClick={() => setF((x) => ({ ...x, photos: x.photos.filter((_, j) => j !== i) }))}>✕</button>
-            </div>
-          ))}
+    <form className="stack event-form" onSubmit={save}>
+      <section className="form-section">
+        <h3>Image de couverture</h3>
+        <p className="muted small">Format paysage 16:9, recadrée et allégée automatiquement (1 Mo maximum), sans visage reconnaissable sans accord.</p>
+        <CoverCropper value={f.imageUrl} withMeta={false} maxBytes={1024 * 1024} onChange={(v) => v.coverUrl !== undefined && setF((x) => ({ ...x, imageUrl: v.coverUrl }))} />
+      </section>
+      <section className="form-section">
+        <h3>L’événement</h3>
+        <Field label="Titre"><input className="input" value={f.title} onChange={set('title')} required minLength={3} maxLength={120} placeholder="Ex. Initiation au lavage mortuaire" /></Field>
+        <Field label="Description"><textarea className="textarea" rows={4} value={f.description} onChange={set('description')} required minLength={10} /></Field>
+        <Field label="Programme (facultatif)"><textarea className="textarea" rows={3} value={f.programme} onChange={set('programme')} placeholder="10 h : accueil…" /></Field>
+      </section>
+      <section className="form-section">
+        <h3>Date et lieu</h3>
+        <div className="grid grid-3">
+          <Field label="Date"><input className="input" type="date" value={f.day} onChange={set('day')} required /></Field>
+          <Field label="Début"><input className="input" type="time" value={f.time} onChange={set('time')} required /></Field>
+          <Field label="Fin (facultatif)"><input className="input" type="time" value={f.endTime} onChange={set('endTime')} /></Field>
         </div>
-      ) : null}
+        <div className="grid grid-3">
+          <Field label="Lieu"><input className="input" value={f.name} onChange={set('name')} placeholder="Salle, café…" /></Field>
+          <Field label="Adresse"><input className="input" value={f.address} onChange={set('address')} /></Field>
+          <Field label="Ville"><input className="input" value={f.city} onChange={set('city')} required /></Field>
+        </div>
+      </section>
+      <section className="form-section">
+        <h3>Places et billetterie</h3>
+        <div className="grid grid-2">
+          <Field label="Places"><input className="input" type="number" min={1} value={f.capacity} onChange={set('capacity')} required /></Field>
+          <Field label="Prix (€, 0 = gratuit)" hint="Événements Nissali : sans commission."><input className="input" type="number" min={0} step="0.5" value={f.price} onChange={set('price')} /></Field>
+        </div>
+        {paid ? (
+          <Field label="Lien Billetweb" hint="Obligatoire pour un événement payant (RG-30) : la vente se fait sur Billetweb, le prix doit être le même.">
+            <input className="input" type="url" placeholder="https://www.billetweb.fr/…" value={f.ticketUrl} onChange={set('ticketUrl')} required pattern="https://(www\.)?billetweb\.fr/.+" title="Lien commençant par https://www.billetweb.fr/" />
+          </Field>
+        ) : (
+          <p className="muted small" style={{ margin: 0 }}>Gratuit : les sœurs s’inscrivent dans l’appli (« Je m’inscris »).</p>
+        )}
+      </section>
+      <section className="form-section">
+        <h3>Photos ({(f.photos || []).length}/12)</h3>
+        <p className="muted small">Affichées en grille dans l’appli, avec visionneuse plein écran.</p>
+        {(f.photos || []).length ? (
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            {f.photos.map((u, i) => (
+              <div key={u + i} style={{ position: 'relative' }}>
+                <img src={u} alt="" style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                <button type="button" className="btn sm danger" style={{ position: 'absolute', top: 4, right: 4, padding: '0 6px' }} aria-label="Retirer la photo" onClick={() => setF((x) => ({ ...x, photos: x.photos.filter((_, j) => j !== i) }))}>✕</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {(f.photos || []).length < 12 ? (
+          <label className="btn outline sm" style={{ cursor: 'pointer', justifySelf: 'start' }}>
+            Ajouter des photos
+            <input type="file" multiple accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }} />
+          </label>
+        ) : null}
+      </section>
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="btn ghost" onClick={onClose}>Annuler</button>
         <button className="btn" disabled={busy}>{f.id ? 'Enregistrer' : 'Publier l’événement'}</button>

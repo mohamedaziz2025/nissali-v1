@@ -97,6 +97,8 @@ export async function rescheduleAll(today, user) {
       const paused = today.prayers.paused && (i === 0 || today.cycle?.kind === 'regles' || today.cycle?.kind === 'nifas');
       if (prayerPrefs.notifications !== false) {
         for (const p of Object.keys(LABELS)) {
+          // 5.13 — rappels de prière réglés un par un.
+          if (prayerPrefs.notifyPrayers?.[p] === false) continue;
           const label = LABELS[p];
           const time = t[p];
           const instant = t.instants[p];
@@ -132,6 +134,22 @@ export async function rescheduleAll(today, user) {
     // hors connexion : les notifications déjà programmées sont perdues, elles reviendront au retour du réseau
   }
 
+  // 5.7 bis — rappel de dhikr quotidien (facultatif, heure au choix).
+  if (user.dhikr?.reminder) {
+    for (let i = 0; i < 3; i += 1) await schedule(at(addDays(today.today, i), user.dhikr.reminderTime || '20:30'), { title: 'Nissali', body: 'Un moment pour le dhikr', data: { kind: 'dhikr', link: '/dhikr' } }, 'prieres');
+  }
+
+  // 5.2 bis — rappels des notes (RG-35 : aperçu masqué « Rappel Nissali » si elle le souhaite).
+  try {
+    const notes = await api.get('/notes/reminders');
+    const hide = prefs.hideNotePreview;
+    for (const n of notes.items || []) {
+      await schedule(at(n.day, n.time), hide ? { title: 'Nissali', body: 'Rappel Nissali', data: { link: '/notes' } } : { title: 'Rappel', body: `${n.text} · ${n.time}`, data: { link: '/notes' } });
+    }
+  } catch {
+    // hors connexion : rappels reprogrammés au retour du réseau
+  }
+
   // Rappels discrets
   if (prefs.dailyReminder !== false) await schedule(at(today.tomorrow, '08:30'), DISCREET);
   if (prefs.periodSoon !== false && today.cycle?.kind === 'prochaines' && today.cycle.nextDate) {
@@ -141,8 +159,18 @@ export async function rescheduleAll(today, user) {
     const day = addDays(today.cycle.start, today.cycle.periodLength);
     await schedule(at(day, '10:00'), DISCREET);
   }
-  if (prefs.fastMakeup !== false && today.fasts?.nextPlanned) {
-    await schedule(at(addDays(today.fasts.nextPlanned, -1), '21:00'), DISCREET);
+  // 5.8 — la veille au soir (21:00 par défaut, pour penser au suhur) : rattrapages et jeûnes volontaires
+  // programmés ; jamais pendant les règles prévues (RG-33, jours écartés par le serveur).
+  const fastEves = new Set();
+  if (prefs.fastMakeup !== false) {
+    for (const d of today.fasts?.planNext || (today.fasts?.nextPlanned ? [today.fasts.nextPlanned] : [])) fastEves.add(`${d}|${today.fasts?.reminderTime || '21:00'}`);
+  }
+  if (prefs.fastPlanned !== false) {
+    for (const d of today.fasts?.voluntaryNext || []) if (![...fastEves].some((k) => k.startsWith(`${d}|`))) fastEves.add(`${d}|${today.fasts?.voluntaryReminderTime || '21:00'}`);
+  }
+  for (const k of fastEves) {
+    const [d, time] = k.split('|');
+    await schedule(at(addDays(d, -1), time), DISCREET);
   }
   if (prefs.whiteDays !== false && today.whiteDays?.days?.[0]) {
     await schedule(at(addDays(today.whiteDays.days[0].day, -1), '18:00'), DISCREET);

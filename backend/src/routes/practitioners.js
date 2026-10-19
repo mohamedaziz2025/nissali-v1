@@ -1,6 +1,7 @@
 // 5.10 — Praticiennes côté utilisatrice : annuaire, fiche, créneaux, réservation, avis, favoris.
 // Tant que l'annuaire n'est pas ouvert (paramètre back-office), l'onglet reste flouté « Bientôt disponible ».
 import { Router } from 'express';
+import { FAMILIES, familySpecialties } from '../content/categories.js';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -32,6 +33,8 @@ router.get('/status', async (_req, res) => {
     categories: categories.map((c) => ({ key: c.key, label: c.label, group: c.group })),
     // 5.10 — Catégories de l'annuaire (gérées dans le back-office).
     groups: categories.map((c) => ({ key: c.key, label: c.label, specialties: [{ key: c.key, label: c.label }] })),
+    // Cahier V3 : les 6 catégories qui regroupent ces spécialités dans les filtres.
+    families: FAMILIES.map((f) => ({ key: f.key, label: f.label, specialties: familySpecialties(f.key, categories) })).filter((f) => f.specialties.length),
   });
 });
 
@@ -67,6 +70,7 @@ router.get('/', requireAuth, async (req, res) => {
   const filter = { status: 'validee', user: { $ne: req.user._id } };
   const categories = await Category.find().lean();
   if (req.query.specialty) filter.specialty = String(req.query.specialty);
+  if (req.query.family) filter.specialty = { $in: familySpecialties(String(req.query.family), categories) };
   if (req.query.group) filter.specialty = { $in: categories.filter((c) => c.key === String(req.query.group) || c.group === String(req.query.group)).map((c) => c.key) };
   if (req.query.city) filter['location.city'] = new RegExp(escapeRegex(String(req.query.city).slice(0, 60)), 'i');
   if (req.query.region) filter['location.region'] = new RegExp(escapeRegex(String(req.query.region).slice(0, 60)), 'i');
@@ -80,7 +84,10 @@ router.get('/', requireAuth, async (req, res) => {
   const list = await Practitioner.find(filter).limit(enabled ? 200 : 3).lean();
   const withPlans = await Promise.all(list.map(async (p) => ({ ...publicPractitioner(p, await activePlanFor(p), from), ...(enabled ? await offerSummary(p) : {}) })));
   const sort = String(req.query.sort || 'distance');
+  // 5.10 — tri par défaut du plus proche au plus loin ; autres tris : mieux notées, prix, nouvelles inscrites.
   if (sort === 'alpha') withPlans.sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'));
+  else if (sort === 'rating') withPlans.sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.reviewsCount || 0) - (a.reviewsCount || 0));
+  else if (sort === 'price') withPlans.sort((a, b) => (a.minPrice ?? 1e9) - (b.minPrice ?? 1e9));
   else if (sort === 'recent') withPlans.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   else withPlans.sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9) || Number(b.featured) - Number(a.featured));
   const labels = new Map(categories.map((c) => [c.key, c]));

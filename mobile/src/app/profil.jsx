@@ -6,6 +6,7 @@ import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 import { AdhanSoundSheet } from '../components/AdhanSound';
 import { CityPicker } from '../components/forms';
 import Icon from '../components/Icon';
+import { FREQUENCIES, FrequencyPicker } from '../components/NotifFrequency';
 import ProSpaceCard from '../components/ProSpaceCard';
 import { Button, Card, Chips, CodeInput, Field, Gap, Label, ListItem, Row, Screen, Sheet, Stepper, T, Toggle, useToast } from '../components/ui';
 import { api } from '../lib/api';
@@ -194,6 +195,9 @@ export default function Profile() {
           onChange={followLocation}
         />
         <Toggle label="Notification à l’heure de chaque prière" value={user.prayerSettings?.notifications} onChange={(v) => patch({ prayerSettings: { notifications: v } })} />
+        {user.prayerSettings?.notifications !== false ? (
+          <ListItem icon="bell" title="Rappels prière par prière" subtitle={`${['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => user.prayerSettings?.notifyPrayers?.[k] !== false).length} prière(s) sur 5`} onPress={() => setSheet('prayerReminders')} />
+        ) : null}
         {/* 07 — Son de l'adhan : réglage distinct des rappels (il ne les réactive jamais). */}
         <ListItem icon="volume" title="Son de l’adhan" subtitle={adhanOn ? `Activé · ${['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => user.prayerSettings?.adhanPrayers?.[k] !== false).length} prière(s) · ${adhans.data?.items?.find((a) => a.key === (user.prayerSettings?.adhanVoice || 'a9'))?.label || 'Mishary Rashid Alafasy'}` : 'Désactivé · notification seule'} onPress={() => setAdhanSound(true)} />
         <ListItem icon="compass" title="Qibla" onPress={() => router.push('/qibla')} />
@@ -202,8 +206,9 @@ export default function Profile() {
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label color={colors.or}>Rappels de dhikr</Label>
-        <T variant="small">Envoyés aux horaires de prière de ta position.</T>
+        <Label color={colors.or}>Dhikr</Label>
+        <ListItem icon="beads" title="Mon dhikr" subtitle={user.dhikr?.reminder ? `Compteur · rappel chaque jour à ${user.dhikr.reminderTime}` : 'Compteur, objectifs du jour, rappel quotidien'} onPress={() => router.push('/dhikr')} />
+        <T variant="small">Rappels de dhikr envoyés aux horaires de prière de ta position.</T>
         <Toggle label="Adhkar du matin" hint="20 min après Fajr" value={user.prayerSettings?.adhkarMorning !== false} onChange={(v) => patch({ prayerSettings: { adhkarMorning: v } })} />
         <Toggle label="Adhkar du soir" hint="20 min après Asr" value={user.prayerSettings?.adhkarEvening !== false} onChange={(v) => patch({ prayerSettings: { adhkarEvening: v } })} />
         <Toggle label="Vendredi (Jumu’a)" hint="Sourate Al-Kahf et salawat le matin, du’a à la dernière heure avant Maghrib" value={user.prayerSettings?.jumua !== false} onChange={(v) => patch({ prayerSettings: { jumua: v } })} />
@@ -212,24 +217,27 @@ export default function Profile() {
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label>Notifications discrètes</Label>
+        <Label>Notifications</Label>
+        <ListItem icon="sliders" title="Fréquence des notifications" subtitle={`${FREQUENCIES.find((f) => f.key === (user.notificationPrefs?.frequency || 'faible'))?.label} · ${FREQUENCIES.find((f) => f.key === (user.notificationPrefs?.frequency || 'faible'))?.more}`} onPress={() => setSheet('frequency')} />
         <T variant="small">Aucun mot sensible ne s’affiche sur l’écran verrouillé : seulement « Petit rappel du jour ».</T>
         {[
           ['periodSoon', 'Règles prévues (2 jours avant)'],
           ['fertileWindow', 'Fenêtre fertile (objectif enfant)'],
           ['periodEndQuestion', 'Question sur la fin des règles'],
           ['fastMakeup', 'Jour de rattrapage (la veille)'],
+          ['fastPlanned', 'Jeûne volontaire programmé (la veille)'],
           ['ramadan', 'Ramadan'],
           ['whiteDays', 'Jours blancs'],
           ['dailyReminder', 'Petit rappel du jour'],
         ].map(([k, l]) => (
           <Toggle key={k} label={l} value={user.notificationPrefs?.[k] !== false} onChange={(v) => patch({ notificationPrefs: { [k]: v } })} />
         ))}
+        <Toggle label="Masquer l’aperçu de mes notes" hint="Les rappels de notes affichent seulement « Rappel Nissali »" value={Boolean(user.notificationPrefs?.hideNotePreview)} onChange={(v) => patch({ notificationPrefs: { hideNotePreview: v } })} />
       </Card>
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label>Mes consentements</Label>
+        <Label>Consentements et communication</Label>
         <Toggle label="Traitement de mes données de santé" hint="Obligatoire pour le suivi" value={c.health?.accepted} onChange={(v) => consent('health', v)} />
         <Toggle label="Actualités par e-mail" value={c.marketingEmail?.accepted} onChange={(v) => consent('marketingEmail', v)} />
         <Toggle label="Actualités par SMS" value={c.marketingSms?.accepted} onChange={(v) => consent('marketingSms', v)} />
@@ -251,6 +259,15 @@ export default function Profile() {
       <T variant="small" style={{ textAlign: 'center' }}>Les règles présentées sont l’avis retenu par notre comité. En cas de doute, rapproche-toi d’une personne de science.</T>
       <T variant="small" style={{ textAlign: 'center', marginTop: 6 }}>Nissali · 100 % gratuite · nissali@gmail.com</T>
 
+      <Sheet visible={sheet === 'frequency'} onClose={() => setSheet(null)} title="Fréquence des notifications">
+        <FrequencyPicker value={user.notificationPrefs?.frequency || 'faible'} onChange={(v) => patch({ notificationPrefs: { frequency: v, frequencyAsked: true } }).then(() => setSheet(null))} />
+      </Sheet>
+      <Sheet visible={sheet === 'prayerReminders'} onClose={() => setSheet(null)} title="Rappels prière par prière">
+        {['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].map((k) => (
+          <Toggle key={k} label={PRAYER_LABELS[k]} value={user.prayerSettings?.notifyPrayers?.[k] !== false} onChange={(v) => patch({ prayerSettings: { notifyPrayers: { [k]: v } } })} />
+        ))}
+        <T variant="small">Pendant les règles, aucun rappel de prière n’est envoyé.</T>
+      </Sheet>
       <Sheet visible={sheet === 'infos'} onClose={() => setSheet(null)} title="Mes informations" footer={<Button title="Enregistrer" onPress={() => patch({ firstName: draft.firstName, age: Number(draft.age), city: draft.city, situation: draft.situation, ...(draft.city !== user.city && draft.city ? { prayerSettings: { followLocation: draft.city.source === 'gps' } } : {}) }).then(() => setSheet(null))} disabled={!(Number(draft.age) >= 15)} />}>
         <Field label="Prénom" value={draft.firstName} onChangeText={(v) => setDraft((d) => ({ ...d, firstName: v }))} />
         <Field label="Âge" value={draft.age} onChangeText={(v) => setDraft((d) => ({ ...d, age: v.replace(/\D/g, '') }))} keyboardType="number-pad" />

@@ -1,7 +1,8 @@
 // 5.2 — Tableau de bord « Aujourd'hui » : une seule requête pour tout l'écran d'accueil.
 import { Router } from 'express';
 import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
-import { DailyLog, Notification, PrayerLog, Reminder } from '../models/index.js';
+import { DailyLog, Note, Notification, PrayerLog, Reminder, VoluntaryFast } from '../models/index.js';
+import { nextVoluntary } from '../services/voluntary.js';
 import { HEALTH_ALERTS, PHASES } from '../content/phases.js';
 import { loadCycleContext, loadFastContext, prayerPause } from '../services/context.js';
 import { buildHealthTips, getWeather } from '../services/health.js';
@@ -10,6 +11,7 @@ import { ramadanInfo, toHijri, whiteDays } from '../services/hijri.js';
 import { adhanFor } from '../services/adhan.js';
 import { dhikrReminders } from '../services/dhikr.js';
 import { userTimings } from '../services/prayerSource.js';
+import { upcomingNotes } from '../services/notes.js';
 import { currentPrayer, getQibla, nextPrayer, prayerOptionsFor, prayersAfterPurification, withInstants, PRAYERS } from '../services/prayerService.js';
 import { addDays, diffDays } from '../utils/dates.js';
 
@@ -139,7 +141,27 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
     },
     purification,
     whiteDays: { daysUntil: white.daysUntil, inProgress: white.inProgress, days: white.days, monthName: white.monthName },
-    fasts: { remaining: fastCtx.counter.remaining, missed: fastCtx.counter.missed, madeUp: fastCtx.counter.madeUp, nextPlanned: nextPlanned?.day || null },
+    fasts: {
+      remaining: fastCtx.counter.remaining,
+      missed: fastCtx.counter.missed,
+      madeUp: fastCtx.counter.madeUp,
+      nextPlanned: nextPlanned?.day || null,
+      // Rappels la veille au soir (heure réglable) : jours de rattrapage et jeûnes volontaires programmés.
+      reminderTime: fastCtx.plan?.reminderTime || '21:00',
+      planNext: fastCtx.planDays.slice(0, 3).map((p) => p.day),
+      voluntaryReminderTime: user.voluntaryPlan?.reminderTime || '21:00',
+      voluntaryNext: nextVoluntary(user.voluntaryPlan, {
+        from: addDays(today, 1),
+        days: 14,
+        adj: settings.hijriAdjustment || 0,
+        excl: settings.excludeDhulHijja13 !== false,
+        periodOn: fastCtx.periodOn,
+        done: new Set((await VoluntaryFast.find({ user: user._id, day: { $gt: today } }).select('day').lean()).map((v) => v.day)),
+        limit: 4,
+      })
+        .filter((v) => !v.paused)
+        .map((v) => v.day),
+    },
     ramadan: { current: ramadan.current, daysUntil: ramadan.daysUntil ?? null, day: ramadan.day ?? null, hijriYear: ramadan.hijriYear, start: ramadan.start },
     health: {
       mood: healthLog?.mood || null,
@@ -155,6 +177,10 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
     tips: buildHealthTips({ phase: null, weather, ramadan: ramadan.current, pregnant: false }),
     weather,
     reminder: reminder ? { kind: reminder.kind, text: reminder.text, source: reminder.source } : null,
+    // 5.2 · 5 — Mes notes : les prochaines notes et rappels.
+    // Empreinte des notes : les rappels du téléphone sont reprogrammés dès qu'une note change.
+    notesStamp: await Note.find({ user: user._id }).sort({ updatedAt: -1 }).select('updatedAt').lean().then((l) => `${l.length}-${l[0]?.updatedAt?.getTime?.() || 0}`),
+    notes: (await upcomingNotes(user._id, today, { days: 60, limit: 3 })).map((n) => ({ noteId: n.noteId, day: n.day, time: n.time, text: n.text, type: n.type, repeat: n.repeat, repeatLabel: n.repeatLabel })),
     notificationsUnread: unread,
     tomorrow: addDays(today, 1),
   });

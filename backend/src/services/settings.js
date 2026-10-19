@@ -46,6 +46,9 @@ export const SETTING_DEFINITIONS = {
   termRule: { group: 'calculs', label: 'Règle du terme de grossesse', type: 'select', default: 'fr', options: ['fr', 'naegele'] },
 
   // Application
+  // 5.12 — Fréquence des notifications : plafonds hebdomadaires des conseils et actualités (RG-36).
+  notifCapModeree: { group: 'notifications', label: 'Conseils et actualités par semaine, niveau « Modérée »', type: 'number', default: 3, min: 0, max: 14 },
+  notifCapElevee: { group: 'notifications', label: 'Conseils et actualités par semaine, niveau « Élevée »', type: 'number', default: 5, min: 0, max: 14 },
   practitionersMode: { group: 'application', label: 'Onglet Praticiennes (annuaire et réservation)', type: 'select', default: 'auto', options: ['auto', 'ouvert', 'ferme'] },
   contactEmail: { group: 'application', label: 'E-mail de contact des professionnelles', type: 'text', default: 'nissali@gmail.com' },
 };

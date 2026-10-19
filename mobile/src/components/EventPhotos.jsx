@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assetUrl, uploadImage } from '../lib/api';
+import { shrinkImage } from '../lib/image';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 import { T, useToast } from './ui';
@@ -82,7 +83,10 @@ export function PhotoEditor({ photos, onChange }) {
     setBusy(true);
     const urls = [];
     try {
-      for (const a of r.assets.slice(0, left)) urls.push((await uploadImage('/events/image', 'image', a.uri, a.mimeType)).url);
+      for (const a of r.assets.slice(0, left)) {
+        const img = a.width && a.width <= 1600 && a.fileSize && a.fileSize < 900_000 ? { uri: a.uri, mimeType: a.mimeType } : await shrinkImage(a.uri);
+        urls.push((await uploadImage('/events/image', 'image', img.uri, img.mimeType)).url);
+      }
     } catch (err) {
       toast(err.message, 'error');
     } finally {

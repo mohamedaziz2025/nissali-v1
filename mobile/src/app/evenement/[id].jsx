@@ -70,7 +70,7 @@ export default function EventScreen() {
             <T variant="small">{e.placesLeft ? `${e.placesLeft} place${e.placesLeft > 1 ? 's' : ''} restante${e.placesLeft > 1 ? 's' : ''}` : 'Complet'}</T>
           </View>
           {!e.free && secureTicket ? (
-            <Button title="Réserver ma place" icon="external" onPress={openTicket} />
+            <Button title={/billetweb\.fr/i.test(e.ticketUrl || '') ? 'Réserver sur Billetweb' : 'Réserver ma place'} icon="external" onPress={openTicket} />
           ) : e.registered ? (
             <Button title="Annuler ma place" variant="outline" small onPress={unregister} />
           ) : !e.free ? (
@@ -142,7 +142,7 @@ export default function EventScreen() {
               )}
             </View>
           </Row>
-          {!isOrganizer && secureTicket ? <Button title="Réserver ma place" icon="external" onPress={openTicket} /> : null}
+          {!isOrganizer && secureTicket ? <Button title={/billetweb\.fr/i.test(e.ticketUrl || '') ? 'Réserver sur Billetweb' : 'Réserver ma place'} icon="external" onPress={openTicket} /> : null}
           {!isOrganizer && e.registered ? (
             <Pressable onPress={unregister} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center' }}>
               <T variant="small" color={colors.bordeaux}>Retirer de mes événements</T>
@@ -173,7 +173,7 @@ export default function EventScreen() {
           <Card style={{ gap: 6 }}>
             <Label color={colors.or}>Ton événement</Label>
             <T>{e.registrationsCount} inscrite{e.registrationsCount > 1 ? 's' : ''}</T>
-            {secureTicket ? <T variant="small">Billetterie externe : {ticketHost}</T> : !e.free ? <T variant="small" color={colors.bordeaux}>Ajoute le lien de billetterie externe (https://) pour que les sœurs puissent réserver leur place.</T> : null}
+            {secureTicket ? <T variant="small">Billetterie externe : {ticketHost}</T> : !e.free ? <T variant="small" color={colors.bordeaux}>Ajoute le lien Billetweb pour que les sœurs puissent réserver leur place.</T> : null}
             {e.commissionRate ? <T variant="small">Commission Nissali : {Math.round(e.commissionRate * 100)} % du prix de chaque billet vendu via Nissali, réglée après l’événement.</T> : null}
           </Card>
         </>

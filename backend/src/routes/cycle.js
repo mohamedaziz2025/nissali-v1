@@ -1,5 +1,6 @@
 // 5.3 / 5.4 — Saisie des règles et onglet Cycle (calendrier, phases, historique).
 import { Router } from 'express';
+import { upcomingNotes } from '../services/notes.js';
 import { z } from 'zod';
 import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -86,11 +87,16 @@ router.get('/', async (req, res) => {
   const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : ctx.today.slice(0, 7);
   const { start, end } = monthBounds(month);
   const monday = addDays(ctx.today, -((weekday(ctx.today) + 6) % 7));
-  const [appointments, todayLog, lastWeight] = await Promise.all([
+  const [appointments, todayLog, lastWeight, notes] = await Promise.all([
     appointmentsFor(req.user, addDays(minDay(start, monday), -7), addDays(end, 60)),
     DailyLog.findOne({ user: req.user._id, day: ctx.today }).lean(),
     DailyLog.findOne({ user: req.user._id, weight: { $exists: true, $ne: null } }).sort({ day: -1 }).select('day weight').lean(),
+    // 5.4 — notes « affichées dans le calendrier » : un petit point sur les jours concernés.
+    upcomingNotes(req.user._id, minDay(start, monday), { days: 45, limit: 400 }),
   ]);
+  const noteMap = new Map();
+  for (const n of notes) if (n.showInCalendar) noteMap.set(n.day, [...(noteMap.get(n.day) || []), { id: n.noteId, text: n.text, time: n.time, type: n.type }]);
+  const withNotes = (days) => days.map((d) => (noteMap.has(d.day) ? { ...d, notes: noteMap.get(d.day) } : d));
   const s = ctx.summary;
   const current = s.projections[0];
 
@@ -115,9 +121,9 @@ router.get('/', async (req, res) => {
     aberrantPending: s.aberrantPending,
     predictions: s.projections.slice(1).map((c) => ({ start: c.start, end: c.periodEnd, ovulation: c.ovulation, fertileStart: c.fertileStart })),
     periods: [...ctx.periods].reverse(),
-    calendar: buildCalendar(month, ctx, appointments),
+    calendar: withNotes(buildCalendar(month, ctx, appointments)),
     // 11 — semaine en cours (lundi → dimanche) pour la bande du haut de « Mon cycle ».
-    week: calendarDays(ctx, appointments, monday, addDays(monday, 6)),
+    week: withNotes(calendarDays(ctx, appointments, monday, addDays(monday, 6))),
     // Raccourcis : dernière mesure de poids réelle (sinon « Ajouter mon poids ») et note du jour.
     lastWeight: lastWeight ? { day: lastWeight.day, weight: lastWeight.weight } : null,
     journal: { day: ctx.today, notes: todayLog?.notes || '', mood: todayLog?.mood || null, symptoms: todayLog?.symptoms || [] },

@@ -9,7 +9,9 @@ import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, H
 import { COMMISSION_RATE, presentEvent } from '../services/events.js';
 import { bestCity } from '../services/geo.js';
 import { forgetTips } from '../services/healthTips.js';
-import { notify } from '../services/notifications.js';
+import { adviceGate, notify } from '../services/notifications.js';
+import { userTimings } from '../services/prayerSource.js';
+import { getSettings } from '../services/settings.js';
 import { forgetMosque } from '../services/prayerSource.js';
 import { imageUpload, publicUploadUrl } from '../services/upload.js';
 import { isDay, isTime, zonedToDate } from '../utils/dates.js';
@@ -73,18 +75,38 @@ router.post(
       imageUrl: z.string().url().max(500).optional(),
       link: z.string().max(200).optional(),
       audience: audienceSchema,
+      // 5.12 — « conseil » : conseils et actualités, selon la fréquence choisie par chacune ;
+      // « essentiel » : information importante, envoyée à toutes (sans plafond).
+      category: z.enum(['conseil', 'essentiel']).default('conseil'),
     }),
   ),
   async (req, res) => {
     const b = req.body;
     const users = await audienceUsers(b.audience);
     if (!users.length) throw badRequest('Aucune destinataire pour cette audience');
-    const broadcast = await Broadcast.create({ title: b.title, body: b.body, detail: b.detail, imageUrl: b.imageUrl, link: b.link, audience: b.audience, sentBy: req.user._id, recipients: users.length });
+    const broadcast = await Broadcast.create({ title: b.title, body: b.body, detail: b.detail, imageUrl: b.imageUrl, link: b.link, audience: b.audience, category: b.category, sentBy: req.user._id, recipients: users.length });
+    const settings = b.category === 'conseil' ? await getSettings() : null;
     let pushed = 0;
-    for (const u of users) {
-      const n = await notify(u._id, { key: `broadcast-${broadcast.id}`, type: 'annonce', title: b.title, body: b.body, detail: b.detail || b.body, link: b.link || '/notifications', imageUrl: b.imageUrl }).catch(() => null);
+    let delivered = 0;
+    for (const { _id } of users) {
+      let gate = { send: true, push: true };
+      if (settings) {
+        const u = await User.findById(_id);
+        if (!u) continue;
+        let timings = null;
+        try {
+          timings = (await userTimings(u, settings, new Intl.DateTimeFormat('en-CA', { timeZone: u.city?.timezone || 'Europe/Paris' }).format(new Date()))).timings;
+        } catch {
+          // horaires indisponibles : seule la plage de nuit est vérifiée
+        }
+        gate = await adviceGate(u, settings, { timings });
+        if (!gate.send) continue;
+      }
+      const n = await notify(_id, { key: `broadcast-${broadcast.id}`, type: 'annonce', category: b.category, title: b.title, body: b.body, detail: b.detail || b.body, link: b.link || '/notifications', imageUrl: b.imageUrl }, { sendPush: gate.push }).catch(() => null);
+      if (n) delivered += 1;
       if (n?.pushed) pushed += 1;
     }
+    broadcast.recipients = delivered;
     broadcast.pushed = pushed;
     await broadcast.save();
     await audit(req, 'notification_envoyee', broadcast._id, { recipients: users.length, pushed });
@@ -150,10 +172,10 @@ const adminEventSchema = z.object({
   photos: z.array(z.string().max(500).refine((u) => /^https?:\/\/\S+$/.test(u) || u.startsWith('/uploads/'), 'Adresse de photo invalide')).max(12, '12 photos au maximum').optional(),
   capacity: z.number().int().min(1).max(5000),
   price: z.number().min(0).max(1000).default(0),
-  ticketUrl: z.string().trim().max(500).regex(/^(https:\/\/\S+\.\S+)?$/, 'Le lien de billetterie doit être une adresse sécurisée (https://)').optional(),
+  ticketUrl: z.string().trim().max(500).regex(/^(https:\/\/(www\.)?billetweb\.fr\/\S+)?$/i, 'Le lien de billetterie doit commencer par https://www.billetweb.fr/ (RG-30)').optional(),
   cancellationPolicy: z.string().max(600).optional(),
   status: z.enum(['publie', 'annule']).optional(),
-}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien de billetterie externe (https://) pour un événement payant', path: ['ticketUrl'] });
+}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien Billetweb pour un événement payant', path: ['ticketUrl'] });
 
 async function eventFields(b) {
   const tz = 'Europe/Paris';

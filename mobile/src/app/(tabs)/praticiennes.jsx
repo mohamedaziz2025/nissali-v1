@@ -7,7 +7,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { BrandBar } from '../../components/Brand';
 import Icon from '../../components/Icon';
 import { CategoryTile, FeaturedCard, PractitionerCard } from '../../components/Practitioners';
-import { Button, Card, Chip, ErrorState, Field, Gap, Label, Loader, Row, Screen, Segmented, Sheet, T, Toggle } from '../../components/ui';
+import { Button, Card, Chip, Chips, ErrorState, Field, Gap, Label, Loader, Row, Screen, Sheet, T, Toggle } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useApi } from '../../lib/useApi';
@@ -65,7 +65,8 @@ function ProCard({ status }) {
 
 const SORTS = [
   { key: 'distance', label: 'Plus proche', hint: 'de la plus proche à la plus loin' },
-  { key: 'alpha', label: 'A → Z', hint: 'par ordre alphabétique' },
+  { key: 'rating', label: 'Mieux notées', hint: 'les mieux notées d’abord' },
+  { key: 'price', label: 'Prix', hint: 'du tarif le plus bas au plus élevé' },
   { key: 'recent', label: 'Nouvelles', hint: 'les nouvelles inscrites d’abord' },
 ];
 
@@ -120,6 +121,7 @@ export default function Practitioners() {
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   const [group, setGroup] = useState('');
+  const [family, setFamily] = useState(''); // 6 catégories du cahier V3 (filtres)
   const [city, setCity] = useState('');
   const [region, setRegion] = useState('');
   const [sort, setSort] = useState('distance');
@@ -134,7 +136,7 @@ export default function Practitioners() {
   const status = useApi('/practitioners/status');
   const places = useApi('/practitioners/places');
   const unread = useApi('/messages/unread');
-  const query = `/practitioners?${new URLSearchParams({ sort, ...(debounced.length > 1 ? { q: debounced } : {}), ...(group ? { group } : {}), ...(city ? { city } : {}), ...(region ? { region } : {}), ...(visio ? { visio: '1' } : {}) })}`;
+  const query = `/practitioners?${new URLSearchParams({ sort, ...(debounced.length > 1 ? { q: debounced } : {}), ...(group ? { group } : {}), ...(family && !group ? { family } : {}), ...(city ? { city } : {}), ...(region ? { region } : {}), ...(visio ? { visio: '1' } : {}) })}`;
   const list = useApi(query);
   const enabled = status.data?.enabled;
   const groups = status.data?.groups || [];
@@ -181,18 +183,21 @@ export default function Practitioners() {
   const items = (list.data?.items || []).filter((p) => !favOnly || p.favorite);
   const sortInfo = SORTS.find((x) => x.key === sort);
   const unreadCount = unread.data?.user || 0;
-  const activeCount = [visio, sort !== 'distance'].filter(Boolean).length;
-  const filtering = Boolean(debounced.length > 1 || group || city || region || favOnly || visio);
+  const activeCount = [visio, sort !== 'distance', family].filter(Boolean).length;
+  const filtering = Boolean(debounced.length > 1 || group || family || city || region || favOnly || visio);
+  const families = status.data?.families || [];
+  const inFamily = family ? families.find((f) => f.key === family)?.specialties || [] : null;
   const featured = filtering ? [] : [...items].sort((a, b) => Number(b.featured) - Number(a.featured) || b.rating - a.rating || b.reviewsCount - a.reviewsCount).slice(0, 5);
   const labelOf = (p) => p.specialtyLabel || categories.find((c) => c.key === p.specialty)?.label || p.specialty;
   const open = (p) => router.push(`/praticienne/${p.id}`);
-  const tiles = [{ key: '', label: 'Toutes' }, ...groups.map((g) => ({ key: g.key, label: g.label, short: SHORT[g.key] }))];
+  const tiles = [{ key: '', label: 'Toutes' }, ...groups.filter((g) => !inFamily || inFamily.includes(g.key)).map((g) => ({ key: g.key, label: g.label, short: SHORT[g.key] }))];
   const reset = () => {
     setCity('');
     setRegion('');
     setFavOnly(false);
     setVisio(false);
     setSort('distance');
+    setFamily('');
   };
 
   return (
@@ -241,6 +246,7 @@ export default function Practitioners() {
 
       {activeCount ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, marginTop: 12 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
+          {family ? <Chip label={`${families.find((f) => f.key === family)?.label || 'Catégorie'} ✕`} selected onPress={() => setFamily('')} /> : null}
           {sort !== 'distance' ? <Chip label={`Tri : ${sortInfo.label} ✕`} selected onPress={() => setSort('distance')} /> : null}
           {visio ? <Chip label="Visio ✕" selected onPress={() => setVisio(false)} /> : null}
         </ScrollView>
@@ -292,8 +298,15 @@ export default function Practitioners() {
           </Row>
         }
       >
+        {families.length ? (
+          <>
+            <Text style={s.fTitle}>Catégorie</Text>
+            <Chips items={[{ key: '', label: 'Toutes' }, ...families.map((f) => ({ key: f.key, label: f.label }))]} value={family} onChange={(k) => { setFamily(k || ''); setGroup(''); }} />
+          </>
+        ) : null}
         <Text style={s.fTitle}>Trier par</Text>
-        <Segmented items={SORTS.map((o) => ({ key: o.key, label: o.label }))} value={sort} onChange={setSort} />
+        <Chips items={SORTS.map((o) => ({ key: o.key, label: o.label }))} value={sort} onChange={(k) => k && setSort(k)} />
+        <Text style={s.fHint}>{SORTS.find((o) => o.key === sort)?.hint}{sort === 'distance' ? ' (ville choisie ou ta position)' : ''}</Text>
         <Toggle label="Consultation en visio" value={visio} onChange={setVisio} />
       </Sheet>
       <PlaceSheet
@@ -329,6 +342,7 @@ const s = StyleSheet.create({
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, borderBottomWidth: 1, borderBottomColor: colors.line },
   placeRowText: { flex: 1, fontFamily: fonts.medium, fontSize: 15.5, color: colors.prune },
   placeCount: { fontFamily: fonts.medium, fontSize: 13, color: colors.muted },
+  fHint: { fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginTop: -4 },
   fTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.prune, marginTop: 6 },
   dot: { position: 'absolute', top: -3, right: -3, minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.ivoire },
   dotText: { fontFamily: fonts.bold, fontSize: 10, color: colors.white },

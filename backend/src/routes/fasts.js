@@ -3,13 +3,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { FastPlan, MadeUpFast, MissedFast, PriorMadeUp } from '../models/index.js';
+import { FastPlan, MadeUpFast, MissedFast, PriorMadeUp, VoluntaryFast, VOLUNTARY_TYPES } from '../models/index.js';
 import { loadFastContext, nowFor } from '../services/context.js';
 import { rhythmAdvice } from '../services/fastCalc.js';
 import { forbiddenFastReason, isRamadan, ramadanInfo, ramadanRange, supererogatoryFasts, toHijri, whiteDays } from '../services/hijri.js';
 import { userTimingsRange } from '../services/prayerSource.js';
 import { getSettings } from '../services/settings.js';
-import { diffDays, isDay } from '../utils/dates.js';
+import { addDays, diffDays, isDay } from '../utils/dates.js';
+import { nextVoluntary, suggestType, VOLUNTARY_LABELS } from '../services/voluntary.js';
 import { badRequest, notFound } from '../utils/http.js';
 
 const router = Router();
@@ -48,6 +49,9 @@ router.get('/', async (req, res) => {
     madeUpToday: f.madeUp.some((m) => m.day === today),
     plan: f.plan ? { active: f.plan.active, perWeek: f.plan.perWeek, weekdays: f.plan.weekdays, reminderTime: f.plan.reminderTime } : null,
     planDays: f.planDays.slice(0, 8),
+    // « À ce rythme : terminé le … » — date du dernier jour prévu, et s'il tombe avant le prochain Ramadan.
+    planEnd: f.plan?.active && f.counter.remaining > 0 && f.planDays.length >= f.counter.remaining ? f.planDays[f.counter.remaining - 1].day : null,
+    planEnough: f.plan?.active && f.counter.remaining > 0 ? f.planDays.length >= f.counter.remaining && f.planDays[f.counter.remaining - 1].day < next.start : null,
     ramadan,
     supererogatory: supererogatoryFasts(today, adj),
     fidyaInfo: settings.fidyaInfo,
@@ -96,6 +100,96 @@ router.delete('/made-up/:id', async (req, res) => {
   await MadeUpFast.deleteOne({ _id: req.params.id, user: req.user._id });
   res.json({ ok: true });
 });
+
+// --- 5.8 · Volontaires : récap de l'année, « J'ai jeûné », me programmer, derniers jours -------------
+
+router.get('/voluntary', async (req, res) => {
+  const f = await loadFastContext(req.user);
+  const { today, settings } = f.ctx;
+  const adj = settings.hijriAdjustment || 0;
+  const excl = settings.excludeDhulHijja13 !== false;
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? String(req.query.year) : today.slice(0, 4);
+  const items = await VoluntaryFast.find({ user: req.user._id, day: { $gte: `${year}-01-01`, $lte: `${year}-12-31` } }).sort({ day: -1 }).lean();
+  const byType = Object.fromEntries(VOLUNTARY_TYPES.map((t) => [t, 0]));
+  const byMonth = Array(12).fill(0);
+  for (const v of items) {
+    byType[v.type] = (byType[v.type] || 0) + 1;
+    byMonth[Number(v.day.slice(5, 7)) - 1] += 1;
+  }
+  const plan = req.user.voluntaryPlan || {};
+  const all = await VoluntaryFast.find({ user: req.user._id, day: { $gte: today } }).select('day').lean();
+  const done = new Set([...items.map((v) => v.day), ...all.map((v) => v.day)]);
+  const years = (await VoluntaryFast.distinct('day', { user: req.user._id })).map((d) => d.slice(0, 4));
+  res.json({
+    today,
+    year,
+    years: [...new Set([...years, today.slice(0, 4)])].sort().reverse(),
+    total: items.length,
+    byType,
+    byMonth,
+    recent: items.slice(0, 120).map((v) => ({ id: String(v._id), day: v.day, type: v.type, label: VOLUNTARY_LABELS[v.type] })),
+    plan: { weekdays: plan.weekdays || [], blancs: Boolean(plan.blancs), arafat: Boolean(plan.arafat), achoura: Boolean(plan.achoura), chawwal: Boolean(plan.chawwal), reminderTime: plan.reminderTime || '21:00' },
+    next: nextVoluntary(plan, { from: done.has(today) ? addDays(today, 1) : today, adj, excl, periodOn: f.periodOn, done }),
+    reminder: req.user.notificationPrefs?.fastPlanned !== false,
+    todayType: suggestType(today, adj, excl),
+    labels: VOLUNTARY_LABELS,
+    // RG-34 : rappel discret des jours obligatoires restants, sans bloquer la saisie.
+    obligatoryRemaining: f.counter.remaining,
+  });
+});
+
+router.get('/voluntary/type', async (req, res) => {
+  if (!isDay(String(req.query.day || ''))) throw badRequest('Date invalide');
+  const settings = await getSettings();
+  res.json({ type: suggestType(req.query.day, settings.hijriAdjustment || 0, settings.excludeDhulHijja13 !== false) });
+});
+
+router.post('/voluntary', validate(z.object({ day: z.string().refine(isDay, 'Date invalide'), type: z.enum(VOLUNTARY_TYPES) })), async (req, res) => {
+  const settings = await getSettings();
+  const { today } = nowFor(req.user);
+  const { day, type } = req.body;
+  if (day > today) throw badRequest('Choisis aujourd’hui ou une date passée : un jour prévu n’est compté qu’une fois jeûné');
+  const forbidden = forbiddenFastReason(day, settings.hijriAdjustment);
+  if (forbidden) throw badRequest(`Le jeûne n’est pas permis ce jour-là (${forbidden})`);
+  if (isRamadan(day, settings.hijriAdjustment)) throw badRequest('Pendant Ramadan, le jeûne est obligatoire : ce jour n’est pas un jeûne volontaire');
+  if (await MadeUpFast.exists({ user: req.user._id, day })) throw badRequest('Ce jour est déjà noté comme jour rattrapé', 'DUPLICATE_DATE');
+  const existing = await VoluntaryFast.findOne({ user: req.user._id, day });
+  if (existing) {
+    existing.type = type;
+    await existing.save();
+    return res.json({ id: existing.id, day, type, updated: true });
+  }
+  const doc = await VoluntaryFast.create({ user: req.user._id, day, type });
+  res.status(201).json({ id: doc.id, day, type });
+});
+
+router.delete('/voluntary/:id', async (req, res) => {
+  await VoluntaryFast.deleteOne({ _id: req.params.id, user: req.user._id });
+  res.json({ ok: true });
+});
+
+router.put(
+  '/voluntary/plan',
+  validate(
+    z.object({
+      weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+      blancs: z.boolean(),
+      arafat: z.boolean(),
+      achoura: z.boolean(),
+      chawwal: z.boolean(),
+      reminderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('21:00'),
+      reminder: z.boolean().optional(),
+    }),
+  ),
+  async (req, res) => {
+    const { reminder, ...plan } = req.body;
+    req.user.set('voluntaryPlan', { ...plan, weekdays: [...new Set(plan.weekdays)] });
+    if (reminder !== undefined) req.user.set('notificationPrefs.fastPlanned', reminder);
+    await req.user.save();
+    res.json({ ok: true });
+  },
+);
+
 
 // 08 / 09 / 10 — Jours déjà rattrapés hors application.
 const priorSchema = z

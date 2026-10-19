@@ -120,6 +120,7 @@ const registerSchema = z.object({
   description: z.string().max(2000).optional().default(''),
   siret: z.string().max(20).optional().default(''),
   inPerson: z.boolean().default(true),
+  atHome: z.boolean().optional(),
   supportsVideo: z.boolean().default(false),
   languages: z.array(z.string().max(30)).max(6).optional(),
   plan: z.string().optional(), // absent : essai gratuit (ou formule gratuite)
@@ -148,6 +149,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     diplomas: b.diplomas || [],
     professionalId: b.professionalId || '',
     inPerson: b.inPerson,
+    atHome: Boolean(b.atHome),
     supportsVideo: b.supportsVideo,
     languages: b.languages?.length ? b.languages : ['Français'],
     timezone: req.user.city?.timezone || 'Europe/Paris',
@@ -216,7 +218,7 @@ async function locate(p) {
 router.patch('/me', validate(profileSchema), async (req, res) => {
   const p = await loadPro(req);
   const b = req.body;
-  for (const k of ['displayName', 'specialty', 'description', 'inPerson', 'supportsVideo', 'languages', 'minNoticeHours', 'autoConfirm', 'phone', 'showPhone', 'diplomas', 'professionalId']) if (b[k] !== undefined) p[k] = b[k];
+  for (const k of ['displayName', 'specialty', 'description', 'inPerson', 'atHome', 'supportsVideo', 'languages', 'minNoticeHours', 'autoConfirm', 'phone', 'showPhone', 'diplomas', 'professionalId']) if (b[k] !== undefined) p[k] = b[k];
   if (p.showPhone && !p.phone) p.showPhone = false;
   const cityChanged = b.city !== undefined && b.city !== p.location.city;
   if (b.city !== undefined) p.location.city = b.city;

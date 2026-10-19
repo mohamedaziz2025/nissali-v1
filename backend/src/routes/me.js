@@ -4,28 +4,7 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import {
-  Appointment,
-  Availability,
-  Booking,
-  DailyLog,
-  FastPlan,
-  Favorite,
-  MadeUpFast,
-  MissedFast,
-  Mosque,
-  Notification,
-  Period,
-  Practitioner,
-  PrayerLog,
-  Pregnancy,
-  PushSubscription,
-  Review,
-  Service,
-  Subscription,
-  User,
-  Verification,
-} from '../models/index.js';
+import { Appointment, Availability, Booking, DailyLog, DhikrDay, FastPlan, Favorite, MadeUpFast, MissedFast, Mosque, Note, Notification, Period, Practitioner, PrayerLog, Pregnancy, PushSubscription, Review, Service, Subscription, User, Verification, VoluntaryFast } from '../models/index.js';
 import { ADHAN_KEYS } from '../services/adhan.js';
 import { distanceKm, reverseGeocode } from '../services/geo.js';
 import { ensureOsmMosque } from '../services/mosques.js';
@@ -38,6 +17,7 @@ import { addDays, isDay, safeTimeZone } from '../utils/dates.js';
 import { badRequest, conflict } from '../utils/http.js';
 import bcrypt from 'bcryptjs';
 import { citySchema, passwordField, sessionPayload } from './auth.js';
+import { plainNote } from '../services/notes.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -65,6 +45,7 @@ const profileSchema = z.object({
       adhanVoice: z.enum(ADHAN_KEYS).optional(),
       adhanMode: z.enum(['notification', 'adhan']).optional(),
       adhanPrayers: z.object({ fajr: z.boolean(), dhuhr: z.boolean(), asr: z.boolean(), maghrib: z.boolean(), isha: z.boolean() }).partial().optional(),
+      notifyPrayers: z.object({ fajr: z.boolean(), dhuhr: z.boolean(), asr: z.boolean(), maghrib: z.boolean(), isha: z.boolean() }).partial().optional(),
       adhkarMorning: z.boolean().optional(),
       adhkarEvening: z.boolean().optional(),
       jumua: z.boolean().optional(),
@@ -80,6 +61,10 @@ const profileSchema = z.object({
       ramadan: z.boolean(),
       whiteDays: z.boolean(),
       dailyReminder: z.boolean(),
+      frequency: z.enum(['faible', 'moderee', 'elevee']),
+      frequencyAsked: z.boolean(),
+      hideNotePreview: z.boolean(),
+      fastPlanned: z.boolean(),
     })
     .partial()
     .optional(),
@@ -101,10 +86,11 @@ router.patch('/', validate(profileSchema), async (req, res) => {
   if (b.age !== undefined) u.birthYear = new Date().getUTCFullYear() - b.age;
   if (b.goal) u.onboarding.goal = b.goal;
   if (b.prayerSettings) {
-    const { adjustments, adhanPrayers, ...rest } = b.prayerSettings;
+    const { adjustments, adhanPrayers, notifyPrayers, ...rest } = b.prayerSettings;
     Object.assign(u.prayerSettings, rest);
     if (adjustments) Object.assign(u.prayerSettings.adjustments, adjustments);
     if (adhanPrayers) Object.assign(u.prayerSettings.adhanPrayers, adhanPrayers);
+    if (notifyPrayers) Object.assign(u.prayerSettings.notifyPrayers, notifyPrayers);
   }
   if (b.notificationPrefs) Object.assign(u.notificationPrefs, b.notificationPrefs);
   if (b.contraception) Object.assign(u.contraception, b.contraception);
@@ -382,8 +368,11 @@ router.get('/export', async (req, res) => {
       missed: await MissedFast.find({ user }).lean(),
       madeUp: await MadeUpFast.find({ user }).lean(),
       plan: await FastPlan.findOne({ user }).lean(),
+      voluntary: await VoluntaryFast.find({ user }).lean(),
     },
     pregnancies: await Pregnancy.find({ user }).lean(),
+    notes: (await Note.find({ user }).lean()).map(plainNote),
+    dhikr: await DhikrDay.find({ user }).lean(),
     appointments: await Appointment.find({ user }).lean(),
     bookings: await Booking.find({ client: user }).lean(),
     reviews: await Review.find({ client: user }).lean(),

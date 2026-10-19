@@ -165,6 +165,7 @@ export function PractitionerCard({ p, label, onPress, onFav }) {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
             {(p.modes || []).includes('cabinet') ? <Tag icon="pin" label="Cabinet" /> : null}
             {(p.modes || []).includes('visio') && p.supportsVideo ? <Tag icon="video" label="Visio" /> : null}
+            {p.atHome ? <Tag icon="home" label="Domicile" /> : null}
             {p.featured ? <Tag icon="sparkle" label="À la une" tone="or" /> : null}
           </View>
         </View>

@@ -192,6 +192,34 @@ const ICONS = {
     </>
   ),
   arrowUp: <Path d="M12 20V4M5.5 10.5 12 4l6.5 6.5" />,
+  // Chapelet (dhikr) : un anneau de grains et son pompon.
+  beads: (
+    <>
+      <Circle cx="12" cy="4.6" r="1.5" />
+      <Circle cx="17.2" cy="6.8" r="1.5" />
+      <Circle cx="19.4" cy="12" r="1.5" />
+      <Circle cx="17.2" cy="17.2" r="1.5" />
+      <Circle cx="6.8" cy="17.2" r="1.5" />
+      <Circle cx="4.6" cy="12" r="1.5" />
+      <Circle cx="6.8" cy="6.8" r="1.5" />
+      <Path d="M12 17.5v4M10.5 21.5h3" />
+    </>
+  ),
+  undo: <Path d="M9 7 4.5 11.5 9 16M5 11.5h9.5a5 5 0 0 1 0 10H12" />,
+  reset: <Path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4" />,
+  vibrate: (
+    <>
+      <Rect x="8" y="4" width="8" height="16" rx="2" />
+      <Path d="M4.5 8.5v7M19.5 8.5v7M2 10.5v3M22 10.5v3" />
+    </>
+  ),
+  note: (
+    <>
+      <Path d="M5.5 4h13a1 1 0 0 1 1 1v9.5L14.5 20h-9a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+      <Path d="M19.5 14.5h-4a1 1 0 0 0-1 1V20M8.5 9h7M8.5 12.5h4" />
+    </>
+  ),
+  repeat: <Path d="M17 3.5 20 6.5l-3 3M4 11.5v-1a4 4 0 0 1 4-4h12M7 20.5 4 17.5l3-3M20 12.5v1a4 4 0 0 1-4 4H4" />,
   external: <Path d="M13.5 4.5h6v6M19.5 4.5 11 13M17.5 14v4.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V8.5A1.5 1.5 0 0 1 6 7h4.5" />,
 };
 

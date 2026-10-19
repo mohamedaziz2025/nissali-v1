@@ -384,6 +384,10 @@ tbody tr:hover { background: #fdf9f9; }
 .plan-card .price { font-size: 24px; font-weight: 600; color: var(--bordeaux); }
 .plan-card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
 .trial-card { background: linear-gradient(135deg, var(--blush), var(--white) 70%); }
+.event-form { gap: 14px; }
+.form-section { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; background: var(--surface-2); }
+.form-section h3 { margin: 0; font-family: var(--font-title); font-weight: 500; font-size: 18px; color: var(--prune); }
+.form-section p { margin: 0; }
 .trial-card h3 { color: var(--bordeaux); }
 
 /* --- Agenda semaine ---------------------------------------------------------------- */

@@ -1,4 +1,5 @@
 // 11 — Journal d'une journée (humeur, symptômes, note) et détail d'une date du calendrier.
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api } from '../lib/api';
@@ -138,6 +139,20 @@ export function DayPanel({ day, info, periods, weight, today, onJournal, onFlow,
       ) : (
         <T variant="muted" style={{ marginTop: 8 }}>Journée à venir : les prévisions sont indicatives.</T>
       )}
+      {/* 5.2 bis — notes de ce jour (affichées dans le calendrier) et ajout d'une note à cette date */}
+      {(info?.notes || []).map((n) => (
+        <Pressable key={`${n.id}-${day}`} onPress={() => router.push(`/notes/nouvelle?id=${n.id}`)} accessibilityRole="button" style={s.row}>
+          <Icon name="note" size={18} color={colors.or} />
+          <Text style={s.rowText} numberOfLines={1}>{n.text}</Text>
+          {n.time ? <Text style={s.rowValue}>{n.time}</Text> : null}
+          <Icon name="chevronRight" size={16} color={colors.muted} />
+        </Pressable>
+      ))}
+      <Pressable onPress={() => router.push(`/notes/nouvelle?day=${day}`)} accessibilityRole="button" style={s.row}>
+        <Icon name="note" size={18} color={colors.bordeaux} />
+        <Text style={s.rowText}>Ajouter une note ce jour</Text>
+        <Icon name="plus" size={16} color={colors.bordeaux} />
+      </Pressable>
       <Pressable onPress={onHistory} accessibilityRole="button" style={[s.row, { borderBottomWidth: 0 }]}>
         <Icon name="chart" size={18} color={colors.bordeaux} />
         <Text style={s.rowText}>Historique de mes cycles</Text>

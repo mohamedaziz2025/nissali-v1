@@ -76,7 +76,7 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
   }
   if (disabled) textColor = '#CDB8BD';
 
-  const parts = [info?.today && 'aujourd’hui', info?.period === 'reelle' && 'règles', info?.period === 'prevue' && 'règles prévues', info?.ovulation && 'ovulation', info?.fertile && !info?.ovulation && 'fertile', info?.appointments?.length && 'rendez-vous'].filter(Boolean);
+  const parts = [info?.today && 'aujourd’hui', info?.period === 'reelle' && 'règles', info?.period === 'prevue' && 'règles prévues', info?.ovulation && 'ovulation', info?.fertile && !info?.ovulation && 'fertile', info?.appointments?.length && 'rendez-vous', info?.notes?.length && `${info.notes.length} note${info.notes.length > 1 ? 's' : ''}`].filter(Boolean);
 
   return (
     <Pressable
@@ -89,6 +89,8 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
         <Circle cx={size / 2} cy={size / 2} r={r} fill={fill} stroke={stroke || 'none'} strokeWidth={stroke ? strokeWidth : 0} strokeDasharray={dash || undefined} />
       </Svg>
       <Text style={{ fontFamily: bold ? fonts.bold : fonts.body, fontSize: 16.5, color: textColor }}>{n}</Text>
+      {/* 5.4 — petit point : une note affichée dans le calendrier ce jour-là */}
+      {info?.notes?.length ? <View style={[s.noteDot, { bottom: Math.max(3, size * 0.12), backgroundColor: textColor === colors.white ? colors.white : colors.or }]} /> : null}
     </Pressable>
   );
 }
@@ -161,6 +163,7 @@ export function Legend() {
       {item(<View style={[s.legendDot, { backgroundColor: colors.rose, borderWidth: 3, borderColor: colors.or }]} />, 'Ovulation (estimation)')}
       {item(<View style={[s.legendDot, { borderWidth: 2.5, borderColor: colors.prune }]} />, 'Aujourd’hui')}
       {item(<View style={[s.legendDot, { borderWidth: 3, borderColor: '#E2CBB0' }]} />, 'Rendez-vous')}
+      {item(<View style={[s.legendDot, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }]}><View style={[s.noteDot, { position: 'relative', backgroundColor: colors.or }]} /></View>, 'Note')}
     </View>
   );
 }
@@ -195,4 +198,5 @@ const s = StyleSheet.create({
   weekday: { textAlign: 'center', fontFamily: fonts.bold, fontSize: 15, color: colors.muted, paddingVertical: 8 },
   navBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   legendDot: { width: 20, height: 20, borderRadius: 10 },
+  noteDot: { position: 'absolute', width: 5, height: 5, borderRadius: 3 },
 });

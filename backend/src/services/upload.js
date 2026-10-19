@@ -17,4 +17,15 @@ export const imageUpload = multer({
   fileFilter: (_req, file, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(file.mimetype)),
 });
 
+// 5.11 — Image d'événement : format paysage, 1 Mo maximum (l'appli la redimensionne avant l'envoi).
+export const EVENT_IMAGE_MAX = 1024 * 1024;
+export const eventImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadDir,
+    filename: (_req, file, cb) => cb(null, `${crypto.randomBytes(12).toString('hex')}${path.extname(file.originalname).toLowerCase() || '.jpg'}`),
+  }),
+  limits: { fileSize: EVENT_IMAGE_MAX },
+  fileFilter: (_req, file, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(file.mimetype)),
+});
+
 export const publicUploadUrl = (filename) => `${env.publicApiUrl}/uploads/${filename}`;

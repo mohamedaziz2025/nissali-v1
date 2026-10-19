@@ -40,6 +40,7 @@ const practitionerSchema = new Schema(
     legal: { siret: { type: String, default: '' } },
     languages: { type: [String], default: ['Français'] },
     inPerson: { type: Boolean, default: true },
+    atHome: { type: Boolean, default: false }, // 5.10 — consultations à domicile (étiquette « Domicile »)
     supportsVideo: { type: Boolean, default: false },
     status: { type: String, enum: ['en_attente', 'validee', 'refusee', 'suspendue'], default: 'en_attente' },
     rejectionReason: String,

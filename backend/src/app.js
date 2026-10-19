@@ -24,6 +24,8 @@ import meRoutes from './routes/me.js';
 import notificationRoutes from './routes/notifications.js';
 import practitionerRoutes from './routes/practitioners.js';
 import prayerRoutes from './routes/prayers.js';
+import dhikrRoutes from './routes/dhikr.js';
+import noteRoutes from './routes/notes.js';
 import pregnancyRoutes from './routes/pregnancy.js';
 import proRoutes from './routes/pro.js';
 import stripeRoutes from './routes/stripe.js';
@@ -76,6 +78,8 @@ export function createApp() {
   app.use('/api/cycle', cycleRoutes);
   app.use('/api/health-log', healthRoutes);
   app.use('/api/prayers', prayerRoutes);
+  app.use('/api/dhikr', dhikrRoutes);
+  app.use('/api/notes', noteRoutes);
   app.use('/api/fasts', fastRoutes);
   app.use('/api/pregnancy', pregnancyRoutes);
   app.use('/api/appointments', appointmentRoutes);

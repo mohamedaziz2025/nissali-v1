@@ -11,6 +11,7 @@ const GROUPS = [
   ['prieres', 'Horaires de prière'],
   ['calendrier', 'Calendrier hégirien'],
   ['calculs', 'Méthodes de calcul'],
+  ['notifications', 'Fréquence des notifications (5.12)'],
   ['application', 'Application'],
 ];
 

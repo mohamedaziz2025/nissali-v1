@@ -27,7 +27,7 @@ const LINKS = [
 export default function AdminNotifications() {
   const toast = useToast();
   const history = useFetch('/admin/broadcasts');
-  const [form, setForm] = useState({ title: '', body: '', detail: '', imageUrl: '', link: '/notifications', audience: { type: 'toutes', city: '', situation: 'mariee' } });
+  const [form, setForm] = useState({ title: '', body: '', detail: '', imageUrl: '', link: '/notifications', category: 'conseil', audience: { type: 'toutes', city: '', situation: 'mariee' } });
   const [reach, setReach] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -75,9 +75,10 @@ export default function AdminNotifications() {
         ...(form.detail.trim() ? { detail: form.detail.trim() } : {}),
         ...(form.imageUrl ? { imageUrl: form.imageUrl } : {}),
         link: form.link,
+        category: form.category,
         audience: { type: a.type, ...(a.type === 'ville' ? { city: a.city.trim() } : {}), ...(a.type === 'situation' ? { situation: a.situation } : {}) },
       });
-      toast(`Notification envoyée à ${r.recipients} destinataire(s) · ${r.pushed} téléphone(s) en push`);
+      toast(`Notification envoyée à ${r.recipients} destinataire(s) · ${r.pushed} téléphone(s) en push${form.category === 'conseil' ? ' (selon la fréquence choisie par chacune)' : ''}`);
       setForm((f) => ({ ...f, title: '', body: '', detail: '', imageUrl: '' }));
       history.reload();
     } catch (err) {
@@ -114,6 +115,12 @@ export default function AdminNotifications() {
                 </button>
               ) : null}
             </div>
+          </Field>
+          <Field label="Type" hint={form.category === 'conseil' ? 'Envoyée seulement à celles qui ont choisi « Modérée » (3 par semaine) ou « Élevée » (5 par semaine), jamais deux le même jour ; la nuit (22:00–08:00) et à l’heure d’une prière, elle arrive sans son, dans le centre de notifications.' : 'Information importante (compte, sécurité, service) : envoyée à toutes, quel que soit le niveau choisi.'}>
+            <select className="select" value={form.category} onChange={set('category')}>
+              <option value="conseil">Conseil ou actualité (selon la fréquence choisie)</option>
+              <option value="essentiel">Information essentielle (toutes)</option>
+            </select>
           </Field>
           <div className="grid grid-2">
             <Field label="Audience">

@@ -11,6 +11,7 @@ import Icon from '../components/Icon';
 import { Button, Card, Field, Gap, Row, Screen, Segmented, Sheet, T, Toggle, useToast } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useDhikrData } from '../lib/dhikr';
 import { countdown, longDate } from '../lib/format';
 import { jumuaOf } from '../lib/jumua';
 import { currentPosition, syncLocation } from '../lib/location';
@@ -89,6 +90,8 @@ export default function PrayerTimes() {
   const [pos, setPos] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [reminders, setReminders] = useState(false);
+  const [prayerSheet, setPrayerSheet] = useState(null); // réglage du rappel d'une prière
+  const dhikr = useDhikrData();
   const [adhanSound, setAdhanSound] = useState(false);
 
   useEffect(() => {
@@ -313,7 +316,7 @@ export default function PrayerTimes() {
               return (
                 <View key={r.key}>
                   {sep ? <View style={s.sep} /> : null}
-                  <Pressable onPress={() => setReminders(true)} accessibilityRole="button" accessibilityLabel={`${PRAYER_LABELS[r.key]} à ${t[r.key]}${on ? ', prochaine prière' : ''}`} style={({ pressed }) => [s.row, on && s.rowOn, pressed && { opacity: 0.85 }]}>
+                  <Pressable onPress={() => setPrayerSheet(r.key)} accessibilityRole="button" accessibilityLabel={`${PRAYER_LABELS[r.key]} à ${t[r.key]}${on ? ', prochaine prière' : ''}. Régler le rappel`} style={({ pressed }) => [s.row, on && s.rowOn, pressed && { opacity: 0.85 }]}>
                     <View style={[s.rowIcon, on && { backgroundColor: colors.white }]}>
                       <Icon name={r.icon} size={20} color={on ? colors.bordeaux : colors.or} />
                     </View>
@@ -321,6 +324,7 @@ export default function PrayerTimes() {
                       <Text style={[s.rowName, on && { color: colors.bordeaux, fontFamily: fonts.bold }]}>{PRAYER_LABELS[r.key]}</Text>
                       {r.key === 'fajr' ? <Text style={s.rowHint}>Lever du soleil {t.sunrise}</Text> : null}
                     </View>
+                    {notifOn && user?.prayerSettings?.notifyPrayers?.[r.key] === false ? <Icon name="bellOff" size={15} color={colors.muted} /> : null}
                     <Text style={[s.rowTime, on && { color: colors.bordeaux }]}>{t[r.key]}</Text>
                     <Icon name="chevronRight" size={18} color={on ? colors.bordeaux : colors.muted} />
                   </Pressable>
@@ -332,6 +336,20 @@ export default function PrayerTimes() {
           <T variant="small" style={{ marginTop: 10, textAlign: 'center' }}>
             {isMosque && !meta.fallback ? 'Horaires publiés par la mosquée.' : meta?.fallback ? 'Horaires de la mosquée indisponibles aujourd’hui : calculés à son adresse.' : today.method || ''}
           </T>
+
+          {/* 5.7 bis — Dhikr : total du jour, tasbih après la prière */}
+          <Pressable onPress={() => router.push('/dhikr')} accessibilityRole="button" accessibilityLabel="Dhikr" style={({ pressed }) => [s.dhikr, pressed && { opacity: 0.85 }]}>
+            <View style={s.dhikrIcon}>
+              <Icon name="beads" size={20} color={colors.white} strokeWidth={1.7} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.dhikrTitle}>Dhikr</Text>
+              <Text style={s.rowHint}>
+                {Object.values(dhikr.counts || {}).reduce((n, c) => n + c, 0)} aujourd’hui · Tasbih après la prière
+              </Text>
+            </View>
+            <Icon name="chevronRight" size={18} color={colors.muted} />
+          </Pressable>
 
           {/* Prochaine Jumu'a, en bas, juste avant Qibla et Mes rappels */}
           {nextJ ? (
@@ -391,6 +409,28 @@ export default function PrayerTimes() {
         </Pressable>
       </Sheet>
       <AdhanSoundSheet visible={adhanSound} onClose={() => setAdhanSound(false)} />
+      <Sheet visible={Boolean(prayerSheet)} onClose={() => setPrayerSheet(null)} title={prayerSheet ? `${PRAYER_LABELS[prayerSheet]} · ${t?.[prayerSheet] || ''}` : ''}>
+        {prayerSheet ? (
+          <>
+            {!notifOn ? <T variant="muted">Tes rappels de prière sont désactivés. Active-les dans « Mes rappels » pour régler chaque prière.</T> : null}
+            <Toggle
+              label={`Rappel à l’heure de ${PRAYER_LABELS[prayerSheet]}`}
+              hint="Notification à l’heure de la prière (sauf pendant les règles)"
+              value={notifOn && user?.prayerSettings?.notifyPrayers?.[prayerSheet] !== false}
+              onChange={(v) => patchSettings({ ...(v && !notifOn ? { notifications: true } : {}), notifyPrayers: { [prayerSheet]: v } }, v ? `Rappel de ${PRAYER_LABELS[prayerSheet]} activé` : `Rappel de ${PRAYER_LABELS[prayerSheet]} désactivé`)}
+            />
+            {adhanMode === 'adhan' ? (
+              <Toggle
+                label={`Adhan pour ${PRAYER_LABELS[prayerSheet]}`}
+                hint="Appel à la prière avec la notification"
+                value={user?.prayerSettings?.adhanPrayers?.[prayerSheet] !== false}
+                onChange={(v) => patchSettings({ adhanPrayers: { [prayerSheet]: v } }, v ? `Adhan activé pour ${PRAYER_LABELS[prayerSheet]}` : `Adhan désactivé pour ${PRAYER_LABELS[prayerSheet]}`)}
+              />
+            ) : null}
+            <Button title="Son de l’adhan et voix" variant="soft" small onPress={() => { setPrayerSheet(null); setTimeout(() => setAdhanSound(true), 350); }} />
+          </>
+        ) : null}
+      </Sheet>
     </Screen>
   );
 }
@@ -419,6 +459,9 @@ const s = StyleSheet.create({
   soundRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, borderRadius: 16, backgroundColor: colors.white, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line },
   soundText: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.prune },
   soundState: { fontFamily: fonts.body, fontSize: 13.5, color: colors.muted },
+  dhikr: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 22, padding: 14, marginTop: 16, borderWidth: 1, borderColor: colors.line },
+  dhikrIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center' },
+  dhikrTitle: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.prune },
   heroJumua: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white, marginTop: 6 },
   heroPill: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 14, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   heroPillText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },

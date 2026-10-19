@@ -36,6 +36,7 @@ export default function ProProfile() {
         description: p.description || '',
         siret: p.legal?.siret || '',
         inPerson: p.inPerson,
+        atHome: Boolean(p.atHome),
         supportsVideo: p.supportsVideo,
         minNoticeHours: p.minNoticeHours ?? 12,
         autoConfirm: p.autoConfirm,
@@ -178,6 +179,7 @@ export default function ProProfile() {
           <Field label="Numéro professionnel" value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholder="06 12 34 56 78" icon="phone" />
           <Toggle label="Afficher mon numéro sur ma fiche" value={form.showPhone} onChange={set('showPhone')} hint="Les utilisatrices pourront t’appeler. La messagerie reste toujours disponible." />
           <Toggle label="Consultations au cabinet" value={form.inPerson} onChange={set('inPerson')} />
+          <Toggle label="Consultations à domicile" hint="Étiquette « Domicile » sur ta fiche" value={Boolean(form.atHome)} onChange={set('atHome')} />
           <Toggle label="Consultations en visio" value={form.supportsVideo} onChange={set('supportsVideo')} hint={me.data.plan?.features?.video ? null : 'Proposée aux utilisatrices dès que ta formule inclut la visio (Essentiel, Premium)'} />
           <Toggle label="Confirmer automatiquement les demandes" value={form.autoConfirm} onChange={set('autoConfirm')} />
           <Stepper label="Délai minimum avant un RDV" value={form.minNoticeHours} onChange={set('minNoticeHours')} min={0} max={72} step={1} suffix=" h" />

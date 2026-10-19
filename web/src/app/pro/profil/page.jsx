@@ -13,7 +13,7 @@ export default function PublicProfile() {
   const [form, setForm] = useState(null);
   useEffect(() => {
     const p = data?.practitioner;
-    if (p) setForm({ displayName: p.displayName, specialty: p.specialty, city: p.location?.city || '', address: p.location?.address || '', description: p.description || '', siret: p.legal?.siret || '', languages: (p.languages || []).join(', '), inPerson: p.inPerson, supportsVideo: p.supportsVideo, minNoticeHours: p.minNoticeHours ?? 12, autoConfirm: Boolean(p.autoConfirm), phone: p.phone || '', showPhone: Boolean(p.showPhone), diplomas: (p.diplomas || []).join('\n'), professionalId: p.professionalId || '' });
+    if (p) setForm({ displayName: p.displayName, specialty: p.specialty, city: p.location?.city || '', address: p.location?.address || '', description: p.description || '', siret: p.legal?.siret || '', languages: (p.languages || []).join(', '), inPerson: p.inPerson, atHome: Boolean(p.atHome), supportsVideo: p.supportsVideo, minNoticeHours: p.minNoticeHours ?? 12, autoConfirm: Boolean(p.autoConfirm), phone: p.phone || '', showPhone: Boolean(p.showPhone), diplomas: (p.diplomas || []).join('\n'), professionalId: p.professionalId || '' });
   }, [data]);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} />;
@@ -115,6 +115,10 @@ export default function PublicProfile() {
         <label className="check">
           <input type="checkbox" checked={form.inPerson} onChange={set('inPerson')} />
           <span>Consultations au cabinet</span>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={Boolean(form.atHome)} onChange={set('atHome')} />
+          <span>Consultations à domicile (étiquette « Domicile » sur ta fiche)</span>
         </label>
         <label className="check">
           <input type="checkbox" checked={form.supportsVideo} onChange={set('supportsVideo')} />

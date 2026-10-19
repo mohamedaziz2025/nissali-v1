@@ -16,11 +16,14 @@ const notificationSchema = new Schema(
     imageUrl: String,
     read: { type: Boolean, default: false },
     pushed: { type: Boolean, default: false },
+    // 5.12 — « conseil » : conseils et actualités, soumis à la fréquence choisie (RG-36, RG-37).
+    category: { type: String, enum: ['essentiel', 'conseil'], default: 'essentiel' },
   },
   { timestamps: true },
 );
 
 notificationSchema.index({ user: 1, key: 1 }, { unique: true });
+notificationSchema.index({ user: 1, category: 1, createdAt: -1 });
 
 const pushSubscriptionSchema = new Schema(
   {

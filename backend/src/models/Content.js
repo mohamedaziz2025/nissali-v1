@@ -30,6 +30,7 @@ const broadcastSchema = new Schema(
       situation: String,
       userId: String,
     },
+    category: { type: String, enum: ['conseil', 'essentiel'], default: 'conseil' }, // 5.12
     recipients: { type: Number, default: 0 },
     pushed: { type: Number, default: 0 },
     sentBy: { type: Schema.Types.ObjectId, ref: 'User' },

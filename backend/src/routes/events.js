@@ -9,7 +9,7 @@ import { nowFor } from '../services/context.js';
 import { commissionFor, COMMISSION_RATE, presentEvent } from '../services/events.js';
 import { bestCity } from '../services/geo.js';
 import { notify } from '../services/notifications.js';
-import { imageUpload, publicUploadUrl } from '../services/upload.js';
+import { eventImageUpload, publicUploadUrl } from '../services/upload.js';
 import { isDay, isTime, zonedToDate } from '../utils/dates.js';
 import { badRequest, conflict, forbidden, notFound } from '../utils/http.js';
 
@@ -54,10 +54,12 @@ router.get('/mine', async (req, res) => {
   });
 });
 
-router.post('/image', imageUpload.single('image'), async (req, res) => {
+router.post('/image', eventImageUpload.single('image'), async (req, res) => {
   if (!req.file) throw badRequest('Image JPEG, PNG ou WebP attendue');
   res.status(201).json({ url: publicUploadUrl(req.file.filename) });
 });
+
+export const BILLETWEB = /^https:\/\/(www\.)?billetweb\.fr\/\S+/i;
 
 const eventSchema = z.object({
   title: z.string().trim().min(3, 'Titre trop court').max(120),
@@ -71,10 +73,14 @@ const eventSchema = z.object({
   photos: z.array(z.string().max(500).refine((u) => /^https?:\/\/\S+$/.test(u) || u.startsWith('/uploads/'), 'Adresse de photo invalide')).max(12, '12 photos au maximum').optional(),
   capacity: z.number().int().min(1).max(5000),
   price: z.number().min(0).max(1000).default(0),
-  // 17 / 18 — billetterie externe sécurisée (Billetweb, HelloAsso…) : lien HTTPS obligatoire.
-  ticketUrl: z.string().trim().url('Lien de billetterie invalide').regex(/^https:\/\/[^\s]+\.[^\s]+/, 'Le lien de billetterie doit être une adresse sécurisée (https://)').max(500).optional().or(z.literal('')),
+  // RG-30 — la vente des billets payants se fait sur Billetweb : le lien commence par billetweb.fr (https).
+  ticketUrl: z.string().trim().max(500).regex(BILLETWEB, 'Le lien de billetterie doit commencer par https://www.billetweb.fr/').optional().or(z.literal('')),
   cancellationPolicy: z.string().max(600).optional(),
-}).refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien de billetterie externe (https://) pour un événement payant', path: ['ticketUrl'] });
+  // RG-29 — la commission de 15 % est indiquée dans le formulaire et acceptée avant l'envoi.
+  commissionAccepted: z.boolean().optional(),
+})
+  .refine((b) => !b.price || b.ticketUrl, { message: 'Ajoute le lien Billetweb pour un événement payant', path: ['ticketUrl'] })
+  .refine((b) => !b.price || b.commissionAccepted, { message: 'Accepte la commission Nissali de 15 % pour un événement payant', path: ['commissionAccepted'] });
 
 async function buildEvent(b, tz) {
   const startAt = zonedToDate(b.day, b.time, tz);
@@ -93,6 +99,7 @@ async function buildEvent(b, tz) {
     capacity: b.capacity,
     price: Math.round(b.price * 100) / 100,
     ticketUrl: b.price ? b.ticketUrl : undefined,
+    ...(b.price && b.commissionAccepted ? { commissionAcceptedAt: new Date() } : {}),
     ...(b.cancellationPolicy ? { cancellationPolicy: b.cancellationPolicy } : {}),
   };
 }
