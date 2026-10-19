@@ -70,6 +70,7 @@ export default function Subscription() {
           <p>
             Formule actuelle : <strong>{me.data.plan?.name}</strong>
             {sub?.endsAt ? ` · jusqu’au ${new Date(sub.endsAt).toLocaleDateString('fr-FR')}` : ''}
+            {me.data.trial?.daysLeft != null ? ` (${me.data.trial.daysLeft} jour${me.data.trial.daysLeft > 1 ? 's' : ''} restant${me.data.trial.daysLeft > 1 ? 's' : ''})` : ''}
           </p>
         </div>
         <div className="tabs" style={{ width: 320 }}>
@@ -77,6 +78,13 @@ export default function Subscription() {
           <button className={billing === 'annuel' ? 'on' : ''} onClick={() => setBilling('annuel')}>Annuel</button>
         </div>
       </div>
+      {me.data.trial ? (
+        <div className="card soft stack" style={{ gap: 6 }}>
+          <strong>Tu es en essai gratuit</strong>
+          <span className="muted">Fonctionnalités incluses : {me.data.trial.included.join(', ').toLowerCase()}.</span>
+          <span className="muted small">À la fin de l’essai, tu passes sur la formule gratuite. Choisis une formule ci-dessous pour garder tes fonctionnalités.</span>
+        </div>
+      ) : null}
       {pending ? (
         <div className="card dashed">
           <Badge status="en_attente" map={SUB_STATUS} /> Demande « {pending.plan} » · {euros(pending.amount)} · référence <strong>{pending.paymentReference}</strong>.{' '}

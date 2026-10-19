@@ -32,10 +32,21 @@ export default function ProHome() {
       </Row>
       <Gap />
       <Card tone="soft" style={{ gap: 4 }}>
-        <Label>Formule {data.plan?.name}</Label>
-        <T variant="small">
-          {data.plan?.features?.maxServices ? `${data.plan.features.maxServices} prestation(s)` : 'Prestations illimitées'} · {data.plan?.features?.video ? 'visio incluse' : 'sans visio'} · {data.plan?.features?.crm ? 'fiches clientes' : 'sans fiches clientes'}
-        </T>
+        {me.data?.trial ? (
+          <>
+            <Label>Essai gratuit{me.data.trial.daysLeft != null ? ` · ${me.data.trial.daysLeft} jour${me.data.trial.daysLeft > 1 ? 's' : ''} restant${me.data.trial.daysLeft > 1 ? 's' : ''}` : ''}</Label>
+            <T variant="small">Tu es en essai gratuit. Fonctionnalités incluses : {me.data.trial.included.join(', ').toLowerCase()}.</T>
+          </>
+        ) : (
+          <>
+            <Label>Formule {data.plan?.name}</Label>
+            <T variant="small">
+              {me.data?.included?.length
+                ? me.data.included.join(' · ')
+                : `${data.plan?.features?.maxServices ? `${data.plan.features.maxServices} prestation(s)` : 'Prestations illimitées'} · ${data.plan?.features?.video ? 'visio incluse' : 'sans visio'} · ${data.plan?.features?.crm ? 'fiches clientes' : 'sans fiches clientes'}`}
+            </T>
+          </>
+        )}
         <Button title="Voir les formules" variant="ghost" small onPress={() => router.push('/pro/profil')} />
       </Card>
       <Gap h={20} />

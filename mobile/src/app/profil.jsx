@@ -113,8 +113,14 @@ export default function Profile() {
     setBusy(true);
     try {
       const r = await api.post('/me/identifier/otp', { identifier: idValue });
+      // Numéro de téléphone : enregistré directement (aucun SMS) ; e-mail : code envoyé par e-mail.
+      if (r.saved) {
+        await setSession(r);
+        toast('Numéro enregistré');
+        setSheet(null);
+        return;
+      }
       setIdSent(r);
-      if (r.devCode) toast(`Code de test : ${r.devCode}`);
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -328,14 +334,13 @@ export default function Profile() {
         <T variant="small">La méthode de calcul est choisie par notre comité. Ajuste de quelques minutes pour t’aligner sur ta mosquée.</T>
       </Sheet>
 
-      <Sheet visible={sheet === 'identifier'} onClose={() => setSheet(null)} title="Mon identifiant" footer={idSent ? <Button title="Vérifier" onPress={() => verifyId()} loading={busy} disabled={code.length !== 6} /> : <Button title="Recevoir un code" onPress={sendIdCode} loading={busy} disabled={idValue.length < 4} />}>
+      <Sheet visible={sheet === 'identifier'} onClose={() => setSheet(null)} title="Mon identifiant" footer={idSent ? <Button title="Vérifier" onPress={() => verifyId()} loading={busy} disabled={code.length !== 6} /> : <Button title={idValue.includes('@') ? 'Recevoir un code par e-mail' : 'Enregistrer'} onPress={sendIdCode} loading={busy} disabled={idValue.length < 4} />}>
         {!idSent ? (
-          <Field label="E-mail ou téléphone" value={idValue} onChangeText={setIdValue} autoCapitalize="none" keyboardType="email-address" />
+          <Field label="E-mail ou téléphone" value={idValue} onChangeText={setIdValue} autoCapitalize="none" keyboardType="email-address" hint={idValue.includes('@') ? 'Un code de vérification est envoyé à cette adresse' : 'Ton numéro est enregistré tel quel, sans SMS'} />
         ) : (
           <>
-            <T variant="muted">Code envoyé à {idSent.target}</T>
+            <T variant="muted">Code envoyé par e-mail à {idSent.target}</T>
             <CodeInput value={code} onChange={(v) => { setCode(v); if (v.length === 6) verifyId(v); }} />
-            {idSent.devCode ? <T variant="small">Code de test : {idSent.devCode}</T> : null}
           </>
         )}
       </Sheet>

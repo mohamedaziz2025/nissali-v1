@@ -47,6 +47,18 @@ export const LEGACY_SPECIALTIES = {
 
 export const PLANS_SEED = [
   {
+    key: 'essai',
+    name: 'Essai gratuit',
+    tagline: 'Découvre l’espace pro sans engagement, sans carte bancaire',
+    priceMonthly: 0,
+    priceYearly: 0,
+    order: 0,
+    trial: true,
+    trialDays: 30,
+    features: { maxServices: 3, maxBookingsPerMonth: 0, video: true, crm: true, stats: true, featured: false, verifiedBadge: false, prioritySupport: false },
+    highlights: [],
+  },
+  {
     key: 'decouverte',
     name: 'Découverte',
     tagline: 'Pour commencer et se faire connaître',

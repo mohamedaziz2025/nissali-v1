@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 
@@ -6,21 +7,47 @@ if (env.smtp.host) {
   transporter = nodemailer.createTransport({
     host: env.smtp.host,
     port: env.smtp.port,
-    secure: env.smtp.port === 465,
+    secure: env.smtp.port === 465, // 465 : SSL/TLS direct (OVH ssl0.ovh.net)
     auth: env.smtp.user ? { user: env.smtp.user, pass: env.smtp.pass } : undefined,
   });
 }
 
-const layout = (title, body) => `<!doctype html><html><body style="margin:0;background:#FCF8F6;font-family:Helvetica,Arial,sans-serif;color:#3E1220">
-<div style="max-width:480px;margin:0 auto;padding:32px 24px">
-<div style="font-family:Georgia,serif;font-size:28px;color:#7A1F35;margin-bottom:24px">Nissali</div>
-<div style="background:#fff;border-radius:24px;padding:28px">
-<h1 style="font-family:Georgia,serif;font-weight:400;font-size:22px;margin:0 0 12px">${title}</h1>${body}</div>
-<p style="font-size:12px;color:#8a6a72;margin-top:24px">Ton cycle, ta foi, ta santé. Au même endroit.<br>Tu reçois cet e-mail car une action a été demandée sur ton compte Nissali.</p>
-</div></body></html>`;
+// Logo joint à l'e-mail (image intégrée « cid ») : affiché même quand les images distantes sont bloquées.
+const LOGO = { filename: 'nissali.png', path: fileURLToPath(new URL('../content/mail-logo.png', import.meta.url)), cid: 'logo@nissali' };
+const FONT = `'DM Sans',Helvetica,Arial,sans-serif`;
+const SERIF = `Fraunces,Georgia,'Times New Roman',serif`;
+const escape = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-// État de la connexion SMTP : tant qu'elle échoue, les e-mails partent dans la console
-// et les codes OTP restent affichés dans l'appli (voir otp.js), au lieu de bloquer l'inscription.
+// Même identité que l'appli et l'espace pro : fond ivoire, carte blanche arrondie, titres Fraunces, bordeaux.
+const layout = (title, body, preheader = '') => {
+  const site = env.appUrl.startsWith('https://') ? env.appUrl.replace(/\/$/, '') : '';
+  const links = site
+    ? `<a href="${site}/support" style="color:#7A1F35;text-decoration:underline">Aide</a> · <a href="${site}/privacy" style="color:#7A1F35;text-decoration:underline">Confidentialité</a> · `
+    : '';
+  return `<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">
+<title>${escape(title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#FCF8F6;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#FCF8F6">${escape(preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FCF8F6"><tr><td align="center" style="padding:32px 16px 40px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px">
+<tr><td style="padding:0 6px 22px"><img src="cid:${LOGO.cid}" width="157" height="48" alt="Nissali" style="display:block;border:0;outline:none"></td></tr>
+<tr><td style="background:#FFFFFF;border:1px solid #EFE3E5;border-radius:24px;padding:32px 28px;font-family:${FONT};font-size:15px;line-height:1.6;color:#2F1219">
+<h1 style="font-family:${SERIF};font-weight:500;font-size:25px;line-height:1.25;color:#3E1220;margin:0 0 14px">${escape(title)}</h1>
+${body}
+</td></tr>
+<tr><td style="padding:24px 6px 0;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#9C8288">
+<div style="font-family:${SERIF};font-size:15px;color:#7A1F35;margin-bottom:6px">Ton cycle, ta foi, ta santé. Au même endroit.</div>
+Tu reçois cet e-mail car une action a été demandée sur ton compte Nissali.<br>
+${links}<a href="mailto:contact@nissali.fr" style="color:#7A1F35;text-decoration:underline">contact@nissali.fr</a>
+</td></tr>
+</table></td></tr></table>
+</body></html>`;
+};
+
+// État de la connexion SMTP (affiché dans les logs au démarrage, revérifié régulièrement).
 let ready = false;
 export const mailerReady = () => ready;
 
@@ -42,34 +69,57 @@ export async function verifyMailer() {
   return ready;
 }
 
-/** Revérifie régulièrement : l'envoi réel reprend dès que le compte SMTP est débloqué. */
 export function watchMailer(intervalMs = 10 * 60_000) {
   verifyMailer();
   if (transporter) setInterval(verifyMailer, intervalMs).unref();
 }
 
-export async function sendMail({ to, subject, title, html, text }) {
+/**
+ * Envoie un e-mail. `strict` : l'échec est remonté (codes de vérification) ; sinon il est seulement
+ * journalisé (notifications), pour ne jamais bloquer l'action qui l'a déclenché.
+ */
+export async function sendMail({ to, subject, title, html, text, preheader, strict = false }) {
   // Pas d'envoi réel vers les comptes de démonstration (adresses inexistantes → rebonds).
-  if (!transporter || !ready || env.demoIdentifiers.test(to)) {
+  if (!transporter || env.demoIdentifiers.test(to)) {
+    if (!transporter && env.isProd && strict) throw new Error('SMTP non configuré');
     console.log(`[mail:console] → ${to} | ${subject}\n${text || ''}`);
     return { delivered: false, console: true };
   }
-  const info = await transporter.sendMail({ from: env.smtp.from, to, subject, text, html: layout(title || subject, html) });
-  console.log(`[mail] envoyé à ${to} (${info.accepted?.length ? 'accepté' : 'refusé'})`);
-  return { delivered: Boolean(info.accepted?.length) };
+  try {
+    const info = await transporter.sendMail({ from: env.smtp.from, to, subject, text, html: layout(title || subject, html, preheader), attachments: [LOGO] });
+    ready = true;
+    console.log(`[mail] envoyé à ${to} (${info.accepted?.length ? 'accepté' : 'refusé'})`);
+    if (strict && !info.accepted?.length) throw new Error('adresse refusée par le serveur');
+    return { delivered: Boolean(info.accepted?.length) };
+  } catch (err) {
+    console.error(`[mail] échec vers ${to} :`, err.message.split('\n')[0]);
+    if (strict) throw err;
+    return { delivered: false, error: err.message };
+  }
 }
 
+const OTP_INTRO = {
+  register: 'Bienvenue sur Nissali ! Voici ton code pour créer ton compte.',
+  login: 'Voici ton code pour te connecter à Nissali.',
+  reset: 'Voici ton code pour choisir un nouveau mot de passe.',
+  change: 'Voici ton code pour confirmer cette adresse e-mail sur ton compte Nissali.',
+  admin2fa: 'Voici ton code de connexion au back-office Nissali.',
+  link: 'Voici ton code pour rattacher ton profil praticienne à ton compte Nissali (bascule entre espace personnel et espace pro).',
+};
+
 export function otpEmail(code, purpose) {
-  const intro =
-    purpose === 'admin2fa'
-      ? 'Voici ton code de connexion au back-office Nissali.'
-      : purpose === 'link'
-        ? 'Voici ton code pour rattacher ton profil praticienne à ton compte Nissali (bascule entre espace personnel et espace pro).'
-        : 'Voici ton code de vérification Nissali.';
+  const intro = OTP_INTRO[purpose] || 'Voici ton code de vérification Nissali.';
+  const outro = 'Il expire dans 10 minutes. Ne le partage avec personne : l’équipe Nissali ne te le demandera jamais. Si tu n’es pas à l’origine de cette demande, ignore simplement cet e-mail.';
   return {
-    subject: `${code} — ton code Nissali`,
-    title: 'Ton code de vérification',
-    text: `${intro}\nCode : ${code}\nIl expire dans 10 minutes. Si tu n'es pas à l'origine de cette demande, ignore cet e-mail.`,
-    html: `<p>${intro}</p><p style="font-size:34px;letter-spacing:8px;font-weight:700;color:#7A1F35;margin:20px 0">${code}</p><p style="color:#8a6a72">Il expire dans 10 minutes. Si tu n'es pas à l'origine de cette demande, ignore cet e-mail.</p>`,
+    subject: `${code} est ton code Nissali`,
+    title: purpose === 'register' ? 'Bienvenue sur Nissali' : 'Ton code de vérification',
+    preheader: `Ton code : ${code} — il expire dans 10 minutes.`,
+    text: `${intro}\n\nCode : ${code}\n\n${outro}\n\nNissali — contact@nissali.fr`,
+    html: `<p style="margin:0 0 22px">${intro}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="background:#F7E8EA;border-radius:18px;padding:20px 12px">
+<div style="font-family:${FONT};font-size:11.5px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:#76565E;margin-bottom:6px">Ton code</div>
+<div style="font-family:${FONT};font-size:36px;font-weight:700;letter-spacing:10px;color:#7A1F35;padding-left:10px">${code}</div>
+</td></tr></table>
+<p style="margin:22px 0 0;color:#76565E;font-size:13.5px;line-height:1.6">${outro}</p>`,
   };
 }

@@ -1,15 +1,15 @@
 // 07 — Son de l'adhan : activé ou désactivé, choix par prière, aperçu sonore. Réglage distinct des rappels :
 // activer le son ne réactive jamais des rappels en pause ou désactivés ; les horaires restent consultables.
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { onAdhan, playAdhan, stopAdhan } from '../lib/adhan';
-import { SYSTEM_ADHAN } from '../lib/notifications';
+import { notificationAccess, SYSTEM_ADHAN, testAdhan } from '../lib/notifications';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/useApi';
 import { colors, fonts, PRAYER_LABELS, PRAYERS } from '../theme';
 import Icon from './Icon';
-import { Label, Notice, Sheet, T, Toggle, useToast } from './ui';
+import { Button, Label, Notice, Sheet, T, Toggle, useToast } from './ui';
 
 export function useAdhanPrefs() {
   const { user } = useAuth();
@@ -25,7 +25,30 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
   const prefs = useAdhanPrefs();
   const adhans = useApi('/prayers/adhans');
   const [playing, setPlaying] = useState(null);
+  const [access, setAccess] = useState(null);
+  const [testing, setTesting] = useState(false);
   useEffect(() => onAdhan((a) => setPlaying(a?.prayer === 'Aperçu' ? a.key : null)), []);
+  useEffect(() => {
+    if (visible && Platform.OS !== 'web') notificationAccess().then(setAccess).catch(() => {});
+  }, [visible]);
+
+  // Test : l'adhan est joué par le téléphone dans 10 secondes (verrouiller le téléphone pour l'entendre comme en vrai).
+  const test = async () => {
+    setTesting(true);
+    try {
+      const r = await testAdhan(10);
+      if (!r.ok) {
+        setAccess(await notificationAccess());
+        toast('Autorise les notifications de Nissali pour entendre l’adhan', 'error');
+        return;
+      }
+      toast('L’adhan retentit dans 10 secondes : verrouille ton téléphone');
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setTimeout(() => setTesting(false), 10_000);
+    }
+  };
 
   const patch = async (prayerSettings, message) => {
     try {
@@ -50,8 +73,18 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
         value={prefs.on}
         onChange={(v) => patch({ adhan: true, adhanMode: v ? 'adhan' : 'notification' }, v ? 'Son de l’adhan activé' : 'Son de l’adhan désactivé')}
       />
+      {prefs.on && access && (!access.granted || !access.sound) ? (
+        <Notice title={access.granted ? 'Son des notifications coupé' : 'Notifications désactivées'}>
+          {access.granted
+            ? 'Le son des notifications de Nissali est coupé dans les réglages du téléphone : l’adhan ne peut pas retentir. Active « Sons » dans Réglages › Nissali › Notifications.'
+            : 'Le téléphone bloque les notifications de Nissali : l’adhan ne peut pas retentir à l’heure de la prière. Autorise-les dans les réglages.'}
+          {'\n'}
+          <Text style={s.link} onPress={() => Linking.openSettings()}>Ouvrir les réglages</Text>
+        </Notice>
+      ) : null}
       {prefs.on ? (
         <>
+          {Platform.OS !== 'web' ? <Button title={testing ? 'L’adhan retentit dans quelques secondes…' : 'Tester l’adhan sur ce téléphone'} icon="volume" variant="outline" onPress={test} disabled={testing} /> : null}
           <Label>Pour quelles prières ?</Label>
           <View style={s.prayers}>
             {PRAYERS.map((k) => {
@@ -97,8 +130,8 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
         {!SYSTEM_ADHAN
           ? 'Version de test (Expo Go) : l’adhan est joué quand Nissali est ouverte ; appli fermée, la notification garde le son standard du téléphone. L’adhan joué par le téléphone fonctionne dans l’appli installée.'
           : Platform.OS === 'ios'
-            ? 'Appli fermée ou téléphone verrouillé, ton iPhone joue l’adhan avec la notification : les 30 premières secondes (limite d’Apple), si le téléphone n’est pas en mode silencieux. Touche la notification pour l’écouter en entier.'
-            : 'Appli fermée ou téléphone verrouillé, ton téléphone joue l’adhan en entier avec la notification (canal « Adhan », réglable dans les paramètres Android). En mode Ne pas déranger, Android peut le couper.'}
+            ? 'Appli fermée ou téléphone verrouillé, ton iPhone joue l’adhan avec la notification : les 30 premières secondes (limite d’Apple). Le bouton latéral ne doit pas être sur silencieux (orange) ; en mode Concentration, autorise les notifications urgentes de Nissali. Touche la notification pour l’écouter en entier.'
+            : 'Appli fermée ou téléphone verrouillé, ton téléphone joue l’adhan en entier avec la notification, au volume « Alarme » : il est entendu même en mode vibreur. Canal « Adhan » réglable dans les paramètres Android ; en mode Ne pas déranger, Android peut le couper.'}
         {SYSTEM_ADHAN ? ' Hors de l’appli, la voix est celle de Mishary Rashid Alafasy ; la voix choisie ici est jouée quand Nissali est ouverte.' : ''}
       </T>
     </Sheet>
@@ -114,5 +147,6 @@ const s = StyleSheet.create({
   voiceOn: { borderColor: colors.bordeaux },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.bordeaux },
+  link: { fontFamily: fonts.bold, color: colors.bordeaux, textDecorationLine: 'underline' },
   play: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
 });

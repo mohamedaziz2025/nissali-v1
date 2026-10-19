@@ -12,7 +12,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { Availability, Booking, BOOKING_STATUSES, Category, ClientRecord, Conversation, Message, Plan, Practitioner, Review, Service, Subscription, TimeOff, User } from '../models/index.js';
 import { bestCity } from '../services/geo.js';
-import { activePlanFor, ACTIVE_BOOKING, assertFeature, assertServiceQuota, endOtherOnlineSubscriptions, FREE_PLAN_KEY, getPractitionerFor, touchClientRecord } from '../services/marketplace.js';
+import { activePlanFor, ACTIVE_BOOKING, activeTrialPlan, assertFeature, assertServiceQuota, endOtherOnlineSubscriptions, featureList, FREE_PLAN_KEY, getPractitionerFor, touchClientRecord, trialInfo } from '../services/marketplace.js';
 import { cancelAtPeriodEnd as stripeCancelAtPeriodEnd, createPortalSession, createSubscriptionCheckout, stripeEnabled } from '../services/stripe.js';
 import { sendMail } from '../services/mailer.js';
 import { notify } from '../services/notifications.js';
@@ -38,6 +38,7 @@ async function loadPro(req) {
 async function subscribe(practitioner, planKey, billing) {
   const plan = await Plan.findOne({ key: planKey, active: true });
   if (!plan) throw badRequest('Formule introuvable');
+  if (plan.trial) return startTrial(practitioner, plan);
   const amount = billing === 'annuel' ? plan.priceYearly : plan.priceMonthly;
   const free = amount === 0;
   // Formule déjà active : on ne crée pas un second abonnement (Stripe facturerait deux fois).
@@ -56,6 +57,34 @@ async function subscribe(practitioner, planKey, billing) {
     startedAt: free ? new Date() : undefined,
     paymentReference: free ? undefined : `NIS-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
   });
+}
+
+/** Essai gratuit : actif tout de suite, une seule fois par praticienne, avec les fonctionnalités réglées par l'équipe. */
+async function startTrial(practitioner, plan) {
+  if (await Subscription.exists({ practitioner: practitioner._id, trial: true })) throw badRequest('Tu as déjà profité de l’essai gratuit', 'TRIAL_USED');
+  const now = new Date();
+  return Subscription.create({
+    practitioner: practitioner._id,
+    plan: plan.key,
+    billing: 'mensuel',
+    amount: 0,
+    status: 'active',
+    trial: true,
+    startedAt: now,
+    endsAt: plan.trialDays > 0 ? new Date(now.getTime() + plan.trialDays * 86_400_000) : undefined,
+  });
+}
+
+/**
+ * Formule de départ à l'inscription : l'essai gratuit (s'il est actif) quand aucune formule payante
+ * n'est choisie, sinon la formule choisie, sinon la formule gratuite.
+ */
+async function signupPlan(key, billing) {
+  const chosen = key ? await Plan.findOne({ key, active: true }) : null;
+  if (key && !chosen) throw badRequest('Formule introuvable');
+  const paid = chosen && (billing === 'annuel' ? chosen.priceYearly : chosen.priceMonthly) > 0;
+  if (paid) return chosen;
+  return (await activeTrialPlan()) || chosen || (await Plan.findOne({ key: FREE_PLAN_KEY, active: true }));
 }
 
 /**
@@ -93,7 +122,7 @@ const registerSchema = z.object({
   inPerson: z.boolean().default(true),
   supportsVideo: z.boolean().default(false),
   languages: z.array(z.string().max(30)).max(6).optional(),
-  plan: z.string().default(FREE_PLAN_KEY),
+  plan: z.string().optional(), // absent : essai gratuit (ou formule gratuite)
   billing: z.enum(['mensuel', 'annuel']).default('mensuel'),
   phone: z.string().trim().max(30).optional(),
   showPhone: z.boolean().optional(),
@@ -105,6 +134,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   if (await getPractitionerFor(req.user)) throw conflict('Tu as déjà un profil professionnel');
   const b = req.body;
   if (!(await Category.exists({ key: b.specialty, active: true }))) throw badRequest('Spécialité inconnue');
+  const startPlan = await signupPlan(b.plan, b.billing);
   const p = await Practitioner.create({
     user: req.user._id,
     displayName: b.displayName,
@@ -124,16 +154,16 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   });
   await locate(p);
   await p.save();
-  const sub = await subscribe(p, b.plan, b.billing);
+  const sub = startPlan ? await subscribe(p, startPlan.key, b.billing) : null;
   const checkoutUrl = await attachCheckout(p, sub, req.user);
   req.user.lastSpace = 'pro';
   await req.user.save();
 
   const admins = await User.find({ role: 'admin' }).lean();
   for (const a of admins) {
-    if (a.email) await sendMail({ to: a.email, subject: 'Nouvelle inscription praticienne', html: `<p>${p.displayName} (${b.specialty}, ${b.city}) vient de s’inscrire avec la formule « ${b.plan} ».</p>`, text: `Nouvelle praticienne : ${p.displayName}` });
+    if (a.email) await sendMail({ to: a.email, subject: 'Nouvelle inscription praticienne', html: `<p>${p.displayName} (${b.specialty}, ${b.city}) vient de s’inscrire${startPlan ? ` (${startPlan.trial ? 'essai gratuit' : `formule « ${startPlan.name} »`})` : ''}.</p>`, text: `Nouvelle praticienne : ${p.displayName}` });
   }
-  res.status(201).json({ ...(await sessionPayload(req.user)), subscription: sub, checkoutUrl });
+  res.status(201).json({ ...(await sessionPayload(req.user)), subscription: sub, checkoutUrl, trial: trialInfo(sub, startPlan) });
 });
 
 // --- Profil -----------------------------------------------------------------
@@ -147,6 +177,8 @@ router.get('/me', async (req, res) => {
     plan,
     subscription,
     pendingSubscription: pending,
+    trial: trialInfo(subscription, plan),
+    included: featureList(plan?.features),
     videoActive: Boolean(p.supportsVideo && plan?.features?.video),
     // Paiement en ligne : activé par l'équipe, portail disponible dès qu'un client Stripe existe.
     billing: { online: stripeEnabled(), portal: Boolean(p.stripeCustomerId) },
@@ -224,8 +256,9 @@ router.post('/photo', upload.single('photo'), async (req, res) => {
 router.get('/plans', async (req, res) => {
   const p = await getPractitionerFor(req.user);
   const plans = await Plan.find({ active: true }).sort({ order: 1 }).lean();
-  const current = p ? (await activePlanFor(p)).plan?.key : null;
-  res.json({ plans, current, online: stripeEnabled() });
+  const active = p ? await activePlanFor(p) : null;
+  // L'essai gratuit ne se souscrit pas ici : il est proposé une seule fois, à l'inscription.
+  res.json({ plans: plans.filter((x) => !x.trial).map((x) => ({ ...x, included: featureList(x.features) })), current: active?.plan?.key || null, trial: trialInfo(active?.subscription, active?.plan), online: stripeEnabled() });
 });
 
 router.post('/subscription', validate(z.object({ plan: z.string(), billing: z.enum(['mensuel', 'annuel']).default('mensuel') })), async (req, res) => {

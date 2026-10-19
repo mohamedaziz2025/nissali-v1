@@ -348,6 +348,8 @@ const planSchema = z.object({
   highlights: z.array(z.string().max(80)).max(10).optional(),
   order: z.number().int().optional(),
   active: z.boolean().optional(),
+  trial: z.boolean().optional(),
+  trialDays: z.number().int().min(0).max(365).optional(),
 });
 
 router.get('/plans', async (_req, res) => res.json(await Plan.find().sort({ order: 1 }).lean()));

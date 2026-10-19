@@ -7,3 +7,7 @@ node_modules
 dist
 backend/uploads/*
 !backend/uploads/.gitkeep
+.env.*
+!.env.example
+backend/private/
+/Nissali_Cahier_des_charges*.pdf

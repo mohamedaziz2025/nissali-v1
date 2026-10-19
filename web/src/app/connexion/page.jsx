@@ -195,7 +195,7 @@ export default function Login() {
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
                   inputMode="email"
-                  placeholder={mode === 'admin' ? 'prenom@nissali.app' : 'toi@exemple.com'}
+                  placeholder={mode === 'admin' ? 'contact@nissali.fr' : 'toi@exemple.com'}
                   required
                   autoFocus
                 />
@@ -256,11 +256,6 @@ export default function Login() {
           }}
         >
           <OtpInput value={code} onChange={setCode} onComplete={verify} disabled={busy} />
-          {sent.devCode ? (
-            <p className="dev-code">
-              Mode test : code <strong>{sent.devCode}</strong>
-            </p>
-          ) : null}
           {error ? (
             <div className="alert error" role="alert">
               <Icon name="alert" />

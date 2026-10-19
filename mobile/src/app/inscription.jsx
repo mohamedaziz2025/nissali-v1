@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
 import { CityPicker } from '../components/forms';
-import { Button, Card, Checkbox, Chips, CodeInput, Field, ProgressBar, Screen, Segmented, T, useToast } from '../components/ui';
+import { Button, Card, Checkbox, Chips, CodeInput, Field, ProgressBar, Screen, Segmented, T } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors } from '../theme';
@@ -13,7 +13,6 @@ const STEPS = ['prenom', 'age', 'ville', 'situation', 'contact', 'consentements'
 
 export default function Register() {
   const { signIn } = useAuth();
-  const toast = useToast();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ firstName: '', age: '', city: null, situation: null, channel: 'email', identifier: '', terms: false, health: false, marketing: false });
   const [code, setCode] = useState('');
@@ -40,7 +39,6 @@ export default function Register() {
       const r = await api.post('/auth/otp', { identifier: form.identifier.trim(), purpose: 'register' });
       setSent(r);
       setStep(STEPS.indexOf('code'));
-      if (r.devCode) toast(`Code de test : ${r.devCode}`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -137,7 +135,7 @@ export default function Register() {
       <>
         <T variant="h2">Ton code</T>
         <T variant="muted">
-          Code envoyé {sent?.channel === 'email' ? 'par e-mail' : 'par SMS'} à <T variant="bold">{sent?.target}</T>.
+          Code envoyé par e-mail à <T variant="bold">{sent?.target}</T>. Pense à regarder dans tes courriers indésirables.
         </T>
         <CodeInput
           value={code}
@@ -146,11 +144,6 @@ export default function Register() {
             if (v.length === 6) register(v);
           }}
         />
-        {sent?.devCode ? (
-          <Card tone="soft">
-            <T variant="small">Mode développement — code : {sent.devCode}</T>
-          </Card>
-        ) : null}
         <Button title="Renvoyer un code" variant="ghost" onPress={sendCode} disabled={busy} />
       </>
     ),

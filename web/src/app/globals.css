@@ -360,7 +360,6 @@ tbody tr:hover { background: #fdf9f9; }
 .otp-box { width: 100%; aspect-ratio: 1 / 1.15; max-height: 64px; border-radius: 14px; border: 1.5px solid var(--line-strong); background: var(--white); text-align: center; font: 600 26px var(--font-body); color: var(--prune); transition: border-color .15s, box-shadow .15s; }
 .otp-box:focus { outline: none; border-color: var(--bordeaux); box-shadow: 0 0 0 3px var(--blush); }
 .otp-box.filled { border-color: var(--bordeaux); background: #fdf7f8; }
-.dev-code { margin: 0; padding: 9px 12px; border-radius: 10px; background: #f6efe6; color: #7a5a33; font-size: 13px; text-align: center; }
 .otp-actions { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .link-btn { border: 0; background: none; padding: 4px 0; color: var(--bordeaux); font: 600 13.5px var(--font-body); cursor: pointer; }
 .link-btn:hover:not(:disabled) { text-decoration: underline; }
@@ -384,6 +383,8 @@ tbody tr:hover { background: #fdf9f9; }
 .plan-card.on { border-color: var(--bordeaux); box-shadow: 0 0 0 3px var(--blush); }
 .plan-card .price { font-size: 24px; font-weight: 600; color: var(--bordeaux); }
 .plan-card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
+.trial-card { background: linear-gradient(135deg, var(--blush), var(--white) 70%); }
+.trial-card h3 { color: var(--bordeaux); }
 
 /* --- Agenda semaine ---------------------------------------------------------------- */
 .agenda { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }

@@ -13,27 +13,16 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || 'dev-only-secret-change-me',
   appUrl: process.env.APP_URL || 'http://localhost:3000',
   corsOrigins: (process.env.CORS_ORIGINS || process.env.APP_URL || 'http://localhost:3000').split(',').map((s) => s.trim()),
-  // Codes OTP renvoyés dans la réponse de l'API (tests) :
-  //   true  → toujours ; false → jamais ;
-  //   auto  → seulement si le code ne peut pas être livré (pas de SMTP / pas de fournisseur SMS)
-  //           ou pour les comptes de démonstration (DEMO_IDENTIFIERS).
-  exposeDevCodes: ['true', 'false', 'auto'].includes(process.env.DEV_EXPOSE_CODES) ? process.env.DEV_EXPOSE_CODES : isProd ? 'auto' : 'true',
+  // Codes envoyés uniquement par e-mail. En développement local (sans SMTP), le code est aussi écrit
+  // dans les logs de l'API ; jamais en production (DEV_EXPOSE_CODES=false pour le couper en local).
+  exposeDevCodes: !isProd && process.env.DEV_EXPOSE_CODES !== 'false',
   demoIdentifiers: new RegExp(process.env.DEMO_IDENTIFIERS || '@nissali\\.app$|^\\+3360000000\\d$', 'i'),
   smtp: {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.MAIL_FROM || 'Nissali <no-reply@nissali.app>',
-  },
-  // Envoi des codes OTP par SMS : console (dev), twilio ou brevo.
-  sms: {
-    provider: process.env.SMS_PROVIDER || 'console',
-    sender: process.env.SMS_SENDER || 'Nissali',
-    twilioSid: process.env.TWILIO_ACCOUNT_SID,
-    twilioToken: process.env.TWILIO_AUTH_TOKEN,
-    twilioFrom: process.env.TWILIO_FROM,
-    brevoKey: process.env.BREVO_API_KEY,
+    from: process.env.MAIL_FROM || 'Nissali <contact@nissali.fr>',
   },
   defaultCountryCode: process.env.DEFAULT_COUNTRY_CODE || '33',
   uploadDir: process.env.UPLOAD_DIR || 'uploads',

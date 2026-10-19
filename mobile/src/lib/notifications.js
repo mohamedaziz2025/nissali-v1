@@ -16,6 +16,8 @@ if (Platform.OS !== 'web') {
       const data = n?.request?.content?.data || {};
       const inApp = data.kind === 'message' || Boolean(data.notificationId);
       const adhan = data.kind === 'prayer' && Boolean(data.adhanUrl); // l'adhan remplace le son de la notification
+      // Test de l'adhan : le son du téléphone est joué même appli ouverte.
+      if (data.kind === 'adhanTest') return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false };
       return { shouldShowBanner: !inApp, shouldShowList: true, shouldPlaySound: !inApp && !adhan, shouldSetBadge: false };
     },
   });
@@ -24,10 +26,16 @@ if (Platform.OS !== 'web') {
 const DISCREET = { title: 'Nissali', body: 'Petit rappel du jour' };
 
 // Adhan joué par le système du téléphone (appli fermée ou téléphone verrouillé) : son de notification intégré
-// à l'appli compilée (EAS). En entier sur Android (canal « Adhan »), 30 premières secondes sur iPhone (limite d'Apple).
+// à l'appli compilée (EAS). En entier sur Android (canal « Adhan », volume Alarme), 30 premières secondes
+// sur iPhone (limite d'Apple).
 // Expo Go n'accepte pas de son personnalisé : la notification y garde le son standard.
 export const SYSTEM_ADHAN = Platform.OS !== 'web' && Constants.executionEnvironment !== 'storeClient';
 const ADHAN_SOUND = Platform.OS === 'ios' ? 'adhan_ios.caf' : 'adhan_full.mp3';
+// iPhone : « urgente » (Time Sensitive), l'adhan passe aussi en mode Concentration (pas en mode silencieux).
+const URGENT = Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' } : {};
+// Android : canal joué sur le volume « Alarme » (entendu même en mode vibreur). Un canal ne change plus
+// une fois créé : nouvel identifiant, l'ancien canal « adhan » (volume des notifications) est supprimé.
+const ADHAN_CHANNEL = 'adhan_alarme';
 const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
 
 export async function ensurePermission() {
@@ -37,11 +45,14 @@ export async function ensurePermission() {
     await Notifications.setNotificationChannelAsync('prieres', { name: 'Prières', importance: Notifications.AndroidImportance.HIGH });
     await Notifications.setNotificationChannelAsync('annonces', { name: 'Annonces et messages', importance: Notifications.AndroidImportance.HIGH });
     if (SYSTEM_ADHAN) {
-      await Notifications.setNotificationChannelAsync('adhan', {
+      await Notifications.deleteNotificationChannelAsync('adhan').catch(() => {});
+      await Notifications.setNotificationChannelAsync(ADHAN_CHANNEL, {
         name: 'Adhan',
-        description: 'L’adhan à l’heure de chaque prière, même appli fermée',
-        importance: Notifications.AndroidImportance.HIGH,
+        description: 'L’adhan en entier à l’heure de chaque prière, même appli fermée ou téléphone en vibreur',
+        importance: Notifications.AndroidImportance.MAX,
         sound: 'adhan_full.mp3',
+        audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM, contentType: Notifications.AndroidAudioContentType.SONIFICATION },
+        enableVibrate: true,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
@@ -101,10 +112,10 @@ export async function rescheduleAll(today, user) {
               {
                 title: `${label} · ${time}`,
                 body: adhan ? `C’est l’heure de ${label} · l’adhan retentit` : `C’est l’heure de ${label}`,
-                ...(system ? { sound: ADHAN_SOUND } : {}),
+                ...(system ? { sound: ADHAN_SOUND, ...URGENT } : {}),
                 data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanUrl: adhan.url, adhanLabel: adhan.label } : {}), ...(system ? { systemAdhan: Platform.OS === 'ios' ? 'extrait' : 'complet' } : {}) },
               },
-              system ? 'adhan' : 'prieres',
+              system ? ADHAN_CHANNEL : 'prieres',
             );
           }
         }
@@ -140,6 +151,32 @@ export async function rescheduleAll(today, user) {
     const time = user.contraception.pillTime || '21:00';
     for (let i = 0; i < 3; i += 1) await schedule(at(addDays(today.today, i), time), DISCREET);
   }
+}
+
+/** Les notifications sont-elles autorisées (et avec le son, sur iPhone) ? */
+export async function notificationAccess() {
+  if (Platform.OS === 'web') return { granted: false, sound: false };
+  const p = await Notifications.getPermissionsAsync();
+  return { granted: p.granted, canAsk: p.canAskAgain !== false, sound: Platform.OS !== 'ios' || p.ios?.allowsSound !== false };
+}
+
+/**
+ * Test de l'adhan joué par le téléphone : une notification dans quelques secondes, avec le même son
+ * qu'à l'heure de la prière. Verrouille le téléphone pour l'entendre comme en vrai.
+ */
+export async function testAdhan(seconds = 10) {
+  if (!(await ensurePermission())) return { ok: false, reason: 'permission' };
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Test de l’adhan',
+      body: SYSTEM_ADHAN ? 'Voici l’adhan tel qu’il retentira à l’heure de la prière.' : 'Dans l’appli installée, l’adhan retentit à la place de ce son.',
+      sound: SYSTEM_ADHAN ? ADHAN_SOUND : true,
+      ...(SYSTEM_ADHAN ? URGENT : {}),
+      data: { kind: 'adhanTest' },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, channelId: SYSTEM_ADHAN ? ADHAN_CHANNEL : 'prieres' },
+  });
+  return { ok: true };
 }
 
 export async function cancelAll() {

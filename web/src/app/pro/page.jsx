@@ -107,6 +107,16 @@ export default function ProDashboard() {
           <span>Ton profil est en cours de validation par l’équipe Nissali. Prépare tes prestations et tes disponibilités en attendant.</span>
         </div>
       ) : null}
+      {me.data?.trial ? (
+        <div className="card soft row between" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <span>
+            <span className="label">Essai gratuit</span>
+            <br />
+            {me.data.trial.daysLeft != null ? `${me.data.trial.daysLeft} jour${me.data.trial.daysLeft > 1 ? 's' : ''} restant${me.data.trial.daysLeft > 1 ? 's' : ''} · jusqu’au ${new Date(me.data.trial.endsAt).toLocaleDateString('fr-FR')}` : 'Sans limite de durée'} · {me.data.trial.included.join(', ').toLowerCase()}
+          </span>
+          <Link href="/pro/abonnement">Choisir une formule →</Link>
+        </div>
+      ) : null}
       {pending ? (
         <div className="card dashed row between">
           <span>

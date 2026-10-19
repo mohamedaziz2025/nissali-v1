@@ -35,9 +35,9 @@ export default function ForgotPassword() {
       <h1>Mot de passe oublié</h1>
       {!sent ? (
         <form className="stack" onSubmit={(e) => { e.preventDefault(); run(async () => setSent(await api.post('/auth/password/forgot', { identifier }))); }}>
-          <p className="muted">Nous t’envoyons un code pour choisir un nouveau mot de passe.</p>
-          <Field label="E-mail ou téléphone">
-            <input className="input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="username" required />
+          <p className="muted">Nous t’envoyons un code par e-mail pour choisir un nouveau mot de passe.</p>
+          <Field label="Adresse e-mail">
+            <input className="input" type="email" inputMode="email" value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="username" required />
           </Field>
           {error ? <p className="error">{error}</p> : null}
           <button className="btn block" disabled={busy}>Recevoir mon code</button>
@@ -59,7 +59,6 @@ export default function ForgotPassword() {
             Code envoyé à <strong>{sent.target}</strong>.
           </p>
           <input className="input code-input" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" autoFocus aria-label="Code à 6 chiffres" />
-          {sent.devCode ? <p className="muted small">Mode test — code : {sent.devCode}</p> : null}
           <Field label="Nouveau mot de passe" hint="8 caractères minimum">
             <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} required />
           </Field>

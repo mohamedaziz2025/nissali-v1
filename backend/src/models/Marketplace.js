@@ -76,6 +76,10 @@ const planSchema = new Schema(
     highlights: [String],
     order: { type: Number, default: 0 },
     active: { type: Boolean, default: true },
+    // Essai gratuit proposé à l'inscription : fonctionnalités réglées par l'équipe, durée en jours
+    // (0 = sans limite). À la fin de l'essai, la praticienne repasse sur la formule gratuite.
+    trial: { type: Boolean, default: false },
+    trialDays: { type: Number, default: 30, min: 0 },
   },
   { timestamps: true },
 );
@@ -98,6 +102,7 @@ const subscriptionSchema = new Schema(
     stripeSubscriptionId: { type: String, index: true },
     stripeCustomerId: String,
     cancelAtPeriodEnd: { type: Boolean, default: false },
+    trial: { type: Boolean, default: false }, // essai gratuit (une seule fois par praticienne)
   },
   { timestamps: true },
 );

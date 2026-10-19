@@ -177,11 +177,17 @@ router.put('/space', validate(z.object({ space: z.enum(['personnel', 'pro']) }))
   res.json(await sessionPayload(req.user));
 });
 
-// Ajouter ou changer l'e-mail / le téléphone (vérifié par OTP).
+// Ajouter ou changer l'e-mail (vérifié par un code envoyé par e-mail) ou le téléphone
+// (enregistré directement : aucun SMS n'est envoyé).
 router.post('/identifier/otp', validate(z.object({ identifier: z.string().min(3).max(120) })), async (req, res) => {
   const id = normalizeIdentifier(req.body.identifier);
   const taken = await User.findOne(id.channel === 'email' ? { email: id.target } : { phone: id.target });
   if (taken && !taken._id.equals(req.user._id)) throw conflict('Cet identifiant est déjà utilisé par un autre compte');
+  if (id.channel !== 'email') {
+    Object.assign(req.user, { phone: id.target, phoneVerified: false });
+    await req.user.save();
+    return res.json({ saved: true, ...(await sessionPayload(req.user)) });
+  }
   res.json(await sendOtp({ ...id, purpose: 'change', user: req.user }));
 });
 

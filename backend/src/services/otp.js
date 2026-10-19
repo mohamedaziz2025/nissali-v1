@@ -1,10 +1,9 @@
-// Service OTP : codes à 6 chiffres envoyés par e-mail ou par SMS.
+// Codes de vérification à 6 chiffres, envoyés uniquement par e-mail.
 import crypto from 'node:crypto';
 import { env } from '../config/env.js';
 import { Verification } from '../models/index.js';
 import { badRequest, HttpError } from '../utils/http.js';
-import { mailerReady, otpEmail, sendMail } from './mailer.js';
-import { sendSms } from './sms.js';
+import { otpEmail, sendMail } from './mailer.js';
 
 const CODE_TTL_MS = 10 * 60_000;
 const RESEND_DELAY_MS = 45_000;
@@ -31,16 +30,10 @@ export function normalizeIdentifier(raw) {
 
 const hash = (target, code) => crypto.createHmac('sha256', env.jwtSecret).update(`${target}:${code}`).digest('hex');
 
-/** Le code est-il renvoyé à l'appli ? (voir DEV_EXPOSE_CODES dans config/env.js) */
-export function shouldExposeCode(target, channel) {
-  if (env.exposeDevCodes === 'true') return true;
-  if (env.exposeDevCodes === 'false') return false;
-  if (env.demoIdentifiers.test(target)) return true;
-  if (channel === 'email') return !mailerReady();
-  return env.sms.provider === 'console';
-}
-
 export async function sendOtp({ target, channel, purpose, user }) {
+  if (channel !== 'email') throw badRequest('Le code est envoyé par e-mail : indique ton adresse e-mail.', 'EMAIL_REQUIRED');
+  // Comptes de démonstration (adresses inexistantes) : aucun e-mail possible, connexion par mot de passe.
+  if (env.isProd && env.demoIdentifiers.test(target)) throw badRequest('Compte de démonstration : connecte-toi avec ton mot de passe.', 'DEMO_PASSWORD_ONLY');
   const recent = await Verification.find({ target, createdAt: { $gte: new Date(Date.now() - 3600_000) } }).sort({ createdAt: -1 });
   if (recent[0] && Date.now() - recent[0].createdAt.getTime() < RESEND_DELAY_MS) {
     throw new HttpError(429, 'Patiente quelques secondes avant de demander un nouveau code', 'OTP_TOO_SOON');
@@ -51,20 +44,16 @@ export async function sendOtp({ target, channel, purpose, user }) {
   await Verification.deleteMany({ target, purpose });
   await Verification.create({ target, channel, purpose, user: user?._id, codeHash: hash(target, code), expiresAt: new Date(Date.now() + CODE_TTL_MS) });
 
-  const expose = shouldExposeCode(target, channel);
   try {
-    if (channel === 'email') {
-      await sendMail({ to: target, ...otpEmail(code, purpose) });
-    } else if (!env.demoIdentifiers.test(target)) {
-      await sendSms(target, `Nissali : ton code est ${code}. Il expire dans 10 minutes. Ne le partage avec personne.`);
-    }
+    await sendMail({ to: target, ...otpEmail(code, purpose), strict: true });
   } catch (err) {
-    console.error(`[otp] envoi impossible (${channel}) :`, err.message);
+    console.error('[otp] envoi de l’e-mail impossible :', err.message);
     await Verification.deleteMany({ target, purpose });
-    throw new HttpError(502, channel === 'email' ? 'Impossible d’envoyer l’e-mail pour le moment. Réessaie dans un instant.' : 'Impossible d’envoyer le SMS pour le moment. Essaie avec ton adresse e-mail.', 'OTP_DELIVERY_FAILED');
+    throw new HttpError(502, 'Impossible d’envoyer l’e-mail pour le moment. Réessaie dans un instant.', 'OTP_DELIVERY_FAILED');
   }
-  if (expose) console.log(`[otp] ${purpose} ${target} → ${code}`);
-  return { sent: true, channel, target: mask(target, channel), ...(expose ? { devCode: code } : {}) };
+  // Développement local uniquement : le code est aussi écrit dans les logs de l'API (jamais renvoyé à l'appli).
+  if (env.exposeDevCodes) console.log(`[otp] ${purpose} ${target} → ${code}`);
+  return { sent: true, channel, target: mask(target, channel) };
 }
 
 export async function verifyOtp({ target, purpose, code }) {

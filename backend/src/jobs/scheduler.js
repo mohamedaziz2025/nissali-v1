@@ -2,7 +2,7 @@
 // rappels de rendez-vous, clôture des réservations passées, purge RGPD (8.2).
 import cron from 'node-cron';
 import { syncAllJumua } from '../services/mawaqit.js';
-import { Booking, Event, EventRegistration, FastPlan, Practitioner, PushSubscription, User } from '../models/index.js';
+import { Booking, Event, EventRegistration, FastPlan, Plan, Practitioner, PushSubscription, Subscription, User } from '../models/index.js';
 import { loadCycleContext, loadFastContext, nowFor, prayerPause } from '../services/context.js';
 import { ramadanInfo, whiteDays } from '../services/hijri.js';
 import { dhikrReminders } from '../services/dhikr.js';
@@ -121,7 +121,26 @@ async function prayerPushJob() {
 }
 
 /** Réservations passées → terminées ; purge des comptes inactifs depuis 3 ans (8.2). */
+/** Essai gratuit des praticiennes : rappel 3 jours avant la fin, puis bascule sur la formule gratuite. */
+async function trialJob() {
+  const now = new Date();
+  const subs = await Subscription.find({ trial: true, status: 'active', endsAt: { $ne: null, $lte: new Date(now.getTime() + 3 * 86_400_000) } }).lean();
+  for (const sub of subs) {
+    const p = await Practitioner.findById(sub.practitioner).select('user').lean();
+    if (!p) continue;
+    if (sub.endsAt <= now) {
+      await Subscription.updateOne({ _id: sub._id, status: 'active' }, { $set: { status: 'expiree' } });
+      const free = await Plan.findOne({ key: 'decouverte' }).select('name').lean();
+      await notify(p.user, { key: `trial-ended-${sub._id}`, type: 'abonnement', title: 'Nissali Pro', body: 'Ton essai gratuit est terminé', detail: `Tu es passée sur la formule ${free?.name || 'gratuite'}. Choisis une formule pour retrouver toutes les fonctionnalités.`, link: '/pro/abonnement' });
+    } else {
+      const days = Math.max(1, Math.ceil((sub.endsAt.getTime() - now.getTime()) / 86_400_000));
+      await notify(p.user, { key: `trial-soon-${sub._id}`, type: 'abonnement', title: 'Nissali Pro', body: `Ton essai gratuit se termine dans ${days} jour${days > 1 ? 's' : ''}`, detail: 'Choisis une formule pour garder tes fonctionnalités après l’essai.', link: '/pro/abonnement' });
+    }
+  }
+}
+
 async function dailyMaintenance() {
+  await trialJob().catch((e) => console.error('[jobs] essai gratuit', e));
   await Booking.updateMany({ status: 'confirmee', endAt: { $lt: new Date(Date.now() - 2 * 3600_000) } }, { $set: { status: 'terminee' } });
   const threeYears = new Date(Date.now() - 3 * 365 * 86_400_000);
   const inactive = await User.find({ role: 'user', lastActiveAt: { $lt: threeYears } }).select('_id').lean();

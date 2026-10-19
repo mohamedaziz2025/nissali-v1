@@ -6,6 +6,67 @@ import { addDays, localParts, minutesToTime, timeToMinutes, weekday, zonedToDate
 import { forbidden } from '../utils/http.js';
 
 export const FREE_PLAN_KEY = 'decouverte';
+export const TRIAL_PLAN_KEY = 'essai';
+
+/** Essai gratuit créé au premier démarrage ; l'équipe règle ensuite ses fonctionnalités et sa durée. */
+export const TRIAL_PLAN = {
+  key: TRIAL_PLAN_KEY,
+  name: 'Essai gratuit',
+  tagline: 'Découvre l’espace pro sans engagement, sans carte bancaire',
+  priceMonthly: 0,
+  priceYearly: 0,
+  order: 0,
+  trial: true,
+  trialDays: 30,
+  features: { maxServices: 3, maxBookingsPerMonth: 0, video: true, crm: true, stats: true, featured: false, verifiedBadge: false, prioritySupport: false },
+  highlights: [],
+};
+
+export async function ensureTrialPlan() {
+  if (!(await Plan.exists({ trial: true }))) await Plan.updateOne({ key: TRIAL_PLAN_KEY }, { $setOnInsert: TRIAL_PLAN }, { upsert: true });
+}
+
+/** Essai gratuit proposé à l'inscription (null si l'équipe l'a désactivé). */
+export const activeTrialPlan = () => Plan.findOne({ trial: true, active: true }).sort({ order: 1 });
+
+/** Fonctionnalités d'une formule en clair, d'après les réglages du back-office. */
+export function featureList(f = {}) {
+  const list = [];
+  list.push(!f.maxServices ? 'Prestations illimitées' : `${f.maxServices} prestation${f.maxServices > 1 ? 's' : ''}`);
+  list.push(!f.maxBookingsPerMonth ? 'Rendez-vous illimités' : `Jusqu’à ${f.maxBookingsPerMonth} rendez-vous par mois`);
+  if (f.video) list.push('Consultations en visio');
+  if (f.crm) list.push('Fiches clientes');
+  if (f.stats) list.push('Statistiques');
+  if (f.featured) list.push('Mise en avant dans l’annuaire');
+  if (f.verifiedBadge) list.push('Badge vérifiée');
+  if (f.prioritySupport) list.push('Support prioritaire');
+  return list;
+}
+
+export const planCard = (p) => ({
+  key: p.key,
+  name: p.name,
+  tagline: p.tagline,
+  priceMonthly: p.priceMonthly,
+  priceYearly: p.priceYearly,
+  features: p.features,
+  highlights: p.highlights?.length ? p.highlights : featureList(p.features),
+  included: featureList(p.features),
+  trial: Boolean(p.trial),
+  trialDays: p.trial ? p.trialDays || 0 : undefined,
+});
+
+/** Essai en cours : date de fin et jours restants (null hors essai). */
+export function trialInfo(subscription, plan) {
+  if (!subscription?.trial) return null;
+  const end = subscription.endsAt ? new Date(subscription.endsAt) : null;
+  return {
+    name: plan?.name || 'Essai gratuit',
+    endsAt: end,
+    daysLeft: end ? Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86_400_000)) : null,
+    included: featureList(plan?.features),
+  };
+}
 
 /**
  * Onglet Praticiennes ouvert ? Par défaut (« auto ») : dès qu'au moins une praticienne est validée

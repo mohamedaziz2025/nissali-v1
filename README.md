@@ -67,14 +67,13 @@ Après l’inscription, chacune choisit : **garder la connexion par code** (rien
 (8 caractères minimum). Le code reste toujours disponible. « Mot de passe oublié » envoie un code puis enregistre
 le nouveau mot de passe. Tout se gère dans « Connexion et sécurité » (profil mobile, espace pro web).
 
-`DEV_EXPOSE_CODES=auto` (serveur) : le code n’est renvoyé à l’app que pour les comptes de démo ou quand il ne peut pas
-être livré (SMTP en panne ou bloqué, pas de fournisseur SMS). L’API revérifie la connexion SMTP toutes les 10 minutes.
+Les codes sont envoyés **uniquement par e-mail** (aucun SMS), avec un e-mail aux couleurs de Nissali. Ils ne sont
+jamais affichés dans l’app ni renvoyés par l’API. Le numéro de téléphone (facultatif) est enregistré dans le profil
+sans vérification par SMS. Les comptes de démonstration (`DEMO_IDENTIFIERS`) se connectent par mot de passe.
 
-Envoi des codes, à configurer dans `backend/.env` :
-
-- **E-mail** : n’importe quel SMTP (Brevo, OVH, Gmail…) via `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`.
-- **SMS** : `SMS_PROVIDER=twilio` (`TWILIO_*`) ou `SMS_PROVIDER=brevo` (`BREVO_API_KEY`).
-- Sans configuration : `console` (codes affichés dans le terminal de l’API).
+SMTP, à configurer dans `.env` : `SMTP_HOST`, `SMTP_PORT` (465 = SSL/TLS), `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`
+(par exemple OVH : `ssl0.ovh.net`, port 465). En développement local sans SMTP, le code est écrit dans les logs de l’API.
+L’API revérifie la connexion SMTP toutes les 10 minutes.
 
 Back-office : mot de passe + code OTP par e-mail, session de 24 h, actions tracées dans le journal d’audit.
 

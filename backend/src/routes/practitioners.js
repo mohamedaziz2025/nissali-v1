@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { Booking, Category, Favorite, Plan, Practitioner, Review, Service, User } from '../models/index.js';
-import { activePlanFor, ACTIVE_BOOKING, availableSlots, directoryOpen, nextAvailableDays, nextSlot, publicPractitioner, refreshRating } from '../services/marketplace.js';
+import { activePlanFor, ACTIVE_BOOKING, availableSlots, directoryOpen, nextAvailableDays, nextSlot, planCard, publicPractitioner, refreshRating } from '../services/marketplace.js';
 import { sendMail } from '../services/mailer.js';
 import { notify } from '../services/notifications.js';
 import { getSettings } from '../services/settings.js';
@@ -18,7 +18,6 @@ async function assertOpen() {
   if (!(await directoryOpen(await getSettings()))) throw forbidden('Bientôt disponible', 'COMING_SOON');
 }
 
-const planCard = (p) => ({ key: p.key, name: p.name, tagline: p.tagline, priceMonthly: p.priceMonthly, priceYearly: p.priceYearly, features: p.features, highlights: p.highlights });
 
 // État de l'onglet + formules d'abonnement pour l'inscription des professionnelles.
 router.get('/status', async (_req, res) => {
@@ -27,7 +26,9 @@ router.get('/status', async (_req, res) => {
   res.json({
     enabled: await directoryOpen(settings),
     contactEmail: settings.contactEmail,
-    plans: plans.map(planCard),
+    // Formules à souscrire ; l'essai gratuit (s'il est actif) est proposé à part, par défaut.
+    plans: plans.filter((p) => !p.trial).map(planCard),
+    trial: ((t) => (t ? planCard(t) : null))(plans.find((p) => p.trial)),
     categories: categories.map((c) => ({ key: c.key, label: c.label, group: c.group })),
     // 5.10 — Catégories de l'annuaire (gérées dans le back-office).
     groups: categories.map((c) => ({ key: c.key, label: c.label, specialties: [{ key: c.key, label: c.label }] })),

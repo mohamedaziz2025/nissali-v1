@@ -13,7 +13,7 @@ const FEATURES = [
   ['verifiedBadge', 'Badge vérifiée'],
   ['prioritySupport', 'Support prioritaire'],
 ];
-const EMPTY = { key: '', name: '', tagline: '', priceMonthly: 0, priceYearly: 0, order: 9, active: true, highlights: '', features: { maxServices: 1, maxBookingsPerMonth: 0, video: false, crm: false, stats: false, featured: false, verifiedBadge: false, prioritySupport: false } };
+const EMPTY = { key: '', name: '', tagline: '', priceMonthly: 0, priceYearly: 0, order: 9, active: true, trial: false, trialDays: 30, highlights: '', features: { maxServices: 1, maxBookingsPerMonth: 0, video: false, crm: false, stats: false, featured: false, verifiedBadge: false, prioritySupport: false } };
 
 export default function Plans() {
   const toast = useToast();
@@ -29,6 +29,9 @@ export default function Plans() {
       priceYearly: Number(edit.priceYearly),
       order: Number(edit.order),
       active: edit.active,
+      trial: Boolean(edit.trial),
+      trialDays: Number(edit.trialDays || 0),
+      ...(edit.trial ? { priceMonthly: 0, priceYearly: 0 } : {}),
       highlights: String(edit.highlights).split('\n').map((h) => h.trim()).filter(Boolean),
       features: { ...edit.features, maxServices: Number(edit.features.maxServices), maxBookingsPerMonth: Number(edit.features.maxBookingsPerMonth) },
     };
@@ -48,7 +51,7 @@ export default function Plans() {
       <div className="page-head">
         <div>
           <h1>Formules</h1>
-          <p>Formules d’abonnement proposées aux praticiennes. Les utilisatrices ne paient jamais.</p>
+          <p>Formules d’abonnement proposées aux praticiennes. Les utilisatrices ne paient jamais. L’essai gratuit est proposé à l’inscription avec les fonctionnalités cochées ici ; à la fin, la praticienne passe sur la formule gratuite.</p>
         </div>
         <button className="btn" onClick={() => setEdit({ ...EMPTY })}>Nouvelle formule</button>
       </div>
@@ -58,11 +61,12 @@ export default function Plans() {
           <div key={p._id} className="card stack">
             <div className="row between">
               <h2>{p.name}</h2>
-              {p.active ? <span className="badge success">Active</span> : <span className="badge neutral">Inactive</span>}
+              <span className="row" style={{ gap: 6 }}>
+                {p.trial ? <span className="badge">Essai gratuit</span> : null}
+                {p.active ? <span className="badge success">Active</span> : <span className="badge neutral">Inactive</span>}
+              </span>
             </div>
-            <p>
-              {euros(p.priceMonthly)} / mois · {euros(p.priceYearly)} / an
-            </p>
+            <p>{p.trial ? `Offert ${p.trialDays ? `pendant ${p.trialDays} jours` : 'sans limite de durée'}, à l’inscription` : `${euros(p.priceMonthly)} / mois · ${euros(p.priceYearly)} / an`}</p>
             <p className="muted small">
               {p.features.maxServices || '∞'} prestation(s) · {p.features.maxBookingsPerMonth || '∞'} RDV / mois · {FEATURES.filter(([k]) => p.features[k]).map(([, l]) => l.toLowerCase()).join(', ') || 'aucune option'}
             </p>
@@ -86,7 +90,16 @@ export default function Plans() {
             <Field label="Accroche">
               <input className="input" value={edit.tagline || ''} onChange={(e) => setEdit({ ...edit, tagline: e.target.value })} />
             </Field>
-            <div className="grid grid-3">
+            <label className="check">
+              <input type="checkbox" checked={Boolean(edit.trial)} onChange={(e) => setEdit({ ...edit, trial: e.target.checked })} />
+              <span>Essai gratuit proposé à l’inscription (une seule fois par praticienne)</span>
+            </label>
+            {edit.trial ? (
+              <Field label="Durée de l’essai en jours (0 = sans limite)">
+                <input className="input" type="number" min="0" max="365" value={edit.trialDays} onChange={(e) => setEdit({ ...edit, trialDays: e.target.value })} />
+              </Field>
+            ) : null}
+            <div className="grid grid-3" style={edit.trial ? { display: 'none' } : undefined}>
               <Field label="Prix mensuel (€)">
                 <input className="input" type="number" min="0" value={edit.priceMonthly} onChange={(e) => setEdit({ ...edit, priceMonthly: e.target.value })} />
               </Field>
@@ -116,7 +129,7 @@ export default function Plans() {
             </Field>
             <label className="check">
               <input type="checkbox" checked={edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} />
-              <span>Proposée aux praticiennes</span>
+              <span>{edit.trial ? 'Essai proposé à l’inscription (décoche pour ne plus le proposer)' : 'Proposée aux praticiennes'}</span>
             </label>
             <button className="btn">Enregistrer</button>
           </form>

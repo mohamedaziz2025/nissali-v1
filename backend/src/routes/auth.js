@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { AuditLog, Booking, User } from '../models/index.js';
-import { getPractitionerFor, activePlanFor } from '../services/marketplace.js';
+import { getPractitionerFor, activePlanFor, trialInfo } from '../services/marketplace.js';
 import { normalizeIdentifier, sendOtp, verifyOtp } from '../services/otp.js';
 import { endSession, startSession } from '../services/session.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../utils/http.js';
@@ -35,6 +35,7 @@ export async function sessionPayload(user) {
       photoUrl: practitioner.photoUrl,
       plan: plan ? { key: plan.key, name: plan.name, features: plan.features } : null,
       subscriptionStatus: subscription?.status || null,
+      trial: trialInfo(subscription, plan),
       // Demandes de rendez-vous en attente (pastille du sélecteur de compte)
       pendingBookings: await Booking.countDocuments({ practitioner: practitioner._id, status: 'en_attente', startAt: { $gte: new Date() } }),
     };

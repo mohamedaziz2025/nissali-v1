@@ -36,7 +36,7 @@ export default function ProSpaceCard() {
   const toast = useToast();
   const [checking, setChecking] = useState(true);
   const [identifier, setIdentifier] = useState('');
-  const [step, setStep] = useState(null); // null | { status, displayName, target, devCode }
+  const [step, setStep] = useState(null); // null | { status, displayName, target }
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -58,7 +58,6 @@ export default function ProSpaceCard() {
       setStep({ ...r, identifier: value.trim() });
       setCode('');
       if (r.status === 'linked') await refresh();
-      if (r.devCode) toast(`Code de test : ${r.devCode}`);
     } catch (e) {
       toast(e.message, 'error');
     } finally {
