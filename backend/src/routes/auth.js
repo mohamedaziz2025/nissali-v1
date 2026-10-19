@@ -192,14 +192,17 @@ router.post(
 
 export { passwordField };
 
-// --- Back-office : mot de passe puis code OTP envoyé par e-mail -------------
+// --- Back-office : connexion par mot de passe seul -------------
 
 const adminLoginSchema = z.object({ email: z.string().email(), password: z.string().min(8) });
 
 router.post('/admin/login', validate(adminLoginSchema), async (req, res) => {
   const user = await User.findOne({ email: req.body.email.toLowerCase(), role: 'admin' }).select('+passwordHash');
   if (!user?.passwordHash || !(await bcrypt.compare(req.body.password, user.passwordHash))) throw unauthorized('E-mail ou mot de passe incorrect', 'BAD_CREDENTIALS');
-  res.json({ step: '2fa', ...(await sendOtp({ channel: 'email', target: user.email, purpose: 'admin2fa', user })) });
+  if (user.status === 'suspendue') throw forbidden('Ce compte est suspendu.', 'SUSPENDED');
+  await startSession(req, res, user, { days: 1 });
+  await AuditLog.create({ admin: user._id, action: 'connexion_backoffice' });
+  res.json(await sessionPayload(user));
 });
 
 const adminVerifySchema = z.object({ email: z.string().email(), code: z.string().regex(/^\d{6}$/) });
