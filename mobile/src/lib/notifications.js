@@ -6,7 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { api } from './api';
 import { addDays } from './format';
-import { readJson, writeJson } from './storage';
+import { writeJson } from './storage';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
