@@ -32,6 +32,8 @@ router.get('/', async (req, res) => {
 
   res.json({
     today,
+    // 4.8 — date hégirienne en badge à droite du titre.
+    hijri: toHijri(today, adj)?.label || null,
     nextRamadan: { hijriYear: ramadan.current ? ramadan.hijriYear + 1 : ramadan.hijriYear, start: next.start, daysLeft },
     rhythm: rhythmAdvice(daysLeft, f.counter.remaining),
     // Une case par jour à rattraper (RG-23) : les cases cochées portent la date du rattrapage.
