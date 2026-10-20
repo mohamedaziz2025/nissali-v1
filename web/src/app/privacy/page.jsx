@@ -14,7 +14,7 @@ const SECTIONS = [
         <p>
           Le responsable du traitement est <strong>[Raison sociale Nissali]</strong>, [forme juridique], dont le siège
           social est situé [adresse complète], immatriculée sous le numéro [SIREN/RCS]. Pour toute question relative à
-          tes données, écris-nous à <a href="mailto:nissali@gmail.com">nissali@gmail.com</a>.
+          tes données, écris-nous à <a href="mailto:contact@nissali.fr">contact@nissali.fr</a>.
         </p>
       </>
     ),
@@ -101,7 +101,7 @@ const SECTIONS = [
         <p>
           Conformément au RGPD, tu disposes d’un droit d’accès, de rectification, d’effacement, de limitation,
           d’opposition et de portabilité. Tu peux exercer ces droits en écrivant à{' '}
-          <a href="mailto:nissali@gmail.com">nissali@gmail.com</a>. Tu peux également introduire une réclamation
+          <a href="mailto:contact@nissali.fr">contact@nissali.fr</a>. Tu peux également introduire une réclamation
           auprès de la CNIL (<a href="https://www.cnil.fr" target="_blank" rel="noreferrer">cnil.fr</a>).
         </p>
       </>
@@ -143,7 +143,7 @@ export default function Privacy() {
 
       <section className="card soft mt-lg">
         <p className="muted small">
-          Une question sur tes données ? Écris-nous à <a href="mailto:nissali@gmail.com">nissali@gmail.com</a> ou
+          Une question sur tes données ? Écris-nous à <a href="mailto:contact@nissali.fr">contact@nissali.fr</a> ou
           consulte notre <Link href="/support">page de support</Link>.
         </p>
       </section>

@@ -21,6 +21,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { colors, fonts, radius, space } from '../theme';
 import Icon from './Icon';
 
+export { default as Icon } from './Icon';
+
 // --- Typographie --------------------------------------------------------------
 
 export function T({ style, variant = 'body', color, children, fit, ...props }) {

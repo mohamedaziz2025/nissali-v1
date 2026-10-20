@@ -32,7 +32,7 @@ export const env = {
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY,
     privateKey: process.env.VAPID_PRIVATE_KEY,
-    subject: process.env.VAPID_SUBJECT || 'mailto:nissali@gmail.com',
+    subject: process.env.VAPID_SUBJECT || 'mailto:contact@nissali.fr',
   },
   // Paiement des abonnements praticiennes (Stripe Checkout). Vide = paiement en ligne coupé :
   // l'équipe confirme alors les règlements manuellement depuis le back-office (comme avant).

@@ -6,7 +6,7 @@ const cache = new Map();
 async function getJson(url, ttlMs = 24 * 3600_000) {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
-  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Nissali/1.0 (nissali@gmail.com)' } });
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Nissali/1.0 (contact@nissali.fr)' } });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
   const data = await res.json();
   if (cache.size > 5000) cache.clear();
