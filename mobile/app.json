@@ -33,6 +33,13 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.SCHEDULE_EXACT_ALARM"
       ]
     },
@@ -88,6 +95,12 @@
         "projectId": "7a2e397c-d8f2-43e3-8de6-29ddd183db14"
       }
     },
-    "owner": "nissali"
+    "owner": "nissali",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7a2e397c-d8f2-43e3-8de6-29ddd183db14"
+    }
   }
 }
