@@ -1,21 +1,16 @@
-// 5.13 — Profil et réglages : informations, notifications, appel à la prière, consentements,
-// export des données, suppression du compte (RG-07), bascule vers l'espace pro.
+// 4.5 · 4.1 — Mon profil : carte bordeaux (initiale, prénom, âge, ville, situation, « Modifier »), carte sable
+// « Devenir praticienne » / « Mon espace praticienne », Mes rappels (Prières et adhan, Pendant mes règles, Dhikr,
+// Notifications), Mon suivi, Compte (confidentialité, aide, déconnexion avec confirmation).
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
-import { AdhanSoundSheet } from '../components/AdhanSound';
-import { CityPicker } from '../components/forms';
+import { useState } from 'react';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CityPicker, TimeField } from '../components/forms';
 import Icon from '../components/Icon';
-import { FREQUENCIES, FrequencyPicker } from '../components/NotifFrequency';
-import ProSpaceCard from '../components/ProSpaceCard';
-import { Button, Card, Chips, CodeInput, Field, Gap, Label, ListItem, Row, Screen, Sheet, Stepper, T, Toggle, useToast } from '../components/ui';
+import { FREQUENCIES } from '../components/NotifFrequency';
+import { Button, Card, Chips, CodeInput, Field, Gap, Label, ListItem, Row, Screen, Sheet, T, Toggle, useToast } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { onAdhan, playAdhan, stopAdhan } from '../lib/adhan';
-import { syncLocation } from '../lib/location';
-import { useApi } from '../lib/useApi';
-import { cancelAll } from '../lib/notifications';
-import { colors, PRAYER_LABELS, PRAYERS } from '../theme';
+import { colors, fonts, PRAYERS } from '../theme';
 
 const SPECIAL = [
   { key: 'aucun', label: 'Aucun' },
@@ -42,11 +37,6 @@ export default function Profile() {
   const [idSent, setIdSent] = useState(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const adhans = useApi('/prayers/adhans');
-  const adhanOn = user?.prayerSettings?.adhan !== false && user?.prayerSettings?.adhanMode !== 'notification';
-  const [preview, setPreview] = useState(null);
-  const [adhanSound, setAdhanSound] = useState(false);
-  useEffect(() => onAdhan((a) => setPreview(a?.prayer === 'Aperçu' ? a.key : null)), []);
   if (!user) return null;
 
   const patch = async (body, message = 'Enregistré') => {
@@ -57,57 +47,17 @@ export default function Profile() {
       toast(e.message, 'error');
     }
   };
-  // GPS activé : la position du téléphone remplace la ville ; désactivé : la ville choisie reste fixe.
-  const followLocation = async (on) => {
-    if (!on) return patch({ prayerSettings: { followLocation: false } }, 'Horaires calculés pour ta ville enregistrée');
-    const session = await syncLocation(user, { ask: true, force: true });
-    if (session) {
-      await setSession(session);
-      toast(`Horaires à ta position : ${session.user.city?.name}`);
-    } else {
-      await patch({ prayerSettings: { followLocation: true } }, 'Autorise la localisation dans les réglages du téléphone');
-    }
-  };
-  const consent = async (key, value) => {
+  const dhikrSettings = async (body) => {
     try {
-      await setSession(await api.patch('/me/consents', { [key]: value }));
-      if (key === 'health' && !value) router.replace('/consentement');
+      const r = await api.patch('/dhikr/settings', body);
+      await setSession({ user: r.user });
     } catch (e) {
       toast(e.message, 'error');
     }
   };
-
   const open = (name, initial = {}) => {
     setDraft(initial);
     setSheet(name);
-  };
-
-  const exportData = async () => {
-    try {
-      const data = await api.get('/me/export');
-      await Share.share({ title: 'Mes données Nissali', message: JSON.stringify(data, null, 2) });
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  };
-
-  const deleteAccount = () => {
-    Alert.alert('Supprimer mon compte', 'Ton compte et toutes tes données (cycle, santé, jeûnes, rendez-vous) seront définitivement supprimés.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete('/me');
-            await cancelAll();
-            await signOut();
-          } catch (e) {
-            toast(e.message, 'error');
-          }
-        },
-      },
-    ]);
   };
 
   const sendIdCode = async () => {
@@ -143,35 +93,71 @@ export default function Profile() {
     }
   };
 
-  const c = user.consents || {};
-  const situationLabel = user.situation === 'mariee' ? 'Mariée' : 'Célibataire';
+  const situationLabel = user.situation === 'mariee' ? 'Mariée' : user.situation === 'celibataire' ? 'Célibataire' : null;
+  const ps = user.prayerSettings || {};
+  const np = user.notificationPrefs || {};
+  const prayersOn = PRAYERS.filter((k) => ps.notifications !== false && ps.notifyPrayers?.[k] !== false).length;
+  const adhanCount = PRAYERS.filter((k) => ['complet', 'court'].includes(ps.prayerSound?.[k] || 'complet') && ps.adhanPrayers?.[k] !== false).length;
+  const freq = FREQUENCIES.find((f) => f.key === (np.frequency || 'faible'));
+  const logout = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Te déconnecter de Nissali ?')) signOut(); // eslint-disable-line no-alert
+      return;
+    }
+    Alert.alert('Te déconnecter ?', 'Tu pourras te reconnecter à tout moment.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Me déconnecter', style: 'destructive', onPress: signOut },
+    ]);
+  };
 
   return (
     <Screen back title="Mon profil">
-      <Card style={{ gap: 4 }}>
+      {/* Carte bordeaux : initiale, prénom, âge, ville, situation, « Modifier » */}
+      <View style={s.hero}>
         <Row gap={14}>
-          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' }}>
-            <T variant="h2" color={colors.bordeaux}>{(user.firstName || '?')[0]}</T>
+          <View style={s.initial}>
+            <Text style={s.initialText}>{(user.firstName || '?')[0].toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Row gap={8}>
-              <T variant="h3" style={{ flexShrink: 1 }} numberOfLines={1}>{user.firstName}</T>
-              <View style={{ borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, backgroundColor: practitioner ? '#F3E6D6' : colors.blush }}>
-                <T variant="small" style={{ fontSize: 11.5, color: practitioner ? colors.or : colors.muted, fontWeight: '700' }}>{practitioner ? 'Praticienne' : 'Personnel'}</T>
-              </View>
-            </Row>
-            <T variant="muted">
-              {user.age ? `${user.age} ans · ` : ''}
-              {user.city?.name} · {situationLabel}
-            </T>
-            <T variant="small" numberOfLines={1}>{user.email || user.phone}</T>
+            <Text style={s.heroName} numberOfLines={1}>{user.firstName}</Text>
+            <Text style={s.heroSub} numberOfLines={2}>{[user.age ? `${user.age} ans` : null, user.city?.name, situationLabel].filter(Boolean).join(' · ')}</Text>
           </View>
+          <Pressable onPress={() => open('infos', { firstName: user.firstName, age: String(user.age || ''), city: user.city, situation: user.situation })} accessibilityRole="button" accessibilityLabel="Modifier mes informations" hitSlop={8} style={s.modify}>
+            <Text style={s.modifyText}>Modifier</Text>
+          </Pressable>
         </Row>
-        <Gap h={6} />
-        <ListItem icon="user" title="Mes informations" subtitle="Prénom, âge, ville, situation" onPress={() => open('infos', { firstName: user.firstName, age: String(user.age || ''), city: user.city, situation: user.situation })} />
-        <ListItem icon="mail" title="E-mail" subtitle={user.email || 'Ajouter une adresse e-mail'} onPress={() => { setIdValue(user.email || ''); setIdSent(null); setSheet('identifier'); }} />
-        <ListItem icon="phone" title="Téléphone" subtitle={user.phone || 'Ajouter un numéro'} onPress={() => { setIdValue(user.phone || ''); setIdSent(null); setSheet('identifier'); }} />
-        <ListItem icon="lock" title="Connexion et sécurité" subtitle={user.hasPassword ? 'Code ou mot de passe' : 'Connexion par code'} onPress={() => router.push('/securite')} last />
+        <View style={s.heroIds}>
+          <Pressable onPress={() => { setIdValue(user.email || ''); setIdSent(null); setSheet('identifier'); }} accessibilityRole="button" style={s.heroId}>
+            <Icon name="mail" size={15} color={colors.onBordeaux} />
+            <Text style={s.heroIdText} numberOfLines={1}>{user.email || 'Ajouter un e-mail'}</Text>
+          </Pressable>
+          <Pressable onPress={() => { setIdValue(user.phone || ''); setIdSent(null); setSheet('identifier'); }} accessibilityRole="button" style={s.heroId}>
+            <Icon name="phone" size={15} color={colors.onBordeaux} />
+            <Text style={s.heroIdText} numberOfLines={1}>{user.phone || 'Ajouter un numéro'}</Text>
+          </Pressable>
+        </View>
+      </View>
+      <Gap />
+
+      {/* Carte sable : devenir praticienne / mon espace praticienne */}
+      <Pressable onPress={() => router.push(practitioner ? '/espace-praticienne' : '/devenir-praticienne')} accessibilityRole="button" style={({ pressed }) => [s.pro, pressed && { opacity: 0.9 }]}>
+        <View style={s.proIcon}>
+          <Icon name="briefcase" size={20} color={colors.orText} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.proTitle}>{practitioner ? 'Mon espace praticienne' : 'Devenir praticienne'}</Text>
+          <Text style={s.proSub}>{practitioner ? practitioner.displayName : 'Diététicienne, naturopathe, hijama, doula… Propose tes services dans Nissali.'}</Text>
+        </View>
+        <Icon name="chevronRight" size={18} color={colors.orText} />
+      </Pressable>
+      <Gap />
+
+      <Card style={{ gap: 4 }}>
+        <Label>Mes rappels</Label>
+        <ListItem icon="bell" title="Prières et adhan" subtitle={prayersOn ? `${prayersOn} rappel${prayersOn > 1 ? 's' : ''} sur 5 · adhan pour ${adhanCount}${ps.notifyOffset ? ` · ${ps.notifyOffset} min avant` : ''}` : 'Rappels coupés'} onPress={() => router.push('/reglages/prieres')} />
+        <ListItem icon="drop" title="Pendant mes règles" subtitle={`${ps.periodHome === 'ligne' ? 'Accueil réduit' : 'Horaires affichés'} · rappels ${ps.keepRemindersDuringPeriod ? 'gardés' : 'coupés'} · dhikr ${ps.keepDhikrDuringPeriod === false ? 'coupé' : 'gardé'}`} onPress={() => router.push('/reglages/prieres?section=regles')} />
+        <ListItem icon="beads" title="Dhikr" subtitle={`Vibration ${user.dhikr?.haptics === false ? 'coupée' : 'activée'} · ${user.dhikr?.reminder ? `rappel à ${user.dhikr.reminderTime}` : 'pas de rappel'}`} onPress={() => setSheet('dhikr')} />
+        <ListItem icon="sliders" title="Notifications" subtitle={`Niveau ${freq?.label?.toLowerCase()} · aperçu ${np.hideNotePreview === false ? 'visible' : 'masqué'}`} onPress={() => router.push('/reglages/notifications')} last />
       </Card>
       <Gap />
 
@@ -179,94 +165,30 @@ export default function Profile() {
         <Label>Mon suivi</Label>
         <ListItem icon="heart" title="Objectif" subtitle={{ suivre: 'Suivre mon cycle', enfant: 'Avoir un enfant', enceinte: 'Je suis enceinte' }[user.onboarding?.goal || 'suivre']} onPress={() => open('goal', { goal: user.onboarding?.goal || 'suivre' })} />
         <ListItem icon="baby" title={user.mode === 'grossesse' ? 'Ma grossesse' : user.mode === 'postpartum' ? 'Post-partum' : 'Mode grossesse'} subtitle={user.mode === 'cycle' ? 'Activer le suivi de grossesse' : 'Voir mon suivi'} onPress={() => router.push('/grossesse')} />
-        <ListItem icon="cycle" title="Profil particulier" subtitle={SPECIAL.find((s) => s.key === user.specialProfile)?.label} onPress={() => open('special', { specialProfile: user.specialProfile })} />
+        <ListItem icon="cycle" title="Profil particulier" subtitle={SPECIAL.find((x) => x.key === user.specialProfile)?.label} onPress={() => open('special', { specialProfile: user.specialProfile })} />
         <ListItem icon="drop" title="Contraception" subtitle={CONTRACEPTION.find((x) => x.key === user.contraception?.type)?.label} onPress={() => open('contraception', { ...user.contraception })} />
-        <ListItem icon="chart" title="Ma santé et mes graphiques" onPress={() => router.push('/sante')} />
+        <Toggle label="Glaire et température" hint="Dans le Suivi santé (toujours affichées si tu veux un enfant)" value={Boolean(user.fertilitySigns)} onChange={(v) => patch({ fertilitySigns: v })} />
+        <ListItem icon="chart" title="Mes graphiques" subtitle="Cycles, poids, sommeil, humeurs" onPress={() => router.push('/sante')} />
         <ListItem icon="calendar" title="Mes rendez-vous" onPress={() => router.push('/rendez-vous')} last />
       </Card>
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label color={colors.or}>Prières</Label>
-        <Toggle
-          label="Horaires à ma position exacte (GPS)"
-          hint={user.prayerSettings?.followLocation !== false ? `Actuellement : ${user.city?.name || '—'}${user.city?.source === 'gps' ? ' · position du téléphone' : ''}` : `Ville fixe : ${user.city?.name || '—'}`}
-          value={user.prayerSettings?.followLocation !== false}
-          onChange={followLocation}
-        />
-        <Toggle label="Notification à l’heure de chaque prière" value={user.prayerSettings?.notifications} onChange={(v) => patch({ prayerSettings: { notifications: v } })} />
-        {user.prayerSettings?.notifications !== false ? (
-          <ListItem icon="bell" title="Rappels prière par prière" subtitle={`${['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => user.prayerSettings?.notifyPrayers?.[k] !== false).length} prière(s) sur 5`} onPress={() => setSheet('prayerReminders')} />
-        ) : null}
-        {/* 07 — Son de l'adhan : réglage distinct des rappels (il ne les réactive jamais). */}
-        <ListItem icon="volume" title="Son de l’adhan" subtitle={adhanOn ? `Activé · ${['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter((k) => user.prayerSettings?.adhanPrayers?.[k] !== false).length} prière(s) · ${adhans.data?.items?.find((a) => a.key === (user.prayerSettings?.adhanVoice || 'a9'))?.label || 'Mishary Rashid Alafasy'}` : 'Désactivé · notification seule'} onPress={() => setAdhanSound(true)} />
-        <ListItem icon="compass" title="Qibla" onPress={() => router.push('/qibla')} />
-        <ListItem icon="clock" title="Ajuster les horaires" subtitle="± quelques minutes pour suivre ta mosquée" onPress={() => open('adjust', { ...(user.prayerSettings?.adjustments || {}) })} last />
-      </Card>
-      <Gap />
-
-      <Card style={{ gap: 4 }}>
-        <Label color={colors.or}>Dhikr</Label>
-        <ListItem icon="beads" title="Mon dhikr" subtitle={user.dhikr?.reminder ? `Compteur · rappel chaque jour à ${user.dhikr.reminderTime}` : 'Compteur, objectifs du jour, rappel quotidien'} onPress={() => router.push('/dhikr')} />
-        <T variant="small">Rappels de dhikr envoyés aux horaires de prière de ta position.</T>
-        <Toggle label="Adhkar du matin" hint="20 min après Fajr" value={user.prayerSettings?.adhkarMorning !== false} onChange={(v) => patch({ prayerSettings: { adhkarMorning: v } })} />
-        <Toggle label="Adhkar du soir" hint="20 min après Asr" value={user.prayerSettings?.adhkarEvening !== false} onChange={(v) => patch({ prayerSettings: { adhkarEvening: v } })} />
-        <Toggle label="Vendredi (Jumu’a)" hint="Sourate Al-Kahf et salawat le matin, du’a à la dernière heure avant Maghrib" value={user.prayerSettings?.jumua !== false} onChange={(v) => patch({ prayerSettings: { jumua: v } })} />
-        <Toggle label="Dhikr pendant mes règles" hint="À l’heure de chaque prière, à la place de la notification" value={user.prayerSettings?.dhikrDuringPeriod} onChange={(v) => patch({ prayerSettings: { dhikrDuringPeriod: v } })} />
-      </Card>
-      <Gap />
-
-      <Card style={{ gap: 4 }}>
-        <Label>Notifications</Label>
-        <ListItem icon="sliders" title="Fréquence des notifications" subtitle={`${FREQUENCIES.find((f) => f.key === (user.notificationPrefs?.frequency || 'faible'))?.label} · ${FREQUENCIES.find((f) => f.key === (user.notificationPrefs?.frequency || 'faible'))?.more}`} onPress={() => setSheet('frequency')} />
-        <T variant="small">Aucun mot sensible ne s’affiche sur l’écran verrouillé : seulement « Petit rappel du jour ».</T>
-        {[
-          ['periodSoon', 'Règles prévues (2 jours avant)'],
-          ['fertileWindow', 'Fenêtre fertile (objectif enfant)'],
-          ['periodEndQuestion', 'Question sur la fin des règles'],
-          ['fastMakeup', 'Jour de rattrapage (la veille)'],
-          ['fastPlanned', 'Jeûne volontaire programmé (la veille)'],
-          ['ramadan', 'Ramadan'],
-          ['whiteDays', 'Jours blancs'],
-          ['dailyReminder', 'Petit rappel du jour'],
-        ].map(([k, l]) => (
-          <Toggle key={k} label={l} value={user.notificationPrefs?.[k] !== false} onChange={(v) => patch({ notificationPrefs: { [k]: v } })} />
-        ))}
-        <Toggle label="Masquer l’aperçu de mes notes" hint="Les rappels de notes affichent seulement « Rappel Nissali »" value={Boolean(user.notificationPrefs?.hideNotePreview)} onChange={(v) => patch({ notificationPrefs: { hideNotePreview: v } })} />
-      </Card>
-      <Gap />
-
-      <Card style={{ gap: 4 }}>
-        <Label>Consentements et communication</Label>
-        <Toggle label="Traitement de mes données de santé" hint="Obligatoire pour le suivi" value={c.health?.accepted} onChange={(v) => consent('health', v)} />
-        <Toggle label="Actualités par e-mail" value={c.marketingEmail?.accepted} onChange={(v) => consent('marketingEmail', v)} />
-        <Toggle label="Actualités par SMS" value={c.marketingSms?.accepted} onChange={(v) => consent('marketingSms', v)} />
-        <Toggle label="Actualités par WhatsApp" value={c.marketingWhatsapp?.accepted} onChange={(v) => consent('marketingWhatsapp', v)} />
-      </Card>
-      <Gap />
-
-      <ProSpaceCard />
-      <Gap />
-
-      <Card style={{ gap: 4 }}>
-        <ListItem icon="share" title="Exporter mes données" onPress={exportData} />
-        <ListItem icon="info" title="Conditions d’utilisation" onPress={() => router.push('/legal?doc=cgu')} />
-        <ListItem icon="info" title="Politique de confidentialité" onPress={() => router.push('/legal?doc=confidentialite')} />
-        <ListItem icon="logout" title="Me déconnecter" onPress={signOut} />
-        <ListItem icon="trash" title="Supprimer mon compte" subtitle="Définitif, toutes tes données sont effacées" onPress={deleteAccount} last />
+        <Label>Compte</Label>
+        <ListItem icon="lock" title="Connexion et sécurité" subtitle={user.hasPassword ? 'Mot de passe' : 'Connexion par code'} onPress={() => router.push('/securite')} />
+        <ListItem icon="info" title="Confidentialité et données" subtitle="Accords, export, suppression du compte" onPress={() => router.push('/reglages/confidentialite')} />
+        <ListItem icon="chat" title="Aide" subtitle="contact@nissali.fr" onPress={() => Linking.openURL('mailto:contact@nissali.fr').catch(() => {})} />
+        <ListItem icon="logout" title="Me déconnecter" onPress={logout} last />
       </Card>
       <Gap />
       <T variant="small" style={{ textAlign: 'center' }}>Les règles présentées sont l’avis retenu par notre comité. En cas de doute, rapproche-toi d’une personne de science.</T>
       <T variant="small" style={{ textAlign: 'center', marginTop: 6 }}>Nissali · 100 % gratuite · contact@nissali.fr</T>
 
-      <Sheet visible={sheet === 'frequency'} onClose={() => setSheet(null)} title="Fréquence des notifications">
-        <FrequencyPicker value={user.notificationPrefs?.frequency || 'faible'} onChange={(v) => patch({ notificationPrefs: { frequency: v, frequencyAsked: true } }).then(() => setSheet(null))} />
-      </Sheet>
-      <Sheet visible={sheet === 'prayerReminders'} onClose={() => setSheet(null)} title="Rappels prière par prière">
-        {['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].map((k) => (
-          <Toggle key={k} label={PRAYER_LABELS[k]} value={user.prayerSettings?.notifyPrayers?.[k] !== false} onChange={(v) => patch({ prayerSettings: { notifyPrayers: { [k]: v } } })} />
-        ))}
-        <T variant="small">Pendant les règles, aucun rappel de prière n’est envoyé.</T>
+      <Sheet visible={sheet === 'dhikr'} onClose={() => setSheet(null)} title="Dhikr">
+        <Toggle label="Vibration au comptage" value={user.dhikr?.haptics !== false} onChange={(v) => dhikrSettings({ haptics: v })} />
+        <Toggle label="Rappel de dhikr chaque jour" value={Boolean(user.dhikr?.reminder)} onChange={(v) => dhikrSettings({ reminder: v })} />
+        {user.dhikr?.reminder ? <TimeField label="Heure du rappel" value={user.dhikr.reminderTime || '20:30'} allowUnknown={false} onChange={(t) => t && dhikrSettings({ reminderTime: t })} /> : null}
+        <Button title="Ouvrir mon dhikr" variant="outline" onPress={() => { setSheet(null); router.push('/dhikr'); }} />
       </Sheet>
       <Sheet visible={sheet === 'infos'} onClose={() => setSheet(null)} title="Mes informations" footer={<Button title="Enregistrer" onPress={() => patch({ firstName: draft.firstName, age: Number(draft.age), city: draft.city, situation: draft.situation, ...(draft.city !== user.city && draft.city ? { prayerSettings: { followLocation: draft.city.source === 'gps' } } : {}) }).then(() => setSheet(null))} disabled={!(Number(draft.age) >= 15)} />}>
         <Field label="Prénom" value={draft.firstName} onChangeText={(v) => setDraft((d) => ({ ...d, firstName: v }))} />
@@ -274,50 +196,6 @@ export default function Profile() {
         <CityPicker value={draft.city} onChange={(v) => setDraft((d) => ({ ...d, city: v }))} />
         <T variant="fieldLabel">Situation</T>
         <Chips items={[{ key: 'celibataire', label: 'Célibataire' }, { key: 'mariee', label: 'Mariée' }]} value={draft.situation} onChange={(v) => setDraft((d) => ({ ...d, situation: v }))} />
-      </Sheet>
-
-      <Sheet
-        visible={sheet === 'adhan'}
-        onClose={() => {
-          stopAdhan();
-          setSheet(null);
-        }}
-        title="Voix de l’adhan"
-        footer={
-          <Button
-            title="Enregistrer"
-            onPress={() => {
-              stopAdhan();
-              patch({ prayerSettings: { adhanVoice: draft.adhanVoice } }).then(() => setSheet(null));
-            }}
-          />
-        }
-      >
-        <T variant="small">Enregistrements diffusés par Aladhan. L’adhan choisi est joué à l’heure de chaque prière.</T>
-        {(adhans.data?.items || []).map((a) => {
-          const selected = draft.adhanVoice === a.key;
-          const isPlaying = preview === a.key;
-          return (
-            <Row key={a.key} gap={10} style={[s.voice, selected && s.voiceSelected]}>
-              <Pressable onPress={() => setDraft({ adhanVoice: a.key })} accessibilityRole="radio" accessibilityState={{ checked: selected }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={[s.radio, selected && s.radioOn]}>{selected ? <View style={s.radioDot} /> : null}</View>
-                <View style={{ flex: 1 }}>
-                  <T variant="medium">{a.label}</T>
-                  <T variant="small">{a.detail}</T>
-                </View>
-              </Pressable>
-              <Pressable
-                onPress={() => (isPlaying ? stopAdhan() : playAdhan({ ...a, prayer: 'Aperçu' }))}
-                accessibilityRole="button"
-                accessibilityLabel={isPlaying ? 'Arrêter' : `Écouter ${a.label}`}
-                hitSlop={6}
-                style={s.play}
-              >
-                <Icon name={isPlaying ? 'stop' : 'volume'} size={18} color={colors.bordeaux} />
-              </Pressable>
-            </Row>
-          );
-        })}
       </Sheet>
 
       <Sheet visible={sheet === 'goal'} onClose={() => setSheet(null)} title="Mon objectif" footer={<Button title="Enregistrer" onPress={() => patch({ goal: draft.goal }).then(() => setSheet(null))} />}>
@@ -344,13 +222,6 @@ export default function Profile() {
         <T variant="small">Nissali n’est pas un moyen de contraception.</T>
       </Sheet>
 
-      <Sheet visible={sheet === 'adjust'} onClose={() => setSheet(null)} title="Ajuster mes horaires" footer={<Button title="Enregistrer" onPress={() => patch({ prayerSettings: { adjustments: draft } }).then(() => setSheet(null))} />}>
-        {PRAYERS.map((p) => (
-          <Stepper key={p} label={PRAYER_LABELS[p]} value={draft[p] || 0} onChange={(v) => setDraft((d) => ({ ...d, [p]: v }))} min={-30} max={30} suffix=" min" />
-        ))}
-        <T variant="small">La méthode de calcul est choisie par notre comité. Ajuste de quelques minutes pour t’aligner sur ta mosquée.</T>
-      </Sheet>
-
       <Sheet visible={sheet === 'identifier'} onClose={() => setSheet(null)} title="Mon identifiant" footer={idSent ? <Button title="Vérifier" onPress={() => verifyId()} loading={busy} disabled={code.length !== 6} /> : <Button title={idValue.includes('@') ? 'Recevoir un code par e-mail' : 'Enregistrer'} onPress={sendIdCode} loading={busy} disabled={idValue.length < 4} />}>
         {!idSent ? (
           <Field label="E-mail ou téléphone" value={idValue} onChangeText={setIdValue} autoCapitalize="none" keyboardType="email-address" hint={idValue.includes('@') ? 'Un code de vérification est envoyé à cette adresse' : 'Ton numéro est enregistré tel quel, sans SMS'} />
@@ -361,16 +232,23 @@ export default function Profile() {
           </>
         )}
       </Sheet>
-      <AdhanSoundSheet visible={adhanSound} onClose={() => setAdhanSound(false)} />
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  voice: { borderRadius: 18, borderWidth: 1.5, borderColor: colors.line, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: colors.white },
-  voiceSelected: { borderColor: colors.bordeaux, backgroundColor: colors.blush },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.rose, alignItems: 'center', justifyContent: 'center' },
-  radioOn: { borderColor: colors.bordeaux },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.bordeaux },
-  play: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  hero: { backgroundColor: colors.bordeaux, borderRadius: 28, padding: 18, gap: 14 },
+  initial: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.onBordeauxSurface, alignItems: 'center', justifyContent: 'center' },
+  initialText: { fontFamily: fonts.extra, fontSize: 24, color: colors.white },
+  heroName: { fontFamily: fonts.extra, fontSize: 22, letterSpacing: -0.5, color: colors.white },
+  heroSub: { fontFamily: fonts.medium, fontSize: 13.5, color: colors.onBordeaux },
+  modify: { backgroundColor: colors.white, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  modifyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux },
+  heroIds: { gap: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.16)', paddingTop: 12 },
+  heroId: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 30 },
+  heroIdText: { flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.white },
+  pro: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.sable, borderRadius: 24, padding: 16 },
+  proIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  proTitle: { fontFamily: fonts.extra, fontSize: 16, color: colors.prune },
+  proSub: { fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 17, color: colors.muted },
 });

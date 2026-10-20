@@ -78,7 +78,7 @@ export function watchMailer(intervalMs = 10 * 60_000) {
  * Envoie un e-mail. `strict` : l'échec est remonté (codes de vérification) ; sinon il est seulement
  * journalisé (notifications), pour ne jamais bloquer l'action qui l'a déclenché.
  */
-export async function sendMail({ to, subject, title, html, text, preheader, strict = false }) {
+export async function sendMail({ to, subject, title, html, text, preheader, strict = false, attachments = [] }) {
   // Pas d'envoi réel vers les comptes de démonstration (adresses inexistantes → rebonds).
   if (!transporter || env.demoIdentifiers.test(to)) {
     if (!transporter && env.isProd && strict) throw new Error('SMTP non configuré');
@@ -86,7 +86,7 @@ export async function sendMail({ to, subject, title, html, text, preheader, stri
     return { delivered: false, console: true };
   }
   try {
-    const info = await transporter.sendMail({ from: env.smtp.from, to, subject, text, html: layout(title || subject, html, preheader), attachments: [LOGO] });
+    const info = await transporter.sendMail({ from: env.smtp.from, to, subject, text, html: layout(title || subject, html, preheader), attachments: [LOGO, ...attachments] });
     ready = true;
     console.log(`[mail] envoyé à ${to} (${info.accepted?.length ? 'accepté' : 'refusé'})`);
     if (strict && !info.accepted?.length) throw new Error('adresse refusée par le serveur');

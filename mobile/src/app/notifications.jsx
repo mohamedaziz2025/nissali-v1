@@ -1,36 +1,109 @@
-import { useEffect } from 'react';
-import { Image } from 'react-native';
-import { Card, ErrorState, Gap, Label, Loader, Screen, T } from '../components/ui';
+// 4.5 · 4.4 — Centre de notifications : historique des 30 derniers jours, groupé Aujourd'hui / Cette semaine /
+// Plus ancien. Non lue = carte blanche + point bordeaux ; toucher = ouvre la page concernée et marque comme lue.
+// « Tout marquer comme lu ». Les rappels de prière n'y sont pas gardés.
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import Icon from '../components/Icon';
+import { ErrorState, Loader, Screen, T, useToast } from '../components/ui';
 import { api, assetUrl } from '../lib/api';
 import { openNotification, routeFor } from '../lib/links';
 import { useApi } from '../lib/useApi';
-import { colors } from '../theme';
+import { colors, fonts } from '../theme';
 
+const ICONS = { message: 'chat', annonce: 'sparkle', evenement: 'calendar', reservation: 'calendar', pro: 'briefcase', ramadan: 'moon', rattrapage: 'moon', jours_blancs: 'moon' };
+
+function group(items) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const out = [
+    { key: 'today', label: 'Aujourd’hui', items: [] },
+    { key: 'week', label: 'Cette semaine', items: [] },
+    { key: 'older', label: 'Plus ancien', items: [] },
+  ];
+  for (const n of items) {
+    const t = new Date(n.createdAt).getTime();
+    out[t >= start ? 0 : t >= start - 6 * 86_400_000 ? 1 : 2].items.push(n);
+  }
+  return out.filter((g) => g.items.length);
+}
 
 export default function Notifications() {
-  const { data, loading, error, reload } = useApi('/notifications');
-  useEffect(() => {
-    if (data?.unread) api.post('/notifications/read-all').catch(() => {});
-  }, [data?.unread]);
+  const toast = useToast();
+  const { data, setData, loading, error, reload } = useApi('/notifications');
   if (loading && !data) return <Screen back title="Notifications"><Loader /></Screen>;
   if (error && !data) return <Screen back title="Notifications"><ErrorState error={error} onRetry={reload} /></Screen>;
+
+  const items = data.items.filter((n) => n.type !== 'priere');
+  const markAll = async () => {
+    setData((d) => ({ ...d, unread: 0, items: d.items.map((n) => ({ ...n, read: true })) }));
+    await api.post('/notifications/read-all').catch((e) => toast(e.message, 'error'));
+  };
+  const open = (n) => {
+    setData((d) => ({ ...d, items: d.items.map((x) => (x.id === n.id ? { ...x, read: true } : x)) }));
+    if (routeFor(n.link) && n.link !== '/notifications') openNotification({ link: n.link, id: n.id, kind: n.type });
+    else api.post(`/notifications/${n.id}/read`, {}).catch(() => {});
+  };
+  const unread = items.filter((n) => !n.read).length;
+
   return (
-    <Screen back title="Notifications" onRefresh={reload}>
-      {data.items.length ? (
-        data.items.map((n) => (
-          <Card key={n.id} onPress={routeFor(n.link) && n.link !== '/notifications' ? () => openNotification({ link: n.link, id: n.id }) : undefined} style={{ marginBottom: 12, gap: 6, borderLeftWidth: n.read ? 0 : 4, borderLeftColor: colors.bordeaux, overflow: 'hidden' }}>
-            {n.type === 'annonce' ? <Label color={colors.or}>De l’équipe Nissali</Label> : n.type === 'message' ? <Label>Message</Label> : null}
-            {n.type === 'annonce' && n.title !== 'Nissali' ? <T variant="h3">{n.title}</T> : null}
-            {n.imageUrl ? <Image source={{ uri: assetUrl(n.imageUrl) }} style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16, backgroundColor: colors.blush }} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
-            <T variant={n.type === 'annonce' ? 'body' : 'bold'}>{n.detail || n.body}</T>
-            <T variant="small">{new Date(n.createdAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</T>
-          </Card>
+    <Screen
+      back
+      title="Notifications"
+      onRefresh={reload}
+      right={
+        unread ? (
+          <Pressable onPress={markAll} accessibilityRole="button" hitSlop={8}>
+            <Text style={s.link}>Tout marquer comme lu</Text>
+          </Pressable>
+        ) : null
+      }
+    >
+      {items.length ? (
+        group(items).map((g) => (
+          <View key={g.key} style={{ marginBottom: 18, gap: 10 }}>
+            <Text style={s.group}>{g.label}</Text>
+            {g.items.map((n) => (
+              <Pressable key={n.id} onPress={() => open(n)} accessibilityRole="button" accessibilityLabel={`${n.read ? '' : 'Non lue. '}${n.title !== 'Nissali' ? `${n.title}. ` : ''}${n.detail || n.body}`} style={({ pressed }) => [s.card, n.read && s.cardRead, pressed && { opacity: 0.85 }]}>
+                <View style={[s.icon, n.read && { backgroundColor: colors.white }]}>
+                  <Icon name={ICONS[n.type] || 'bell'} size={17} color={colors.bordeaux} />
+                </View>
+                <View style={{ flex: 1, gap: 4 }}>
+                  {n.type === 'annonce' ? <Text style={s.from}>De l’équipe Nissali</Text> : null}
+                  {n.title && n.title !== 'Nissali' && n.title !== 'Nissali Pro' ? <Text style={s.title}>{n.title}</Text> : null}
+                  {n.imageUrl ? <Image source={{ uri: assetUrl(n.imageUrl) }} style={s.image} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
+                  <Text style={[s.body, !n.read && { fontFamily: fonts.semi }]}>{n.detail || n.body}</Text>
+                  <Text style={s.time}>{new Date(n.createdAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</Text>
+                </View>
+                {n.read ? null : <View style={s.dot} />}
+              </Pressable>
+            ))}
+          </View>
         ))
       ) : (
-        <T variant="muted">Aucune notification pour le moment.</T>
+        <View style={s.empty}>
+          <View style={s.emptyIcon}>
+            <Icon name="bell" size={26} color={colors.bordeaux} />
+          </View>
+          <Text style={s.emptyText}>Rien de nouveau pour l’instant</Text>
+        </View>
       )}
-      <Gap />
-      <T variant="small">Sur l’écran verrouillé, nos notifications restent discrètes : « Petit rappel du jour ».</T>
+      <T variant="small">Historique des 30 derniers jours. Sur l’écran verrouillé, nos notifications restent discrètes.</T>
     </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  link: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux, maxWidth: 130, textAlign: 'right' },
+  group: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.2, color: colors.orText, textTransform: 'uppercase' },
+  card: { flexDirection: 'row', gap: 12, backgroundColor: colors.white, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: colors.line },
+  cardRead: { backgroundColor: colors.ivoire, borderColor: colors.ivoire },
+  icon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  from: { fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 0.6, color: colors.orText, textTransform: 'uppercase' },
+  title: { fontFamily: fonts.extra, fontSize: 15.5, color: colors.prune },
+  body: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.prune },
+  time: { fontFamily: fonts.medium, fontSize: 12, color: colors.muted },
+  image: { width: '100%', aspectRatio: 16 / 9, borderRadius: 14, backgroundColor: colors.blush },
+  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.bordeaux, marginTop: 4 },
+  empty: { alignItems: 'center', gap: 12, paddingVertical: 48 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontFamily: fonts.bold, fontSize: 16, color: colors.prune },
+});

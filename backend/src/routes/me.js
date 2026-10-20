@@ -13,6 +13,7 @@ import { purgeUser } from '../services/purge.js';
 import { nowFor } from '../services/context.js';
 import { mask, normalizeIdentifier, sendOtp, verifyOtp } from '../services/otp.js';
 import { endSession } from '../services/session.js';
+import { sendMail } from '../services/mailer.js';
 import { addDays, isDay, safeTimeZone } from '../utils/dates.js';
 import { badRequest, conflict } from '../utils/http.js';
 import bcrypt from 'bcryptjs';
@@ -72,6 +73,8 @@ const profileSchema = z.object({
       frequencyAsked: z.boolean(),
       hideNotePreview: z.boolean(),
       fastPlanned: z.boolean(),
+      messages: z.boolean(),
+      events: z.boolean(),
     })
     .partial()
     .optional(),
@@ -363,7 +366,8 @@ router.post(
 );
 
 // Export des données (8.2).
-router.get('/export', async (req, res) => {
+/** RGPD — toutes les données du compte. */
+async function exportData(req) {
   const user = req.user._id;
   const practitioner = await Practitioner.findOne({ user }).lean();
   const data = {
@@ -393,8 +397,29 @@ router.get('/export', async (req, res) => {
         }
       : null,
   };
+  return data;
+}
+
+router.get('/export', async (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="nissali-export-${new Date().toISOString().slice(0, 10)}.json"`);
-  res.json(data);
+  res.json(await exportData(req));
+});
+
+// 4.5 · 4.5 — « Télécharger mes données » : fichier envoyé par e-mail (RGPD, au plus tard sous 48 h).
+router.post('/export/email', async (req, res) => {
+  if (!req.user.email) throw badRequest('Ajoute une adresse e-mail à ton compte pour recevoir tes données', 'NO_EMAIL');
+  const data = await exportData(req);
+  const name = `nissali-export-${new Date().toISOString().slice(0, 10)}.json`;
+  await sendMail({
+    to: req.user.email,
+    subject: 'Tes données Nissali',
+    title: 'Tes données Nissali',
+    preheader: 'Le fichier de tes données est joint à cet e-mail.',
+    html: `<p>Salam ${String(req.user.firstName || '').replace(/[<>&"']/g, '')},</p><p>Tu trouveras en pièce jointe le fichier de toutes tes données Nissali (format JSON).</p><p>Si tu n’es pas à l’origine de cette demande, change ton mot de passe et écris-nous à contact@nissali.fr.</p>`,
+    text: 'Le fichier de tes données Nissali est joint à cet e-mail.',
+    attachments: [{ filename: name, content: JSON.stringify(data, null, 2), contentType: 'application/json' }],
+  });
+  res.json({ ok: true, to: mask(req.user.email, 'email') });
 });
 
 // RG-07 — suppression du compte et de toutes les données, en quelques gestes.

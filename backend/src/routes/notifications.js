@@ -15,7 +15,8 @@ async function markDelivered(user) {
 
 router.get('/', async (req, res) => {
   markDelivered(req.user).catch(() => {});
-  const items = await Notification.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(50).lean();
+  // 4.5 · 4.4 — historique des 30 derniers jours.
+  const items = await Notification.find({ user: req.user._id, createdAt: { $gte: new Date(Date.now() - 30 * 86_400_000) } }).sort({ createdAt: -1 }).limit(200).lean();
   res.json({ items: items.map(({ _id, ...n }) => ({ id: String(_id), ...n })), unread: items.filter((n) => !n.read).length });
 });
 

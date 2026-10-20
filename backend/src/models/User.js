@@ -162,6 +162,8 @@ const userSchema = new Schema(
       // RG-35 — aperçu des rappels de notes masqué (« Rappel Nissali »).
       hideNotePreview: { type: Boolean, default: true }, // 4.5 · 4.3 : masquer l'aperçu, défaut oui
       fastPlanned: { type: Boolean, default: true }, // veille d'un jeûne volontaire programmé
+      messages: { type: Boolean, default: true }, // messages des praticiennes
+      events: { type: Boolean, default: true }, // événements auxquels elle est inscrite
     },
 
     contraception: {

@@ -1,7 +1,7 @@
 // Notifications in-app + push web/Expo. RG-17 : titres et corps discrets sur l'écran verrouillé.
 import webpush from 'web-push';
 import { env } from '../config/env.js';
-import { Notification, PushSubscription } from '../models/index.js';
+import { Notification, PushSubscription, User } from '../models/index.js';
 
 const webPushReady = Boolean(env.vapid.publicKey && env.vapid.privateKey);
 if (webPushReady) webpush.setVapidDetails(env.vapid.subject, env.vapid.publicKey, env.vapid.privateKey);
@@ -38,7 +38,15 @@ async function sendExpo(tokens, payload) {
 }
 
 /** Envoie une notification push (sans la stocker). Retourne le nombre d'appareils atteints. */
+// 4.5 · 4.3 — familles de rappels essentiels coupables par l'utilisatrice (messages des praticiennes, événements).
+const PUSH_FAMILY = { message: 'messages', evenement: 'events' };
+
 export async function push(userId, payload) {
+  const family = PUSH_FAMILY[payload.data?.kind] || PUSH_FAMILY[payload.data?.type];
+  if (family) {
+    const u = await User.findById(userId).select('notificationPrefs').lean();
+    if (u?.notificationPrefs?.[family] === false) return 0;
+  }
   const subs = await PushSubscription.find({ user: userId });
   const expoTokens = subs.filter((s) => s.endpoint.startsWith('ExponentPushToken')).map((s) => s.endpoint);
   let sent = await sendExpo(expoTokens, payload);
