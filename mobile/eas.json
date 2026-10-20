@@ -6,21 +6,24 @@
     "base": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.nissali.fr/api"
-      }
+      },
+      "channel": "base"
     },
     "preview": {
       "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "extends": "base",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {
