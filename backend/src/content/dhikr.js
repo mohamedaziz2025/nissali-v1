@@ -6,8 +6,8 @@ export const DHIKR_CATALOG = [
   { key: 'alhamdulillah', arabic: 'ٱلْحَمْدُ لِلَّٰهِ', name: 'Alhamdulillah', meaning: 'Louange à Allah', goal: 33 },
   { key: 'allahuakbar', arabic: 'ٱللَّٰهُ أَكْبَرُ', name: 'Allahu akbar', meaning: 'Allah est le plus grand', goal: 33 },
   { key: 'astaghfirullah', arabic: 'أَسْتَغْفِرُ ٱللَّٰهَ', name: 'Astaghfirullah', meaning: 'Je demande pardon à Allah', goal: 100 },
-  { key: 'tahlil', arabic: 'لَا إِلَٰهَ إِلَّا ٱللَّٰهُ', name: 'La ilaha illa Allah', meaning: 'Nulle divinité excepté Allah', goal: 99 },
-  { key: 'salat_nabi', arabic: 'ٱللَّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ ﷺ', name: 'Salat ‘ala an-Nabi', meaning: 'Ô Allah, prie sur le Prophète Muhammad ﷺ', goal: 10 },
+  { key: 'salat_nabi', arabic: 'ٱللَّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ ﷺ', name: 'Salawat', meaning: 'Ô Allah, prie sur le Prophète Muhammad ﷺ', goal: 10 },
+  { key: 'tahlil', arabic: 'لَا إِلَٰهَ إِلَّا ٱللَّٰهُ', name: 'La ilaha illa Allah', meaning: 'Nulle divinité excepté Allah', goal: 100 },
   {
     key: 'tahlila',
     arabic: 'لَا إِلَٰهَ إِلَّا ٱللَّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ ٱلْمُلْكُ وَلَهُ ٱلْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ',
@@ -24,7 +24,9 @@ export const DHIKR_CATALOG = [
 ];
 
 export const DHIKR_BY_KEY = new Map(DHIKR_CATALOG.map((d) => [d.key, d]));
-export const DEFAULT_DHIKR = ['subhanallah', 'alhamdulillah', 'allahuakbar', 'astaghfirullah', 'tahlil', 'salat_nabi'];
+// 4.6 · 5.4 — les 6 plus connus, proposés au départ (dans cet ordre).
+export const DEFAULT_DHIKR = ['subhanallah', 'alhamdulillah', 'allahuakbar', 'astaghfirullah', 'salat_nabi', 'tahlil'];
+export const MAX_DHIKR = 20;
 
 /** Tasbih après la prière : 33 + 33 + 33, puis la tahlila pour faire 100 (variantes à valider par le comité). */
 export const TASBIH_STEPS = [

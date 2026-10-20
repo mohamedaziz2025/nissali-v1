@@ -29,5 +29,5 @@ export { HealthTip, Broadcast } from './Content.js';
 export { Mosque } from './Mosque.js';
 export { Conversation, Message } from './Messaging.js';
 export { Event, EventRegistration } from './Event.js';
-export { DhikrDay } from './Dhikr.js';
+export { DhikrDay, DhikrEntry } from './Dhikr.js';
 export { Note, NOTE_TYPES, NOTE_REPEATS } from './Note.js';

@@ -1,7 +1,9 @@
 // 5.7 bis · 4 et 5 — Compteur : texte arabe en grand, phonétique et sens ; on touche n'importe où pour
 // compter (petite vibration désactivable), l'anneau avance jusqu'à l'objectif ; l'écran reste allumé.
 // Tasbih après la prière : barre d'étapes et passage automatique au dhikr suivant.
-// Objectif atteint : vibration plus longue, série, puis dhikr suivant, encore un tour ou terminer.
+// Objectif : 33 / 99 / 100 / Libre (Libre = pas de fin, pas d'anneau, juste le nombre). L'anneau devient doré.
+// 4.6 · 5.3 — Objectif atteint (plein écran bordeaux) : vibration longue, rang de l'objectif dans la journée, série,
+// puis continuer sur le prochain dhikr non terminé, encore 33, ou terminer (retour à la page Dhikr).
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -10,7 +12,7 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Icon from '../../components/Icon';
-import { Button, ErrorState, Field, Loader, Row, Sheet, T, useToast } from '../../components/ui';
+import { ErrorState, Loader, Row, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { plural, saveCount, useDhikrData } from '../../lib/dhikr';
@@ -18,7 +20,7 @@ import { colors, fonts } from '../../theme';
 
 const GOALS = [33, 99, 100];
 
-function BigRing({ progress, size, children }) {
+function BigRing({ progress, size, reached, children }) {
   const stroke = 14;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -32,7 +34,7 @@ function BigRing({ progress, size, children }) {
           </LinearGradient>
         </Defs>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke="#F3E3E6" strokeWidth={stroke} fill="none" />
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="url(#ring)" strokeWidth={stroke} fill="none" strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - Math.min(1, Math.max(0, progress)))} strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={reached ? colors.or : 'url(#ring)'} strokeWidth={stroke} fill="none" strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - Math.min(1, Math.max(0, progress)))} strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </Svg>
       {children}
     </View>
@@ -54,8 +56,6 @@ export default function Counter() {
   const [base, setBase] = useState(null); // total au début du tour en cours
   const [goal, setGoal] = useState(null);
   const [done, setDone] = useState(null); // écran « Objectif atteint »
-  const [freeOpen, setFreeOpen] = useState(false);
-  const [free, setFree] = useState('');
   const streakBase = useRef(null);
 
   const haptics = (user?.dhikr || data?.settings || {}).haptics !== false && Platform.OS !== 'web';
@@ -81,6 +81,7 @@ export default function Counter() {
   if (!current) return <View style={[s.screen, { paddingTop: insets.top }]}><ErrorState error={{ message: 'Dhikr introuvable' }} /></View>;
 
   const target = goal || current.goal;
+  const endless = target === Infinity;
   const inRound = Math.max(0, count - (base || 0));
   const left = Math.max(0, target - inRound);
   const dayTotal = Object.values(all).reduce((n, c) => n + c, 0);
@@ -96,7 +97,7 @@ export default function Counter() {
     if (done) return;
     const n = count + 1;
     setCountFor(curKey, n);
-    if (n - (base || 0) < target) {
+    if (endless || n - (base || 0) < target) {
       if (haptics) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       return;
     }
@@ -115,6 +116,7 @@ export default function Counter() {
     }
     const sb = streakBase.current || { streak: data.streak, reachedToday: true };
     const reached = reachedCountWith(curKey, n);
+    if (haptics) setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}), 500);
     setDone({ count: n - (base || 0), reached, streak: sb.reachedToday || !reached ? sb.streak : sb.streak + 1 });
   };
 
@@ -139,8 +141,10 @@ export default function Counter() {
 
   // Suite proposée : le prochain dhikr du jour dont l'objectif n'est pas atteint.
   const next = !tasbihMode ? data.list.find((d) => d.key !== curKey && (all[d.key] || 0) < d.goal) : null;
+  const finish = () => router.replace('/dhikr');
   const again = () => {
     setBase(count);
+    setGoal(33);
     if (tasbihMode) {
       setStep(0);
       setBase(all[steps[0].key] || 0);
@@ -160,6 +164,7 @@ export default function Counter() {
 
   return (
     <View style={[s.screen, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 12 }]}>
+      {done ? null : (
       <Row justify="space-between" style={s.top}>
         <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/dhikr'))} accessibilityRole="button" accessibilityLabel="Retour" hitSlop={12}>
           <Icon name="chevronLeft" size={26} />
@@ -173,6 +178,7 @@ export default function Counter() {
           <View style={{ width: 22 }} />
         )}
       </Row>
+      )}
       {tasbihMode && !done ? (
         <View style={s.steps}>
           {steps.map((st, i) => (
@@ -182,28 +188,37 @@ export default function Counter() {
       ) : null}
 
       {done ? (
-        <View style={s.done}>
+        <View style={[s.done, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             <View style={s.doneRing}>
-              <Icon name="check" size={56} color={colors.bordeaux} strokeWidth={2.4} />
+              <Icon name="check" size={56} color={colors.white} strokeWidth={2.4} />
             </View>
             <Text style={s.doneTitle}>{tasbihMode ? 'Tasbih terminé' : 'Objectif atteint'}</Text>
             <Text style={s.doneArabic}>بَارَكَ ٱللَّٰهُ فِيكِ</Text>
-            <T variant="muted" style={{ textAlign: 'center' }}>
+            <Text style={s.doneSub}>Barak Allahu fiki</Text>
+            <Text style={[s.doneSub, { marginTop: 6 }]}>
               {tasbihMode ? `${dayTotal} dhikr aujourd’hui` : `${done.count} ${current.name}${done.reached ? ` · ton ${done.reached === 1 ? '1er' : `${done.reached}e`} objectif du jour` : ''}`}
-            </T>
+            </Text>
             {done.streak ? (
               <View style={s.streak}>
-                <Icon name="sparkle" size={13} color={colors.or} />
+                <Icon name="sparkle" size={13} color={colors.orClair} />
                 <Text style={s.streakText}>{plural(done.streak, 'jour')} d’affilée</Text>
               </View>
             ) : null}
           </View>
           <View style={{ gap: 10 }}>
-            {next ? <Button title={`Continuer : ${next.name}`} onPress={goNext} /> : null}
+            {next ? (
+              <Pressable onPress={goNext} accessibilityRole="button" style={s.doneMain}>
+                <Text style={s.doneMainText} numberOfLines={1}>Continuer : {next.name}</Text>
+              </Pressable>
+            ) : null}
             <Row gap={10}>
-              <Button title={tasbihMode ? 'Encore un tour' : `Encore ${target}`} variant="outline" onPress={again} style={{ flex: 1 }} />
-              <Button title="Terminer" variant="outline" onPress={() => (router.canGoBack() ? router.back() : router.replace('/dhikr'))} style={{ flex: 1 }} />
+              <Pressable onPress={again} accessibilityRole="button" style={s.doneGhost}>
+                <Text style={s.doneGhostText}>{tasbihMode ? 'Encore un tour' : 'Encore 33'}</Text>
+              </Pressable>
+              <Pressable onPress={finish} accessibilityRole="button" style={s.doneGhost}>
+                <Text style={s.doneGhostText}>Terminer</Text>
+              </Pressable>
             </Row>
           </View>
         </View>
@@ -212,17 +227,17 @@ export default function Counter() {
           <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={`${current.name} : ${inRound} sur ${target}. Touche pour compter`} style={s.tapZone}>
             <Text style={s.arabic}>{current.arabic}</Text>
             <Text style={s.name}>{current.name}</Text>
-            <Text style={s.meaning}>{current.meaning}</Text>
+            {current.meaning ? <Text style={s.meaning}>{current.meaning}</Text> : null}
             <View style={{ marginTop: 18 }}>
-              <BigRing progress={inRound / target} size={ringSize}>
+              <BigRing progress={endless ? 0 : inRound / target} reached={!endless && inRound >= target} size={ringSize}>
                 <View style={[s.disc, { width: ringSize - 56, height: ringSize - 56, borderRadius: (ringSize - 56) / 2 }]}>
                   <Text style={s.count} adjustsFontSizeToFit numberOfLines={1}>{inRound}</Text>
-                  <Text style={s.of}>sur {target}</Text>
+                  {endless ? null : <Text style={s.of}>sur {target}</Text>}
                   <Text style={s.touch}>TOUCHE POUR COMPTER</Text>
                 </View>
               </BigRing>
             </View>
-            <Text style={s.left}>{left ? `Encore ${left}` : 'Objectif atteint'} · touche n’importe où sur l’écran</Text>
+            <Text style={s.left}>{endless ? 'Libre : sans fin' : left ? `Encore ${left}` : 'Objectif atteint'} · touche n’importe où sur l’écran</Text>
           </Pressable>
           {!tasbihMode ? (
             <Row gap={8} style={{ justifyContent: 'center' }}>
@@ -231,8 +246,8 @@ export default function Counter() {
                   <Text style={[s.goalText, target === g && { color: colors.white }]}>{g}</Text>
                 </Pressable>
               ))}
-              <Pressable onPress={() => { setFree(GOALS.includes(target) ? '' : String(target)); setFreeOpen(true); }} accessibilityRole="radio" accessibilityState={{ selected: !GOALS.includes(target) }} style={[s.goal, !GOALS.includes(target) && s.goalOn]}>
-                <Text style={[s.goalText, !GOALS.includes(target) && { color: colors.white }]}>{GOALS.includes(target) ? 'Libre' : target}</Text>
+              <Pressable onPress={() => setGoal(Infinity)} accessibilityRole="radio" accessibilityState={{ selected: endless }} style={[s.goal, endless && s.goalOn]}>
+                <Text style={[s.goalText, endless && { color: colors.white }]}>Libre</Text>
               </Pressable>
             </Row>
           ) : null}
@@ -251,9 +266,6 @@ export default function Counter() {
         </>
       )}
 
-      <Sheet visible={freeOpen} onClose={() => setFreeOpen(false)} title="Objectif libre" footer={<Button title="Valider" disabled={!Number(free)} onPress={() => { setGoal(Math.min(10000, Number(free))); setFreeOpen(false); }} />}>
-        <Field label="Nombre de dhikr" keyboardType="number-pad" value={free} onChangeText={(v) => setFree(v.replace(/\D/g, '').slice(0, 5))} autoFocus />
-      </Sheet>
     </View>
   );
 }
@@ -279,10 +291,15 @@ const s = StyleSheet.create({
   totals: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, borderRadius: 20, padding: 14, marginTop: 14, borderWidth: 1, borderColor: colors.line },
   totalText: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune },
   roundBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  done: { flex: 1, paddingTop: 10 },
-  doneRing: { width: 150, height: 150, borderRadius: 75, borderWidth: 10, borderColor: colors.or, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  doneTitle: { fontFamily: fonts.title, fontSize: 30, color: colors.prune },
-  doneArabic: { fontSize: 28, lineHeight: 44, color: colors.bordeaux, writingDirection: 'rtl', fontFamily: fonts.arabic },
-  streak: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#F6EBDD', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  streakText: { fontFamily: fonts.bold, fontSize: 13, color: '#8A6235' },
+  done: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bordeaux, paddingHorizontal: 20, zIndex: 10 },
+  doneRing: { width: 150, height: 150, borderRadius: 75, borderWidth: 10, borderColor: colors.or, backgroundColor: colors.onBordeauxSurface, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  doneTitle: { fontFamily: fonts.extra, fontSize: 32, letterSpacing: -1, color: colors.white },
+  doneArabic: { fontSize: 30, lineHeight: 48, color: colors.orClair, writingDirection: 'rtl', fontFamily: fonts.arabic },
+  doneSub: { fontFamily: fonts.medium, fontSize: 15, color: colors.onBordeaux, textAlign: 'center' },
+  streak: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.onBordeauxSurface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginTop: 6 },
+  streakText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
+  doneMain: { minHeight: 54, borderRadius: 999, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  doneMainText: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.bordeaux },
+  doneGhost: { flex: 1, minHeight: 50, borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' },
+  doneGhostText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
 });
