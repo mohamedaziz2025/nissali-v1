@@ -46,6 +46,12 @@ const profileSchema = z.object({
       adhanMode: z.enum(['notification', 'adhan']).optional(),
       adhanPrayers: z.object({ fajr: z.boolean(), dhuhr: z.boolean(), asr: z.boolean(), maghrib: z.boolean(), isha: z.boolean() }).partial().optional(),
       notifyPrayers: z.object({ fajr: z.boolean(), dhuhr: z.boolean(), asr: z.boolean(), maghrib: z.boolean(), isha: z.boolean() }).partial().optional(),
+      prayerSound: z.object({ fajr: z.enum(['complet', 'court', 'bip', 'silencieux']), dhuhr: z.enum(['complet', 'court', 'bip', 'silencieux']), asr: z.enum(['complet', 'court', 'bip', 'silencieux']), maghrib: z.enum(['complet', 'court', 'bip', 'silencieux']), isha: z.enum(['complet', 'court', 'bip', 'silencieux']) }).partial().optional(),
+      notifyOffset: z.union([z.literal(0), z.literal(10), z.literal(15)]).optional(),
+      periodHome: z.enum(['horaires', 'ligne']).optional(),
+      keepRemindersDuringPeriod: z.boolean().optional(),
+      keepDhikrDuringPeriod: z.boolean().optional(),
+      purificationReminders: z.boolean().optional(),
       adhkarMorning: z.boolean().optional(),
       adhkarEvening: z.boolean().optional(),
       jumua: z.boolean().optional(),
@@ -86,7 +92,8 @@ router.patch('/', validate(profileSchema), async (req, res) => {
   if (b.age !== undefined) u.birthYear = new Date().getUTCFullYear() - b.age;
   if (b.goal) u.onboarding.goal = b.goal;
   if (b.prayerSettings) {
-    const { adjustments, adhanPrayers, notifyPrayers, ...rest } = b.prayerSettings;
+    const { adjustments, adhanPrayers, notifyPrayers, prayerSound, ...rest } = b.prayerSettings;
+    if (prayerSound) Object.assign(u.prayerSettings.prayerSound, prayerSound);
     Object.assign(u.prayerSettings, rest);
     if (adjustments) Object.assign(u.prayerSettings.adjustments, adjustments);
     if (adhanPrayers) Object.assign(u.prayerSettings.adhanPrayers, adhanPrayers);

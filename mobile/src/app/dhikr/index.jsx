@@ -197,5 +197,5 @@ const s = StyleSheet.create({
   ringText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.bordeaux },
   rowName: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune },
   rowMeta: { fontFamily: fonts.body, fontSize: 12.5, color: colors.muted },
-  arabic: { fontSize: 19, color: colors.bordeaux, maxWidth: '38%', writingDirection: 'rtl' },
+  arabic: { fontSize: 19, color: colors.bordeaux, maxWidth: '38%', writingDirection: 'rtl', fontFamily: fonts.arabic },
 });

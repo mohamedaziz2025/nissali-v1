@@ -1,7 +1,8 @@
 // 5.2 — Tableau de bord « Aujourd'hui » : une seule requête pour tout l'écran d'accueil.
 import { Router } from 'express';
 import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
-import { DailyLog, Note, Notification, PrayerLog, Reminder, VoluntaryFast } from '../models/index.js';
+import { DailyLog, MadeUpFast, Note, Notification, PrayerLog, Reminder, VoluntaryFast } from '../models/index.js';
+import { contextCards } from '../services/contextCard.js';
 import { nextVoluntary } from '../services/voluntary.js';
 import { HEALTH_ALERTS, PHASES } from '../content/phases.js';
 import { loadCycleContext, loadFastContext, prayerPause } from '../services/context.js';
@@ -10,7 +11,7 @@ import { tipOfTheDay } from '../services/healthTips.js';
 import { ramadanInfo, toHijri, whiteDays } from '../services/hijri.js';
 import { adhanFor } from '../services/adhan.js';
 import { dhikrReminders } from '../services/dhikr.js';
-import { userTimings } from '../services/prayerSource.js';
+import { nextJumua, userTimings } from '../services/prayerSource.js';
 import { upcomingNotes } from '../services/notes.js';
 import { currentPrayer, getQibla, nextPrayer, prayerOptionsFor, prayersAfterPurification, withInstants, PRAYERS } from '../services/prayerService.js';
 import { addDays, diffDays } from '../utils/dates.js';
@@ -54,7 +55,10 @@ export function cycleCard(ctx, user) {
       istihadaInfo: s.istihada ? ctx.settings.istihadaInfo : null,
       maxPeriodDays: s.maxPeriodDays,
       // Flux noté aujourd'hui (null si rien n'a été renseigné : aucun choix pré-coché).
-      flowToday: ((l) => (l === 'traces' ? null : l))(s.currentPeriod.flows?.find((f) => f.day === ctx.today)?.level || null),
+      // Flux noté aujourd'hui, traces comprises (4 boutons, V4) ; null si rien n'a été renseigné.
+      flowToday: s.currentPeriod.flows?.find((f) => f.day === ctx.today)?.level || null,
+      // « Fin prévue vers le … » = J1 + durée moyenne des règles − 1.
+      expectedEnd: addDays(s.currentPeriod.start, Math.max(1, s.periodLength) - 1),
       ...common,
     };
   }
@@ -101,15 +105,57 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
   const ramadan = ramadanInfo(today, adj);
 
   // RG-16 / RG-19 — prières à accomplir après le ghusl, si les règles viennent de se terminer.
+  // 4.2 · 1.4 : visible jusqu'à ce que tout soit coché, ou jusqu'au Fajr qui suit la fin.
   let purification = null;
   const lastEnded = [...ctx.periods].reverse().find((p) => p.end);
-  if (lastEnded && !ctx.summary.inPeriod && diffDays(today, lastEnded.end) <= 1) {
+  const withinWindow = lastEnded && (lastEnded.end === today || (lastEnded.end === addDays(today, -1) && time < timings.fajr));
+  if (lastEnded && !ctx.summary.inPeriod && withinWindow) {
     const endTimings = lastEnded.end === today ? timings : (await userTimings(user, settings, lastEnded.end)).timings;
     const rule = lastEnded.endTime ? prayersAfterPurification(lastEnded.endTime, endTimings, settings.purificationMarginMinutes) : null;
-    purification = { periodId: lastEnded.id, end: lastEnded.end, endTime: lastEnded.endTime || null, prayers: rule?.prayers || null, endSigns: settings.endSigns };
+    const after = lastEnded.after || { ghusl: false, prayersDone: [] };
+    const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+    const prayers = (rule?.prayers || []).map((p) => ({ key: p, label: LABELS[p], time: endTimings[p], due: lastEnded.end < today || endTimings[p] <= time, done: after.prayersDone.includes(p) }));
+    const done = (after.ghusl ? 1 : 0) + prayers.filter((p) => p.done).length;
+    purification = {
+      periodId: lastEnded.id,
+      start: lastEnded.start,
+      end: lastEnded.end,
+      endTime: lastEnded.endTime || null,
+      days: diffDays(lastEnded.end, lastEnded.start) + 1,
+      prayers,
+      next: rule?.next || null,
+      ghusl: after.ghusl,
+      done,
+      total: 1 + prayers.length,
+      ruleText: settings.purificationRuleText || 'Avis retenu par notre comité : purification avant le coucher du soleil, avec le temps du ghusl et d’une partie de la prière → Dhuhr et Asr ; avant l’aube → Maghrib et Isha.',
+      endSigns: settings.endSigns,
+    };
   }
 
   const nextPlanned = fastCtx.planDays[0] || null;
+  // RG-46 — cartes contextuelles (la première non masquée est affichée).
+  const [fastedMade, fastedVol, jumua, tomorrowTimings] = await Promise.all([
+    MadeUpFast.exists({ user: user._id, day: today }),
+    VoluntaryFast.exists({ user: user._id, day: today }),
+    nextJumua(user, settings, today, time).catch(() => null),
+    userTimings(user, settings, addDays(today, 1)).catch(() => null),
+  ]);
+  const cycleInfo = cycleCard(ctx, user);
+  const contexts = contextCards({
+    today,
+    time,
+    timings,
+    tomorrowFajr: tomorrowTimings?.timings?.fajr,
+    cycle: cycleInfo,
+    inPeriod: pause.paused,
+    purification,
+    ramadan,
+    fastCtx,
+    user,
+    settings,
+    fastedToday: Boolean(fastedMade || fastedVol),
+    jumua,
+  });
   const white = whiteDays(today, adj, settings.excludeDhulHijja13);
   const pregnant = user.mode === 'grossesse';
 
@@ -119,7 +165,8 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
     timezone: tz,
     hijri: toHijri(today, adj),
     user: { firstName: user.firstName, mode: user.mode, situation: user.situation, goal: user.onboarding?.goal, onboardingCompleted: user.onboarding?.completed },
-    cycle: cycleCard(ctx, user),
+    cycle: cycleInfo,
+    contexts,
     prayers: {
       city: user.city?.name || 'Paris',
       // Source des horaires (5.7) : ville ou mosquée choisie, repli sur le calcul (RG-16 bis).
@@ -129,6 +176,7 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
       method: { key: options.method, highLatitude: options.highLatitude, adjustments: options.adjustments },
       timings: withInstants(timings, tz),
       next: nextPrayer(timings, time),
+      tomorrowFajr: tomorrowTimings?.timings?.fajr || null,
       current: currentPrayer(timings, time),
       checked: Object.fromEntries(PRAYERS.map((p) => [p, Boolean(prayerLog?.[p])])),
       paused: pause.paused,
@@ -138,6 +186,9 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
       source: timings.source,
       reminders: dhikrReminders({ timings, tz, prefs: user.prayerSettings, settings }),
       adhan: adhanFor(user.prayerSettings),
+      // 4.1 — pendant les règles : horaires affichés (défaut) ou carte réduite à une ligne ; rappels coupés sauf choix contraire.
+      periodHome: user.prayerSettings?.periodHome || 'horaires',
+      remindersDuringPeriod: Boolean(user.prayerSettings?.keepRemindersDuringPeriod),
     },
     purification,
     whiteDays: { daysUntil: white.daysUntil, inProgress: white.inProgress, days: white.days, monthName: white.monthName },
@@ -180,7 +231,7 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
     // 5.2 · 5 — Mes notes : les prochaines notes et rappels.
     // Empreinte des notes : les rappels du téléphone sont reprogrammés dès qu'une note change.
     notesStamp: await Note.find({ user: user._id }).sort({ updatedAt: -1 }).select('updatedAt').lean().then((l) => `${l.length}-${l[0]?.updatedAt?.getTime?.() || 0}`),
-    notes: (await upcomingNotes(user._id, today, { days: 60, limit: 3 })).map((n) => ({ noteId: n.noteId, day: n.day, time: n.time, text: n.text, type: n.type, repeat: n.repeat, repeatLabel: n.repeatLabel })),
+    notes: (await upcomingNotes(user._id, today, { days: 60, limit: 3 })).map((n) => ({ noteId: n.noteId, day: n.day, time: n.time, text: n.text, type: n.type, repeat: n.repeat, repeatLabel: n.repeatLabel, remind: n.remind })),
     notificationsUnread: unread,
     tomorrow: addDays(today, 1),
   });

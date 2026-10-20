@@ -22,6 +22,12 @@ const periodSchema = new Schema(
     flows: [flowSchema],
     symptoms: [String],
     cycleExcluded: { type: Boolean, default: false }, // cycle aberrant écarté après confirmation (6.2)
+    endSign: { type: String, enum: ['secheresse', 'pertes_blanches'] }, // signe de fin (7.2), enregistré, pas bloquant
+    // 4.2 · 1.4 — étapes après la fin : ghusl fait, prières accomplies (cochées par l'utilisatrice).
+    after: {
+      ghusl: { type: Boolean, default: false },
+      prayersDone: { type: [String], default: [] },
+    },
     source: { type: String, enum: ['saisie', 'accueil', 'historique'], default: 'saisie' },
   },
   { timestamps: true },
@@ -38,6 +44,8 @@ periodSchema.methods.toPlain = function toPlain() {
     end: this.end,
     endTime: this.endTime,
     flows: this.flows.map((f) => ({ day: f.day, level: f.level })),
+    endSign: this.endSign || null,
+    after: { ghusl: Boolean(this.after?.ghusl), prayersDone: this.after?.prayersDone || [] },
     symptoms: this.symptoms,
     cycleExcluded: this.cycleExcluded,
   };

@@ -38,7 +38,7 @@ export function BrandBar({ unread, right }) {
 const s = StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 14 },
   logo: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 },
-  word: { fontFamily: fonts.title, color: colors.bordeaux, letterSpacing: 0.2 },
+  word: { fontFamily: fonts.logo, color: colors.bordeaux, letterSpacing: 0.2 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   round: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.bordeaux, borderWidth: 2, borderColor: colors.blush },

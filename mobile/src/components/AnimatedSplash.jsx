@@ -82,6 +82,6 @@ export default function AnimatedSplash({ onDone }) {
 
 const s = StyleSheet.create({
   wrap: { backgroundColor: colors.ivoire, alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  brand: { fontFamily: fonts.title, fontSize: 40, color: colors.bordeaux, marginTop: 6 },
+  brand: { fontFamily: fonts.logo, fontSize: 40, color: colors.bordeaux, marginTop: 6 },
   tagline: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, marginTop: 4 },
 });

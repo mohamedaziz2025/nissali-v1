@@ -143,10 +143,11 @@ router.get('/year/:year', async (req, res) => {
 });
 
 // RG-09 / RG-18 — « Mes règles ont commencé » (date du jour proposée, modifiable).
-router.post('/periods/start', validate(z.object({ day: day.optional(), time: time.optional(), kind: z.enum(['hayd', 'nifas']).default('hayd') })), async (req, res) => {
+router.post('/periods/start', validate(z.object({ day: day.optional(), time: time.optional(), kind: z.enum(['hayd', 'nifas']).default('hayd'), level: z.enum(['leger', 'moyen', 'abondant']).default('moyen') })), async (req, res) => {
   const ctx = await loadCycleContext(req.user);
   const start = req.body.day || ctx.today;
   if (start > ctx.today) throw badRequest('La date ne peut pas être dans le futur');
+  if (diffDays(ctx.today, start) > 60) throw badRequest('Choisis une date dans les 60 derniers jours (ou ajoute des règles passées depuis Mes règles)');
   const open = await Period.findOne({ user: req.user._id, end: { $exists: false }, kind: req.body.kind });
   if (open && open.start <= start) throw conflict('Des règles sont déjà en cours. Indique d’abord leur fin.', 'PERIOD_OPEN');
 
@@ -155,13 +156,13 @@ router.post('/periods/start', validate(z.object({ day: day.optional(), time: tim
   if (previous && diffDays(start, previous.end) - 1 < (ctx.settings.minPurityDays ?? 15)) {
     warnings.push({ key: 'purete_minimale', text: `Moins de ${ctx.settings.minPurityDays} jours depuis la fin de tes dernières règles : selon l’avis retenu par notre comité, ce saignement peut être de l’istihada. En cas de doute, rapproche-toi d’une personne de science.` });
   }
-  const period = await Period.create({ user: req.user._id, start, startTime: req.body.time, kind: req.body.kind, flows: [{ day: start, level: 'moyen' }] });
+  const period = await Period.create({ user: req.user._id, start, startTime: req.body.time, kind: req.body.kind, flows: [{ day: start, level: req.body.level }] });
   if (isRamadan(start, ctx.settings.hijriAdjustment)) warnings.push({ key: 'ramadan', text: 'C’est Ramadan : tes jours de règles s’ajoutent automatiquement à ton compteur de jeûnes.' });
   res.status(201).json({ period: period.toPlain(), warnings });
 });
 
 // RG-11 / RG-16 / RG-19 — « Mes règles sont terminées », avec l'heure si elle le souhaite.
-router.post('/periods/:id/end', validate(z.object({ day: day.optional(), time: time.optional() })), async (req, res) => {
+router.post('/periods/:id/end', validate(z.object({ day: day.optional(), time: time.optional(), endSign: z.enum(['secheresse', 'pertes_blanches']).optional() })), async (req, res) => {
   const period = await Period.findOne({ _id: req.params.id, user: req.user._id });
   if (!period) throw notFound('Règles introuvables');
   const ctx = await loadCycleContext(req.user);
@@ -170,7 +171,12 @@ router.post('/periods/:id/end', validate(z.object({ day: day.optional(), time: t
   if (end > ctx.today) throw badRequest('La date ne peut pas être dans le futur');
   period.end = end;
   period.endTime = req.body.time;
+  if (req.body.endSign) period.endSign = req.body.endSign;
+  period.after = { ghusl: false, prayersDone: [] };
   await period.save();
+  // Au-delà de la durée maximale (7.2) : message istihada avant l'écran « Ghusl et prières ».
+  const days = diffDays(end, period.start) + 1;
+  const istihada = ctx.summary.maxPeriodDays && days > ctx.summary.maxPeriodDays ? ctx.settings.istihadaInfo : null;
 
   let prayers = null;
   if (req.body.time) {
@@ -184,8 +190,22 @@ router.post('/periods/:id/end', validate(z.object({ day: day.optional(), time: t
     detail: 'Pense à ton ghusl : tes prières reprennent. Retrouve le guide des grandes ablutions dans le blog.',
     link: '/aujourdhui',
   });
-  res.json({ period: period.toPlain(), prayers, ghuslSteps: GHUSL_STEPS, endSigns: ctx.settings.endSigns });
+  res.json({ period: period.toPlain(), prayers, ghuslSteps: GHUSL_STEPS, endSigns: ctx.settings.endSigns, days, istihada });
 });
+
+// 4.2 · 1.4 — Ghusl et prières : « J'ai fait mon ghusl », prières accomplies cochées une par une.
+router.put(
+  '/periods/:id/after',
+  validate(z.object({ ghusl: z.boolean().optional(), prayersDone: z.array(z.enum(['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'])).max(5).optional() })),
+  async (req, res) => {
+    const period = await Period.findOne({ _id: req.params.id, user: req.user._id });
+    if (!period) throw notFound('Règles introuvables');
+    if (req.body.ghusl !== undefined) period.set('after.ghusl', req.body.ghusl);
+    if (req.body.prayersDone) period.set('after.prayersDone', [...new Set(req.body.prayersDone)]);
+    await period.save();
+    res.json({ period: period.toPlain() });
+  },
+);
 
 router.patch(
   '/periods/:id',

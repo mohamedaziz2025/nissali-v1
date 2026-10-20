@@ -1,33 +1,52 @@
-// Identité visuelle Nissali (cahier des charges 1.5).
+// Identité visuelle Nissali — fiche technique du design (cahier V4.1, partie 4.11).
 export const colors = {
-  bordeaux: '#7A1F35', // couleur principale : logo, boutons, jours de règles, onglet actif
-  prune: '#3E1220', // textes et titres
-  rose: '#E9B9C1', // fenêtre fertile, accents doux
-  or: '#C49A6C', // prières, ovulation (contour)
-  blush: '#F7E8EA', // fond des cartes et des encadrés
-  ivoire: '#FCF8F6', // fond des écrans
+  bordeaux: '#7A1E35', // boutons, blocs forts, actif, prochaine prière, compteur de dhikr
+  prune: '#2A1218', // encre : textes, puces choisies
+  pruneToday: '#3E1220', // jour actuel du calendrier
+  rose: '#E9B9C1', // accents doux
+  roseFertile: '#F6D9DF', // fenêtre fertile
+  or: '#B88A55', // fait, coché, atteint, séries
+  orText: '#8A5E2E', // petits titres dorés
+  orClair: '#D9B07E', // progrès sur bordeaux
+  blush: '#F5E6E9', // ronds d'icônes, rappel, ghusl
+  sable: '#F3E8DA', // jeûne, conseil, badges
+  creme: '#F8F2EC',
+  ivoire: '#FBF7F4', // fond des écrans
   white: '#FFFFFF',
-  muted: '#7A5A62', // texte secondaire (contraste AA sur ivoire et blanc)
-  line: '#EEDDE1',
+  muted: '#6E5A5F', // gris texte : sous-titres, aides
+  line: '#F1E6E8', // bordure des cartes
+  lineField: '#EADBDF', // bordure des champs et puces
+  caseVide: '#D3AEB7', // cases vides
+  onBordeaux: '#F0C9D2', // texte secondaire sur bordeaux
+  onBordeauxSurface: 'rgba(255,255,255,0.14)',
+  veil: 'rgba(42,18,24,0.48)',
   roseDeep: '#D88E9C',
   bordeauxSoft: '#A45468',
   orSoft: '#E6D3BC',
   success: '#3F7D58',
-  danger: '#B3261E',
+  danger: '#B3261E', // suppression uniquement
 };
 
+// Plus Jakarta Sans partout ; Fraunces seulement pour le mot « Nissali » du logo ; Amiri pour l'arabe.
 export const fonts = {
-  display: 'Fraunces_400Regular',
-  title: 'Fraunces_500Medium',
-  titleSemi: 'Fraunces_600SemiBold',
-  italic: 'Fraunces_400Regular_Italic',
-  body: 'DMSans_400Regular',
-  medium: 'DMSans_500Medium',
-  bold: 'DMSans_700Bold',
+  display: 'PlusJakartaSans_800ExtraBold',
+  title: 'PlusJakartaSans_800ExtraBold',
+  titleSemi: 'PlusJakartaSans_700Bold',
+  italic: 'PlusJakartaSans_500Medium_Italic',
+  body: 'PlusJakartaSans_400Regular',
+  medium: 'PlusJakartaSans_500Medium',
+  semi: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
+  extra: 'PlusJakartaSans_800ExtraBold',
+  logo: 'Fraunces_600SemiBold',
+  arabic: 'Amiri_700Bold',
 };
 
-export const radius = { card: 28, md: 20, sm: 14, pill: 999 };
-export const space = { gutter: 20, gap: 14 };
+/** Chiffres à chasse fixe (heures, compteurs, poids) : ils ne bougent pas quand ils changent. */
+export const tnum = { fontVariant: ['tabular-nums'] };
+
+export const radius = { hero: 28, card: 24, md: 16, sm: 8, sheet: 32, pill: 999 };
+export const space = { gutter: 18, gap: 16 };
 
 export const PRAYER_LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
 export const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];

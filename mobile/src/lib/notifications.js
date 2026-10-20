@@ -150,6 +150,14 @@ export async function rescheduleAll(today, user) {
     // hors connexion : rappels reprogrammés au retour du réseau
   }
 
+  // 4.2 · 1.4 — prières à accomplir après le ghusl : un rappel 45 min avant le Fajr suivant si elles ne sont pas cochées.
+  const pur = today.purification;
+  const owed = (pur?.prayers || []).filter((p) => !p.done);
+  if (prayerPrefs.purificationReminders !== false && owed.length && today.prayers?.tomorrowFajr) {
+    const fajr = at(addDays(today.today, 1), today.prayers.tomorrowFajr);
+    await schedule(new Date(fajr.getTime() - 45 * 60_000), { title: 'Nissali', body: `Pense à accomplir ${owed.map((p) => p.label).join(' et ')} avant Fajr`, data: { link: '/ghusl' } }, 'prieres');
+  }
+
   // Rappels discrets
   if (prefs.dailyReminder !== false) await schedule(at(today.tomorrow, '08:30'), DISCREET);
   if (prefs.periodSoon !== false && today.cycle?.kind === 'prochaines' && today.cycle.nextDate) {

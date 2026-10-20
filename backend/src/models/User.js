@@ -89,6 +89,20 @@ const userSchema = new Schema(
         maghrib: { type: Boolean, default: true },
         isha: { type: Boolean, default: true },
       },
+      // 4.5 · 4.2 — son de chaque prière, rappel à l'heure ou avant, réglages « Pendant mes règles ».
+      prayerSound: {
+        fajr: { type: String, enum: ['complet', 'court', 'bip', 'silencieux'], default: 'complet' },
+        dhuhr: { type: String, enum: ['complet', 'court', 'bip', 'silencieux'], default: 'complet' },
+        asr: { type: String, enum: ['complet', 'court', 'bip', 'silencieux'], default: 'complet' },
+        maghrib: { type: String, enum: ['complet', 'court', 'bip', 'silencieux'], default: 'complet' },
+        isha: { type: String, enum: ['complet', 'court', 'bip', 'silencieux'], default: 'complet' },
+      },
+      notifyOffset: { type: Number, enum: [0, 10, 15], default: 0 },
+      periodHome: { type: String, enum: ['horaires', 'ligne'], default: 'horaires' },
+      keepRemindersDuringPeriod: { type: Boolean, default: false },
+      keepDhikrDuringPeriod: { type: Boolean, default: true },
+      // 4.2 · 1.4 — rappels des prières à accomplir après le ghusl.
+      purificationReminders: { type: Boolean, default: true },
       // 5.7 / 5.13 — rappel à l'heure de chaque prière, réglé prière par prière.
       notifyPrayers: {
         fajr: { type: Boolean, default: true },
@@ -142,7 +156,7 @@ const userSchema = new Schema(
       frequency: { type: String, enum: ['faible', 'moderee', 'elevee'], default: 'faible' },
       frequencyAsked: { type: Boolean, default: false }, // proposé une fois après l'inscription
       // RG-35 — aperçu des rappels de notes masqué (« Rappel Nissali »).
-      hideNotePreview: { type: Boolean, default: false },
+      hideNotePreview: { type: Boolean, default: true }, // 4.5 · 4.3 : masquer l'aperçu, défaut oui
       fastPlanned: { type: Boolean, default: true }, // veille d'un jeûne volontaire programmé
     },
 

@@ -103,7 +103,7 @@ export default function MyPeriods() {
           <Text style={s.cardTitle}>{data.inPeriod ? 'Règles en cours' : 'Dernières règles'}</Text>
           <Row gap={10}>
             <DateTile label="Début" value={period.start} onPress={() => setEditing({ field: 'start', period })} />
-            <DateTile label="Fin" value={period.end} placeholder="En cours" onPress={() => (period.end ? setEditing({ field: 'end', period }) : openEnd(period.id))} />
+            <DateTile label="Fin" value={period.end} placeholder="En cours" onPress={() => (period.end ? setEditing({ field: 'end', period }) : openEnd(period.id, 'hayd', period.start))} />
           </Row>
           <Text style={s.subTitle}>Flux par jour</Text>
           <View style={s.flowRow}>
@@ -118,7 +118,7 @@ export default function MyPeriods() {
               );
             })}
           </View>
-          {data.inPeriod ? <Button title="Mes règles sont terminées" small onPress={() => openEnd(period.id)} /> : null}
+          {data.inPeriod ? <Button title="Mes règles sont terminées" small onPress={() => openEnd(period.id, 'hayd', period.start)} /> : null}
         </Card>
       ) : (
         <Card tone="soft" style={{ gap: 10 }}>

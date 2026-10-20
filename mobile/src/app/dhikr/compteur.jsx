@@ -265,7 +265,7 @@ const s = StyleSheet.create({
   steps: { flexDirection: 'row', gap: 6, marginTop: 6 },
   stepBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
   tapZone: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
-  arabic: { fontSize: 38, lineHeight: 60, color: colors.bordeaux, textAlign: 'center', writingDirection: 'rtl' },
+  arabic: { fontSize: 38, lineHeight: 60, color: colors.bordeaux, textAlign: 'center', writingDirection: 'rtl', fontFamily: fonts.arabic },
   name: { fontFamily: fonts.title, fontSize: 22, color: colors.prune, textAlign: 'center' },
   meaning: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, textAlign: 'center', paddingHorizontal: 10 },
   disc: { backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
@@ -282,7 +282,7 @@ const s = StyleSheet.create({
   done: { flex: 1, paddingTop: 10 },
   doneRing: { width: 150, height: 150, borderRadius: 75, borderWidth: 10, borderColor: colors.or, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   doneTitle: { fontFamily: fonts.title, fontSize: 30, color: colors.prune },
-  doneArabic: { fontSize: 28, lineHeight: 44, color: colors.bordeaux, writingDirection: 'rtl' },
+  doneArabic: { fontSize: 28, lineHeight: 44, color: colors.bordeaux, writingDirection: 'rtl', fontFamily: fonts.arabic },
   streak: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#F6EBDD', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   streakText: { fontFamily: fonts.bold, fontSize: 13, color: '#8A6235' },
 });
