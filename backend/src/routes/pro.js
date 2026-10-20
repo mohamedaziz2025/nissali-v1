@@ -35,7 +35,7 @@ async function loadPro(req) {
 }
 
 /** Crée (ou remplace) l'abonnement : la formule gratuite est active tout de suite. */
-async function subscribe(practitioner, planKey, billing) {
+export async function subscribe(practitioner, planKey, billing) {
   const plan = await Plan.findOne({ key: planKey, active: true });
   if (!plan) throw badRequest('Formule introuvable');
   if (plan.trial) return startTrial(practitioner, plan);
@@ -79,7 +79,7 @@ async function startTrial(practitioner, plan) {
  * Formule de départ à l'inscription : l'essai gratuit (s'il est actif) quand aucune formule payante
  * n'est choisie, sinon la formule choisie, sinon la formule gratuite.
  */
-async function signupPlan(key, billing) {
+export async function signupPlan(key, billing) {
   const chosen = key ? await Plan.findOne({ key, active: true }) : null;
   if (key && !chosen) throw badRequest('Formule introuvable');
   const paid = chosen && (billing === 'annuel' ? chosen.priceYearly : chosen.priceMonthly) > 0;
@@ -91,7 +91,7 @@ async function signupPlan(key, billing) {
  * Ouvre une session Stripe Checkout pour un abonnement payant et renvoie l'URL de paiement.
  * Retourne null (paiement manuel par l'équipe) si Stripe est coupé ou si la formule est gratuite.
  */
-async function attachCheckout(practitioner, sub, user) {
+export async function attachCheckout(practitioner, sub, user) {
   // Formule déjà active : il n'y a rien à acheter (sinon double facturation).
   if (!stripeEnabled() || !sub?.amount || sub.status === 'active') return null;
   const plan = await Plan.findOne({ key: sub.plan });
@@ -170,10 +170,23 @@ router.post('/register', validate(registerSchema), async (req, res) => {
 
 // --- Profil -----------------------------------------------------------------
 
+/** 8.2 — « Profil complété à X % » : profil complet = plus de visibilité dans l'annuaire. */
+function profileCompletion(p, { services, slots }) {
+  const checks = [
+    { key: 'photo', label: 'Ajouter une photo', done: Boolean(p.photoUrl), href: '/pro/profil' },
+    { key: 'description', label: 'Rédiger une présentation (80 caractères minimum)', done: (p.description || '').length >= 80, href: '/pro/profil' },
+    { key: 'services', label: 'Créer au moins une prestation', done: services > 0, href: '/pro/prestations' },
+    { key: 'availability', label: 'Renseigner tes disponibilités', done: slots > 0, href: '/pro/disponibilites' },
+    { key: 'address', label: 'Indiquer l’adresse du cabinet', done: Boolean(p.location?.address) || !p.inPerson, href: '/pro/profil' },
+  ];
+  return { percent: Math.round((checks.filter((c) => c.done).length / checks.length) * 100), checks };
+}
+
 router.get('/me', async (req, res) => {
   const p = await loadPro(req);
   const { plan, subscription } = await activePlanFor(p);
   const pending = await Subscription.findOne({ practitioner: p._id, status: 'en_attente' }).lean();
+  const services = await Service.countDocuments({ practitioner: p._id, active: true });
   res.json({
     practitioner: p,
     plan,
@@ -184,10 +197,8 @@ router.get('/me', async (req, res) => {
     videoActive: Boolean(p.supportsVideo && plan?.features?.video),
     // Paiement en ligne : activé par l'équipe, portail disponible dès qu'un client Stripe existe.
     billing: { online: stripeEnabled(), portal: Boolean(p.stripeCustomerId) },
-    counts: {
-      services: await Service.countDocuments({ practitioner: p._id, active: true }),
-      pending: await Booking.countDocuments({ practitioner: p._id, status: 'en_attente' }),
-    },
+    counts: { services, pending: await Booking.countDocuments({ practitioner: p._id, status: 'en_attente' }) },
+    completion: profileCompletion(p, { services, slots: await Availability.countDocuments({ practitioner: p._id, active: true }) }),
   });
 });
 
@@ -218,7 +229,11 @@ async function locate(p) {
 router.patch('/me', validate(profileSchema), async (req, res) => {
   const p = await loadPro(req);
   const b = req.body;
+  // 8.2 — après validation, changer le nom affiché ou la spécialité remet le dossier en vérification
+  // (la fiche quitte l'annuaire jusqu'à la revalidation de l'équipe ; le reste du profil reste publié).
+  const recheck = p.status === 'validee' && ((b.displayName !== undefined && b.displayName !== p.displayName) || (b.specialty !== undefined && b.specialty !== p.specialty));
   for (const k of ['displayName', 'specialty', 'description', 'inPerson', 'atHome', 'supportsVideo', 'languages', 'minNoticeHours', 'autoConfirm', 'phone', 'showPhone', 'diplomas', 'professionalId']) if (b[k] !== undefined) p[k] = b[k];
+  if (b.specialty !== undefined) p.categories = [b.specialty];
   if (p.showPhone && !p.phone) p.showPhone = false;
   const cityChanged = b.city !== undefined && b.city !== p.location.city;
   if (b.city !== undefined) p.location.city = b.city;
@@ -229,6 +244,15 @@ router.patch('/me', validate(profileSchema), async (req, res) => {
   if (b.siret !== undefined) p.legal.siret = b.siret;
   // La visio est mémorisée même si la formule ne l'inclut pas encore (formule payante en attente) :
   // elle n'est proposée aux utilisatrices qu'avec une formule qui l'inclut.
+  if (recheck) {
+    p.status = 'en_attente';
+    p.rejectionReason = undefined;
+    const admins = await User.find({ role: 'admin' }).lean();
+    for (const a of admins) {
+      await notify(a._id, { key: `pro-recheck-${p.id}-${Date.now()}`, type: 'pro', title: 'Nissali', body: 'Praticienne à revérifier', detail: `${p.displayName} (${p.location.city}) a modifié son profil après validation.`, link: '/admin/praticiennes' }, { sendPush: false }).catch(() => {});
+      if (a.email) await sendMail({ to: a.email, subject: 'Praticienne à revérifier', html: `<p>${p.displayName} (${p.location.city}) a modifié son nom ou sa spécialité après validation : le dossier repasse en vérification.</p>`, text: `Praticienne à revérifier : ${p.displayName}` }).catch(() => {});
+    }
+  }
   await p.save();
   const { plan } = await activePlanFor(p);
   res.json({ ...p.toObject(), id: p.id, videoActive: Boolean(p.supportsVideo && plan?.features?.video) });
@@ -724,14 +748,6 @@ router.get('/overview', async (req, res) => {
     week.push({ day: d, confirmed: list.filter((b) => b.status === 'confirmee').length, pending: list.filter((b) => b.status === 'en_attente').length });
   }
 
-  // Profil complet = plus de visibilité dans l'annuaire.
-  const checks = [
-    { key: 'photo', label: 'Ajouter une photo', done: Boolean(p.photoUrl), href: '/pro/profil' },
-    { key: 'description', label: 'Rédiger une présentation (80 caractères minimum)', done: (p.description || '').length >= 80, href: '/pro/profil' },
-    { key: 'services', label: 'Créer au moins une prestation', done: services > 0, href: '/pro/prestations' },
-    { key: 'availability', label: 'Renseigner tes disponibilités', done: slots > 0, href: '/pro/disponibilites' },
-    { key: 'address', label: 'Indiquer l’adresse du cabinet', done: Boolean(p.location?.address) || !p.inPerson, href: '/pro/profil' },
-  ];
 
   let series = null;
   if (plan?.features?.stats) {
@@ -746,7 +762,7 @@ router.get('/overview', async (req, res) => {
   }
   const map = (b) => ({ ...b, id: String(b._id), client: clientCard(b.client) });
   res.json({
-    practitioner: { id: p.id, displayName: p.displayName, status: p.status, photoUrl: p.photoUrl, specialty: p.specialty, city: p.location?.city },
+    practitioner: { id: p.id, displayName: p.displayName, status: p.status, rejectionReason: p.rejectionReason || null, photoUrl: p.photoUrl, specialty: p.specialty, city: p.location?.city },
     plan,
     subscription,
     today,
@@ -756,7 +772,7 @@ router.get('/overview', async (req, res) => {
     week,
     stats,
     series,
-    completion: { percent: Math.round((checks.filter((c) => c.done).length / checks.length) * 100), checks },
+    completion: profileCompletion(p, { services, slots }),
     reviews: reviews.map((r) => ({ id: String(r._id), rating: r.rating, comment: r.comment, author: r.client?.firstName, createdAt: r.createdAt, replied: Boolean(r.reply) })),
   });
 });

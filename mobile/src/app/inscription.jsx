@@ -2,6 +2,8 @@
 // 3.6 e-mail + mot de passe, 3.7 téléphone (indicatif FR par défaut), 3.8 accords (non cochés), puis le code envoyé
 // par e-mail crée le compte. Le numéro est obligatoire mais ne reçoit aucun SMS (choix de Nissali). Si l'appli est
 // fermée en route, on reprend au dernier écran rempli (le mot de passe n'est jamais gardé sur le téléphone).
+// Avec Apple ou Google (3.1) : pas d'écran mot de passe ni de code ; si Apple donne une adresse relais,
+// l'écran « Ton e-mail de contact » remplace « Ton e-mail et ton mot de passe » (RG-02).
 // La suite du questionnaire (3.9 à 3.13) est dans accueil.jsx.
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -11,10 +13,11 @@ import { ChoiceCard, NumberWheel, SignupShell } from '../components/Signup';
 import { Checkbox, CodeInput, Field, Icon, T } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { getPendingSocial, setPendingSocial } from '../lib/social';
 import { readJson, writeJson } from '../lib/storage';
 import { colors, fonts } from '../theme';
 
-const STEPS = ['prenom', 'age', 'ville', 'situation', 'compte', 'telephone', 'accords', 'code'];
+const BASE_STEPS = ['prenom', 'age', 'ville', 'situation', 'compte', 'telephone', 'accords', 'code'];
 const SAVED = 'nissali.signup';
 
 // Tous les indicatifs téléphoniques courants ; France sélectionnée par défaut.
@@ -62,6 +65,8 @@ const capitalize = (v) => v.replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toU
 
 export default function Register() {
   const { signIn } = useAuth();
+  const [social] = useState(() => getPendingSocial());
+  const STEPS = social ? ['prenom', 'age', 'ville', 'situation', ...(social.relay || !social.email ? ['contact'] : []), 'telephone', 'accords'] : BASE_STEPS;
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ firstName: '', age: 25, city: null, situation: null, email: '', phoneCountry: '+33', phone: '', terms: false, health: false, marketing: false });
   const [password, setPassword] = useState('');
@@ -81,8 +86,10 @@ export default function Register() {
       .then((saved) => {
         if (saved?.form) {
           setForm((f) => ({ ...f, ...saved.form }));
-          setStep(Math.min(saved.step || 0, STEPS.indexOf('compte')));
+          setStep(Math.min(saved.step || 0, social ? STEPS.length - 1 : STEPS.indexOf('compte')));
         }
+        // Prénom donné par Apple ou Google : pré-remplit l'écran 3.2.
+        if (social?.firstName) setForm((f) => (f.firstName ? f : { ...f, firstName: social.firstName.slice(0, 30) }));
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
@@ -103,6 +110,7 @@ export default function Register() {
     ville: Boolean(form.city),
     situation: Boolean(form.situation),
     compte: emailValid && password.length >= 8 && !exists,
+    contact: emailValid && !exists,
     telephone: phoneValid,
     accords: form.terms && form.health,
     code: code.length === 6,
@@ -128,7 +136,7 @@ export default function Register() {
   };
 
   const register = async (value = code) => {
-    if (password.length < 8) {
+    if (!social && password.length < 8) {
       setStep(STEPS.indexOf('compte'));
       return setError('Choisis ton mot de passe (8 caractères minimum)');
     }
@@ -136,9 +144,9 @@ export default function Register() {
     setError(null);
     try {
       const r = await api.post('/auth/register', {
-        identifier: emailValue,
-        code: value,
-        password,
+        ...(social
+          ? { identifier: social.email && !social.relay ? social.email : emailValue, social: { provider: social.provider, idToken: social.idToken } }
+          : { identifier: emailValue, code: value, password }),
         phone: `${form.phoneCountry}${phoneDigits}`,
         firstName: name,
         age: form.age,
@@ -147,6 +155,7 @@ export default function Register() {
         consents: { terms: true, health: form.health, marketingEmail: form.marketing, marketingSms: form.marketing, marketingWhatsapp: form.marketing },
       });
       await writeJson(SAVED, null).catch(() => {});
+      setPendingSocial(null);
       await signIn(r);
       router.replace('/accueil');
     } catch (e) {
@@ -175,8 +184,8 @@ export default function Register() {
   const next = () => {
     setError(null);
     const k = STEPS[step];
-    if (k === 'compte') return checkEmail();
-    if (k === 'accords') return sendCode();
+    if (k === 'compte' || k === 'contact') return checkEmail();
+    if (k === 'accords') return social ? register() : sendCode();
     if (k === 'code') return register();
     setStep((x) => x + 1);
   };
@@ -187,15 +196,19 @@ export default function Register() {
   };
 
   const k = STEPS[step];
+  const accountSteps = STEPS.filter((x) => !['accords', 'code'].includes(x));
+  const privacySteps = STEPS.filter((x) => ['accords', 'code'].includes(x));
+  const pos = accountSteps.includes(k) ? { index: accountSteps.indexOf(k) + 1, count: accountSteps.length } : { index: privacySteps.indexOf(k) + 1, count: privacySteps.length };
   const meta = {
-    prenom: { section: 'Ton compte', index: 1, count: 6, title: 'Comment t’appelles-tu ?', subtitle: 'Ton prénom, pour que l’appli te parle à toi.' },
-    age: { section: 'Ton compte', index: 2, count: 6, title: 'Quel âge as-tu ?', subtitle: 'Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.' },
-    ville: { section: 'Ton compte', index: 3, count: 6, title: 'Où vis-tu ?', subtitle: 'Ta ville sert à tes horaires de prière et à la qibla.' },
-    situation: { section: 'Ton compte', index: 4, count: 6, title: 'Ta situation', subtitle: 'Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.' },
-    compte: { section: 'Ton compte', index: 5, count: 6, title: 'Ton e-mail et ton mot de passe' },
-    telephone: { section: 'Ton compte', index: 6, count: 6, title: 'Ton numéro de téléphone', subtitle: 'Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.' },
-    accords: { section: 'Ta confidentialité', index: 1, count: 2, title: 'Tes accords', subtitle: 'Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.' },
-    code: { section: 'Ta confidentialité', index: 2, count: 2, title: 'Vérifie ton e-mail' },
+    prenom: { section: 'Ton compte', ...pos, title: 'Comment t’appelles-tu ?', subtitle: 'Ton prénom, pour que l’appli te parle à toi.' },
+    age: { section: 'Ton compte', ...pos, title: 'Quel âge as-tu ?', subtitle: 'Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.' },
+    ville: { section: 'Ton compte', ...pos, title: 'Où vis-tu ?', subtitle: 'Ta ville sert à tes horaires de prière et à la qibla.' },
+    situation: { section: 'Ton compte', ...pos, title: 'Ta situation', subtitle: 'Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.' },
+    compte: { section: 'Ton compte', ...pos, title: 'Ton e-mail et ton mot de passe' },
+    contact: { section: 'Ton compte', ...pos, title: 'Ton e-mail de contact', subtitle: 'Apple a masqué ton adresse. Indique celle où l’on peut t’écrire (sauvegarde, nouveautés si tu l’acceptes).' },
+    telephone: { section: 'Ton compte', ...pos, title: 'Ton numéro de téléphone', subtitle: 'Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.' },
+    accords: { section: 'Ta confidentialité', ...pos, title: 'Tes accords', subtitle: 'Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.' },
+    code: { section: 'Ta confidentialité', ...pos, title: 'Vérifie ton e-mail' },
   }[k];
 
   const content = {
@@ -229,6 +242,18 @@ export default function Register() {
           </View>
           <Text style={[s.hint, password && password.length < 8 && { color: colors.danger }]}>{password.length >= 8 ? '✓ Mot de passe valide' : `8 caractères minimum${password ? ` (${password.length}/8)` : ''}`}</Text>
         </View>
+      </>
+    ),
+    contact: (
+      <>
+        <Field label="Adresse e-mail" value={form.email} onChangeText={(v) => { setExists(false); set('email')(v); }} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" autoFocus error={form.email && !emailValid ? 'Vérifie le format de ton adresse' : null} />
+        {exists ? (
+          <Pressable onPress={() => router.replace('/connexion')} accessibilityRole="link" style={s.exists}>
+            <Icon name="info" size={17} color={colors.bordeaux} />
+            <Text style={s.existsText}>Ce compte existe déjà, te connecter ?</Text>
+            <Icon name="chevronRight" size={15} color={colors.bordeaux} />
+          </Pressable>
+        ) : null}
       </>
     ),
     telephone: (
@@ -306,7 +331,7 @@ export default function Register() {
       {...meta}
       onBack={back}
       onNext={next}
-      nextLabel={k === 'accords' ? 'Recevoir mon code' : k === 'code' ? 'Créer mon compte' : 'Continuer'}
+      nextLabel={k === 'accords' ? (social ? 'Créer mon compte' : 'Recevoir mon code') : k === 'code' ? 'Créer mon compte' : 'Continuer'}
       canNext={valid}
       busy={busy}
       error={error}

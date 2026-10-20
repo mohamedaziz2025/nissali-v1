@@ -8,7 +8,7 @@ const POINTS = [
   'Un seul compte pour ton espace pro et ton suivi personnel',
 ];
 
-export default function AuthLayout({ children, wide = false }) {
+export default function AuthLayout({ children, wide = false, steps, stepIndex = 0 }) {
   return (
     <div className="auth">
       <aside className="auth-side">
@@ -32,6 +32,16 @@ export default function AuthLayout({ children, wide = false }) {
               </div>
             ))}
           </div>
+          {steps?.length ? (
+            <ol className="auth-steps" aria-label="Étapes de l’inscription">
+              {steps.map((label, i) => (
+                <li key={label} className={`auth-step ${i === stepIndex ? 'on' : ''}`} aria-current={i === stepIndex ? 'step' : undefined}>
+                  <span className="n">{i + 1}</span>
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
         </div>
         <p className="small" style={{ color: 'var(--rose)', position: 'relative', zIndex: 1 }}>
           Une question ? contact@nissali.fr

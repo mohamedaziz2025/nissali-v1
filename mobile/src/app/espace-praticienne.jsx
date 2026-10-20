@@ -57,6 +57,14 @@ export default function PractitionerSpace() {
       setBusy(false);
     }
   };
+  const exportMessages = async () => {
+    try {
+      const r = await api.post('/pro-profile/messages/export/email', {});
+      toast(`Tes messages ont été envoyés à ${r.to}`);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
   const activity = [
     ['user', 'Mon profil public', 'Ce que voient les sœurs', () => router.push(`/praticienne/${data.id}`)],
     ['edit', 'Modifier ma fiche', 'Présentation, tarifs, photo', () => router.push('/pro/profil')],
@@ -157,7 +165,11 @@ export default function PractitionerSpace() {
 
       <Sheet visible={deleting} onClose={() => setDeleting(false)} title="Supprimer mon profil praticienne ?">
         <T>Ton compte personnel reste intact : cycle, notes, prières et jeûnes ne sont pas touchés.</T>
-        <T>Tout de suite : tu es retirée de l’annuaire et tu ne reçois plus de nouveaux messages. Ton profil, tes avis, tes messages et tes justificatifs sont effacés.</T>
+        <T>Tout de suite : tu disparais de l’annuaire et les sœurs ne peuvent plus t’écrire.</T>
+        <T>Sous 30 jours : ton profil, tes avis, tes messages et tes justificatifs sont effacés.</T>
+        <Pressable onPress={exportMessages} accessibilityRole="link">
+          <Text style={s.exportLink}>Télécharger mes messages avant</Text>
+        </Pressable>
         {data.visible ? (
           <Pressable onPress={() => { setDeleting(false); setVisible(false); }} accessibilityRole="button" style={s.pause}>
             <Text style={s.pauseText}>Plutôt mettre mon profil en pause</Text>
@@ -173,6 +185,7 @@ export default function PractitionerSpace() {
 }
 
 const s = StyleSheet.create({
+  exportLink: { fontFamily: fonts.bold, fontSize: 14, color: colors.bordeaux, textDecorationLine: 'underline' },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.sable, borderRadius: 24, padding: 16 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarImg: { width: '100%', height: '100%' },

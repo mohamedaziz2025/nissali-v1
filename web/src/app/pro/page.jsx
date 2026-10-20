@@ -107,6 +107,18 @@ export default function ProDashboard() {
           <span>Ton profil est en cours de validation par l’équipe Nissali. Prépare tes prestations et tes disponibilités en attendant.</span>
         </div>
       ) : null}
+      {data.practitioner.status === 'refusee' || data.practitioner.status === 'suspendue' ? (
+        // 8.2 — bandeau « Refusé ou à corriger » : motif écrit par l’équipe + bouton « Corriger ».
+        <div className="card row between" style={{ gap: 12, flexWrap: 'wrap', background: 'var(--blush)', borderColor: 'var(--blush)' }}>
+          <span>
+            <strong>{data.practitioner.status === 'refusee' ? 'Ton profil n’a pas été validé' : 'Ton profil est suspendu'}</strong>
+            {data.practitioner.rejectionReason ? <> — {data.practitioner.rejectionReason}</> : null}
+          </span>
+          <Link className="btn sm" href="/pro/profil">
+            Corriger mon profil
+          </Link>
+        </div>
+      ) : null}
       {me.data?.trial ? (
         <div className="card soft row between" style={{ gap: 12, flexWrap: 'wrap' }}>
           <span>

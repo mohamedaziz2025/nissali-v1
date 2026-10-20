@@ -24,6 +24,10 @@ export const env = {
     pass: process.env.SMTP_PASS,
     from: process.env.MAIL_FROM || 'Nissali <contact@nissali.fr>',
   },
+  // 3.1 / RG-01 — connexion Apple et Google : audiences acceptées des jetons d'identité (séparées par des virgules).
+  // Apple : identifiant du bundle iOS. Google : identifiant client OAuth « Web » (webClientId de l'appli).
+  appleAudiences: (process.env.APPLE_AUDIENCES || 'app.nissali').split(',').map((s) => s.trim()).filter(Boolean),
+  googleClientIds: (process.env.GOOGLE_CLIENT_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
   defaultCountryCode: process.env.DEFAULT_COUNTRY_CODE || '33',
   uploadDir: process.env.UPLOAD_DIR || 'uploads',
   // Documents des fiches clientes : jamais servis publiquement, seulement via l'API authentifiée.

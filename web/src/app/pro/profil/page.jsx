@@ -51,7 +51,10 @@ export default function PublicProfile() {
       <div className="page-head">
         <div>
           <h1>Profil public</h1>
-          <p>Ce que voient les utilisatrices dans l’annuaire Nissali.</p>
+          <p>
+            Ce que voient les utilisatrices dans l’annuaire Nissali.
+            {data.completion ? <> · <strong className="num" style={{ color: 'var(--bordeaux)' }}>Profil complété à {data.completion.percent} %</strong></> : null}
+          </p>
         </div>
         <button className="btn">Enregistrer</button>
       </div>

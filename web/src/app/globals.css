@@ -310,6 +310,16 @@ tbody tr:hover { background: #fdf9f9; }
 .auth-points { display: grid; gap: 12px; margin-top: 28px; }
 .auth-point { display: flex; gap: 12px; align-items: flex-start; color: #f6dfe4; font-size: 14.5px; }
 .auth-point svg { width: 20px; height: 20px; color: var(--rose); flex: none; margin-top: 1px; }
+.auth-steps { display: grid; gap: 10px; margin: 28px 0 0; padding: 0; list-style: none; position: relative; z-index: 1; }
+.auth-step { display: flex; align-items: center; gap: 10px; color: rgba(246, 223, 228, .65); font-size: 13.5px; font-weight: 600; }
+.auth-step.on { color: var(--white); }
+.auth-step .n { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .4); display: grid; place-items: center; font-size: 12px; flex: none; }
+.auth-step.on .n { background: var(--or); border-color: var(--or); color: var(--bordeaux); }
+.steps-rail { display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+.steps-rail li { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.steps-rail li.on { color: var(--bordeaux); }
+.steps-rail li:not(:last-child)::after { content: ''; width: 16px; height: 1px; background: var(--line-strong); }
+@media (max-width: 900px) { .steps-rail { display: flex; } }
 .auth-main { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
 .auth-card { width: min(460px, 100%); display: grid; gap: 18px; }
 .auth-card h1 { font-size: 30px; }

@@ -133,6 +133,7 @@ export default function ProProfile() {
         <View style={{ flex: 1 }}>
           <T variant="h3">{p.displayName}</T>
           <T variant="small">{{ en_attente: 'En cours de validation', validee: 'Profil validé', refusee: 'Inscription refusée', suspendue: 'Suspendu' }[p.status]}</T>
+          {me.data.completion && me.data.completion.percent < 100 ? <T variant="small" color={colors.bordeaux}>Profil complété à {me.data.completion.percent} %</T> : null}
           <Pressable onPress={pickPhoto}>
             <T variant="medium" color={colors.bordeaux}>Changer la photo</T>
           </Pressable>

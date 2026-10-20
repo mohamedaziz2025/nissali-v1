@@ -40,6 +40,9 @@ const userSchema = new Schema(
     email: { type: String, lowercase: true, trim: true, unique: true, sparse: true },
     emailVerified: { type: Boolean, default: false },
     phone: { type: String, trim: true, unique: true, sparse: true },
+    // 3.1 / RG-01 — identifiants stables des connexions Apple et Google (jamais renvoyés à l'appli).
+    appleId: { type: String, unique: true, sparse: true, select: false },
+    googleId: { type: String, unique: true, sparse: true, select: false },
     phoneVerified: { type: Boolean, default: false },
     // Connexion : par code OTP (toujours possible) ou par mot de passe si l'utilisatrice en a créé un.
     // Les administratrices ont toujours mot de passe + code (double authentification).

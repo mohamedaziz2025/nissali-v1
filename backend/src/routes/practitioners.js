@@ -264,6 +264,9 @@ router.post('/bookings/:bookingId/review', requireAuth, validate(z.object({ rati
   if (await Review.exists({ booking: b._id })) throw conflict('Tu as déjà laissé un avis');
   await Review.create({ booking: b._id, practitioner: b.practitioner, client: req.user._id, rating: req.body.rating, comment: req.body.comment || '' });
   await refreshRating(b.practitioner);
+  // 9.3 — nouvel avis : notification « Espace praticienne · », un appui ouvre Mon espace praticienne.
+  const p = await Practitioner.findById(b.practitioner).select('user').lean();
+  if (p) await notify(p.user, { key: `pro-review-${b.id}`, type: 'pro', title: 'Nissali', body: 'Espace praticienne · Nouvel avis', detail: `${req.user.firstName || 'Une cliente'} t’a laissé un avis (${req.body.rating}/5).`, link: '/espace-praticienne' }).catch(() => {});
   res.status(201).json({ ok: true });
 });
 

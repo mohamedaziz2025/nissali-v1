@@ -11,10 +11,11 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { Category, Conversation, Plan, Practitioner, Service, Subscription, User } from '../models/index.js';
+import { Category, Conversation, Message, Practitioner, Service, User } from '../models/index.js';
 import { bestCity } from '../services/geo.js';
 import { mask } from '../services/otp.js';
-import { activePlanFor, activeTrialPlan, FREE_PLAN_KEY, getPractitionerFor, specialtyLabelOf } from '../services/marketplace.js';
+import { activePlanFor, getPractitionerFor, specialtyLabelOf } from '../services/marketplace.js';
+import { attachCheckout, signupPlan, subscribe } from './pro.js';
 import { sendMail } from '../services/mailer.js';
 import { notify } from '../services/notifications.js';
 import { purgePractitioner } from '../services/purge.js';
@@ -45,6 +46,15 @@ const docMeta = (d) => (d ? { name: d.name, size: d.size, uploadedAt: d.uploaded
 
 /** Nom affiché imposé : prénom + initiale du nom (9.6). */
 const displayNameOf = (firstName, lastName) => `${String(firstName || '').trim()} ${String(lastName || '').trim().charAt(0).toUpperCase()}${lastName ? '.' : ''}`.trim();
+
+/** Équipe : notification interne + e-mail pour un dossier à vérifier ou à revérifier. */
+async function notifyTeam(p, detail, subject = 'Nouvelle praticienne à vérifier') {
+  const admins = await User.find({ role: 'admin' }).lean();
+  for (const a of admins) {
+    await notify(a._id, { key: `pro-dossier-${p.id}-${Date.now()}`, type: 'pro', title: 'Nissali', body: subject, detail, link: '/admin/praticiennes' }, { sendPush: false }).catch(() => {});
+    if (a.email) await sendMail({ to: a.email, subject, html: `<p>${detail}</p>`, text: detail }).catch(() => {});
+  }
+}
 
 router.get('/', async (req, res) => {
   const [p, categories] = await Promise.all([getPractitionerFor(req.user), Category.find({ active: true }).sort({ order: 1 }).lean()]);
@@ -87,7 +97,14 @@ router.post('/documents/:kind', docUpload.single('file'), async (req, res) => {
   if (previous?.storedName) fs.rm(path.join(docDir, previous.storedName), { force: true }, () => {});
   if (p) {
     p.set(`documents.${req.params.kind}`, meta);
-    if (req.params.kind === 'diploma') p.diplomaVerified = false; // nouvelle vérification par l'équipe
+    if (req.params.kind === 'diploma') p.diplomaVerified = false; // badge « Diplômée » retiré jusqu'à la revérification
+    // 8.2 — un justificatif remplacé après validation repasse en vérification ; le diplôme ne fait
+    // que perdre le badge, le reste de la fiche reste en ligne.
+    if (p.status === 'validee' && req.params.kind !== 'diploma') {
+      p.status = 'en_attente';
+      p.rejectionReason = undefined;
+      await notifyTeam(p, `Un justificatif (${req.params.kind}) a été remplacé après validation.`);
+    }
     await p.save();
   } else {
     const draft = draftOf(req.user);
@@ -114,24 +131,36 @@ router.post('/photo', photoUpload.single('photo'), async (req, res) => {
   res.status(201).json({ photoUrl: url });
 });
 
-const submitSchema = z.object({
-  specialty: z.string().min(1),
-  otherSpecialty: z.string().trim().max(40).optional(),
-  places: z.object({ visio: z.boolean(), domicile: z.boolean(), cabinet: z.boolean() }),
-  address: z.string().trim().max(200).optional(),
-  city: z.string().trim().min(1, 'Ta ville est obligatoire').max(80),
-  lastName: z.string().trim().min(1, 'Ton nom est obligatoire (seule l’initiale est affichée)').max(60),
-  description: z.string().trim().min(50, 'Présentation : 50 caractères minimum').max(600, 'Présentation : 600 caractères maximum'),
-  service: z.object({ name: z.string().trim().min(2).max(100), durationMinutes: z.number().int().min(10).max(480), price: z.number().min(0).max(10000) }),
-  showPhone: z.boolean().default(false),
-  phone: z.string().trim().max(30).optional(),
-  rpps: z.string().trim().optional(),
-  sterile: z.boolean().optional(),
-  photoUrl: z.string().max(200).optional(),
-  charter: z.literal(true, { errorMap: () => ({ message: 'Accepte la charte des praticiennes' }) }),
-});
+const submitSchema = z
+  .object({
+    specialty: z.string().min(1),
+    otherSpecialty: z.string().trim().max(40).optional(),
+    places: z.object({ visio: z.boolean(), domicile: z.boolean(), cabinet: z.boolean() }),
+    address: z.string().trim().max(200).optional(),
+    city: z.string().trim().min(1, 'Ta ville est obligatoire').max(80),
+    lastName: z.string().trim().min(1, 'Ton nom est obligatoire (seule l’initiale est affichée)').max(60),
+    // 9.6 (appli) ; sur le site (4.12), présentation et tarif se complètent ensuite dans Mon profil (8.2).
+    description: z.string().trim().max(600).optional(),
+    service: z.object({ name: z.string().trim().min(2).max(100), durationMinutes: z.number().int().min(10).max(480), price: z.number().min(0).max(10000) }).optional(),
+    showPhone: z.boolean().default(false),
+    phone: z.string().trim().max(30).optional(),
+    rpps: z.string().trim().optional(),
+    sterile: z.boolean().optional(),
+    photoUrl: z.string().max(200).optional(),
+    charter: z.boolean().optional(),
+    // 4.12 — site Nissali Pro : activité puis justificatifs ; formule choisie à l'inscription.
+    via: z.enum(['app', 'web']).default('app'),
+    plan: z.string().optional(),
+    billing: z.enum(['mensuel', 'annuel']).default('mensuel'),
+  })
+  .superRefine((b, ctx) => {
+    if (b.via !== 'app') return;
+    if (!b.charter) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['charter'], message: 'Accepte la charte des praticiennes' });
+    if ((b.description || '').length < 50) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['description'], message: 'Présentation : 50 caractères minimum' });
+    if (!b.service) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['service'], message: 'Indique au moins une prestation' });
+  });
 
-// 9.8 — « Envoyer pour vérification » : la fiche part dans Back-office › Praticiennes (vérification sous 48 h).
+// 9.8 / 4.12 — « Envoyer pour vérification » : le dossier part dans Back-office › Praticiennes (vérification sous 48 h).
 router.post('/submit', async (req, res) => {
   if (await getPractitionerFor(req.user)) throw conflict('Tu as déjà un profil praticienne');
   const draft = draftOf(req.user);
@@ -153,7 +182,7 @@ router.post('/submit', async (req, res) => {
     specialty: b.specialty,
     categories: [b.specialty],
     otherSpecialty: b.specialty === 'autre' ? b.otherSpecialty : '',
-    description: b.description,
+    description: b.description || '',
     photoUrl: b.photoUrl || undefined,
     location: { city: b.city, address: b.places.cabinet ? b.address : '' },
     phone: b.phone || req.user.phone || '',
@@ -173,21 +202,34 @@ router.post('/submit', async (req, res) => {
     p.location.region = place.admin || '';
     await p.save();
   }
-  await Service.create({ practitioner: p._id, name: b.service.name, durationMinutes: b.service.durationMinutes, price: b.service.price, mode: b.places.visio && !b.places.cabinet ? 'visio' : b.places.visio ? 'les_deux' : 'cabinet' });
-  const plan = (await activeTrialPlan()) || (await Plan.findOne({ key: FREE_PLAN_KEY, active: true }));
-  if (plan) {
-    const now = new Date();
-    await Subscription.create({ practitioner: p._id, plan: plan.key, billing: 'mensuel', amount: 0, status: 'active', trial: Boolean(plan.trial), startedAt: now, endsAt: plan.trial && plan.trialDays > 0 ? new Date(now.getTime() + plan.trialDays * 86_400_000) : undefined });
+  if (b.service) await Service.create({ practitioner: p._id, name: b.service.name, durationMinutes: b.service.durationMinutes, price: b.service.price, mode: b.places.visio && !b.places.cabinet ? 'visio' : b.places.visio ? 'les_deux' : 'cabinet' });
+  // Formule de départ : essai gratuit par défaut, formule choisie sur le site (4.12 étape 1).
+  let subscription = null;
+  let checkoutUrl = null;
+  try {
+    const startPlan = await signupPlan(b.plan, b.billing);
+    if (startPlan) {
+      subscription = await subscribe(p, startPlan.key, b.billing);
+      checkoutUrl = await attachCheckout(p, subscription, req.user);
+    }
+  } catch (err) {
+    console.warn('[pro-profile] formule de départ :', err.message);
   }
+  if (b.via === 'web') req.user.lastSpace = 'pro';
   req.user.proDraft = undefined;
   await req.user.save();
 
-  const admins = await User.find({ role: 'admin' }).lean();
-  for (const a of admins) {
-    await notify(a._id, { key: `pro-new-${p.id}`, type: 'pro', title: 'Nissali', body: 'Nouvelle praticienne à vérifier', detail: `${p.displayName} (${cat.label}${b.specialty === 'autre' ? ` : ${b.otherSpecialty}` : ''}, ${b.city}) attend sa vérification.`, link: '/admin/praticiennes' }, { sendPush: false }).catch(() => {});
-    if (a.email) await sendMail({ to: a.email, subject: 'Nouvelle praticienne à vérifier', html: `<p>${p.displayName} (${cat.label}, ${b.city}) a envoyé son dossier depuis l’appli.</p>`, text: `Nouvelle praticienne : ${p.displayName}` });
+  await notifyTeam(p, `${p.displayName} (${cat.label}${b.specialty === 'autre' ? ` : ${b.otherSpecialty}` : ''}, ${b.city}) attend sa vérification.`);
+  // 4.12 étape 4 / 9.9 — e-mail « dossier bien reçu » envoyé à la praticienne.
+  if (req.user.email) {
+    await sendMail({
+      to: req.user.email,
+      subject: 'Ton dossier praticienne est bien reçu',
+      html: `<p>Bonjour ${req.user.firstName || ''},</p><p>Ton dossier praticienne a bien été transmis à l’équipe Nissali. La pièce d’identité est vérifiée sous 48 h : tu recevras un e-mail et une notification au résultat.</p><p>À très vite,<br>L’équipe Nissali</p>`,
+      text: 'Ton dossier praticienne est bien reçu : vérification sous 48 h.',
+    }).catch(() => {});
   }
-  res.status(201).json(await sessionPayload(req.user));
+  res.status(201).json({ ...(await sessionPayload(req.user)), subscription, checkoutUrl });
 });
 
 // 9.3 — Mon espace praticienne : statut, visible / en pause, chiffres du mois.
@@ -222,6 +264,35 @@ router.patch('/visibility', validate(z.object({ visible: z.boolean() })), async 
 });
 
 // 9.4 — Supprimer mon profil praticienne : le compte perso reste intact ; retirée de l'annuaire tout de suite.
+// 9.4 — « Télécharger mes messages avant » : toutes les conversations du profil pro, envoyées en fichier texte par e-mail.
+router.post('/messages/export/email', async (req, res) => {
+  const p = await getPractitionerFor(req.user);
+  if (!p) throw notFound('Pas de profil praticienne');
+  if (!req.user.email) throw badRequest('Ajoute une adresse e-mail à ton compte pour recevoir tes messages', 'NO_EMAIL');
+  const convs = await Conversation.find({ practitioner: p._id }).populate('user', 'firstName').sort({ updatedAt: -1 }).lean();
+  const when = (d) => new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
+  const blocks = [];
+  for (const c of convs) {
+    const msgs = await Message.find({ conversation: c._id, deletedForAll: { $ne: true }, hiddenFor: { $ne: 'pro' } }).sort({ createdAt: 1 }).lean();
+    if (!msgs.length) continue;
+    const client = c.user?.firstName || 'Utilisatrice';
+    const lines = msgs.map((m) => `[${when(m.createdAt)}] ${m.from === 'pro' ? 'Moi' : client} : ${m.text || (m.image?.storedName ? '(photo)' : '')}`);
+    blocks.push(`=== Conversation avec ${client} ===\n${lines.join('\n')}`);
+  }
+  if (!blocks.length) throw badRequest('Tu n’as aucun message à télécharger.', 'NO_MESSAGES');
+  const name = `nissali-messages-${new Date().toISOString().slice(0, 10)}.txt`;
+  await sendMail({
+    to: req.user.email,
+    subject: 'Tes messages Nissali',
+    title: 'Tes messages de praticienne',
+    preheader: 'Le fichier de tes conversations est joint à cet e-mail.',
+    html: `<p>Salam ${String(req.user.firstName || '').replace(/[<>&"']/g, '')},</p><p>Tu trouveras en pièce jointe toutes les conversations de ton espace praticienne.</p>`,
+    text: 'Le fichier de tes conversations Nissali est joint à cet e-mail.',
+    attachments: [{ filename: name, content: blocks.join('\n\n'), contentType: 'text/plain; charset=utf-8' }],
+  });
+  res.json({ ok: true, to: mask(req.user.email, 'email') });
+});
+
 router.delete('/', async (req, res) => {
   const p = await getPractitionerFor(req.user);
   if (!p) throw notFound('Pas de profil praticienne');

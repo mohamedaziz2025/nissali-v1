@@ -9,6 +9,7 @@ import { validate } from '../middleware/validate.js';
 import { AuditLog, Booking, User } from '../models/index.js';
 import { getPractitionerFor, activePlanFor, trialInfo } from '../services/marketplace.js';
 import { normalizeIdentifier, sendOtp, verifyOtp } from '../services/otp.js';
+import { socialField, verifySocialToken } from '../services/socialAuth.js';
 import { endSession, startSession } from '../services/session.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../utils/http.js';
 
@@ -16,7 +17,7 @@ const router = Router();
 
 // Limite les demandes de codes et les tentatives de connexion (pas /me ni /logout).
 const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Trop de tentatives, réessaie dans quelques minutes.', code: 'RATE_LIMIT' } });
-router.use(['/otp', '/register', '/login', '/admin', '/exists'], limiter);
+router.use(['/otp', '/register', '/login', '/admin', '/exists', '/social'], limiter);
 
 const MIN_AGE = 15; // 8.2 : inscription refusée en dessous de 15 ans
 
@@ -86,7 +87,9 @@ router.post('/otp', validate(otpRequest), async (req, res) => {
 const registerSchema = z
   .object({
     identifier: z.string().min(3).max(120),
-    code: z.string().regex(/^\d{6}$/, 'Le code contient 6 chiffres'),
+    code: z.string().regex(/^\d{6}$/, 'Le code contient 6 chiffres').optional(),
+    // 3.1 — inscription avec Apple ou Google : pas de mot de passe ni de code, le jeton d'identité fait foi.
+    social: z.object({ provider: z.enum(['apple', 'google']), idToken: z.string().min(20).max(5000) }).optional(),
     // Numéro de téléphone demandé à l'inscription (RG-01), saisi sur le même écran que l'e-mail : il n'est
     // jamais utilisé pour l'envoi du code, seulement enregistré sur le compte (non vérifié).
     phone: z.string().trim().min(3).max(30).optional(),
@@ -106,6 +109,7 @@ const registerSchema = z
     }),
   })
   .superRefine((v, ctx) => {
+    if (!v.social && !v.code) ctx.addIssue({ code: 'custom', path: ['code'], message: 'Le code contient 6 chiffres' });
     // RG-05 bis : prénom, âge, ville, situation pour le compte personnel.
     if (v.accountType === 'personnel') {
       if (v.age == null) ctx.addIssue({ code: 'custom', path: ['age'], message: 'Ton âge est obligatoire' });
@@ -119,10 +123,15 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   const b = req.body;
   // RG-50 — impossible de créer un compte uniquement pro : on s'inscrit dans l'appli, le profil pro s'ajoute ensuite.
   if (b.accountType === 'pro') throw badRequest('Crée d’abord ton compte dans l’appli Nissali, puis ajoute ton profil praticienne.', 'APP_SIGNUP_REQUIRED');
-  const id = normalizeIdentifier(b.identifier);
+  // 3.1 / RG-02 — avec Apple ou Google, l'e-mail vient du jeton ; une adresse relais Apple est remplacée par
+  // l'e-mail de contact saisi (non vérifié, comme pour l'inscription par e-mail le lien reste non bloquant).
+  const social = b.social ? await verifySocialToken(b.social.provider, b.social.idToken) : null;
+  if (social && (await User.exists({ [socialField(social.provider)]: social.sub }))) throw conflict('Un compte existe déjà avec cet identifiant. Connecte-toi.', 'ACCOUNT_EXISTS');
+  const useTokenEmail = social?.email && social.emailVerified && !social.relay;
+  const id = normalizeIdentifier(useTokenEmail ? social.email : b.identifier);
   assertEmailSignup(id);
   if (await findByIdentifier(id)) throw conflict('Un compte existe déjà avec cet identifiant. Connecte-toi.', 'ACCOUNT_EXISTS');
-  await verifyOtp({ target: id.target, purpose: 'register', code: b.code });
+  if (!social) await verifyOtp({ target: id.target, purpose: 'register', code: b.code });
 
   // Numéro de téléphone saisi à l'inscription (facultatif pour un compte pro) : normalisé et vérifié
   // disponible, mais jamais vérifié par code (seul l'e-mail l'est à l'inscription).
@@ -142,7 +151,8 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     city: b.city,
     situation: b.situation,
     email: id.target,
-    emailVerified: true,
+    emailVerified: !social || Boolean(useTokenEmail),
+    ...(social ? { [socialField(social.provider)]: social.sub } : {}),
     ...(phone ? { phone, phoneVerified: false } : {}),
     consents: {
       terms: consent(true),
@@ -156,6 +166,29 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   });
   const token = await startSession(req, res, user);
   res.status(201).json({ ...(await sessionPayload(user)), token });
+});
+
+// 3.1 / RG-01 — « Continuer avec Apple / Google » : connexion si le compte existe (ou rattachement à un compte
+// existant avec la même adresse vérifiée), sinon l'appli poursuit l'inscription (prénom, âge, ville…) sans
+// écran mot de passe ; avec une adresse relais Apple, elle demande un e-mail de contact (RG-02).
+router.post('/social', validate(z.object({ provider: z.enum(['apple', 'google']), idToken: z.string().min(20).max(5000) })), async (req, res) => {
+  const social = await verifySocialToken(req.body.provider, req.body.idToken);
+  const field = socialField(social.provider);
+  let user = await User.findOne({ [field]: social.sub });
+  if (!user && social.email && social.emailVerified && !social.relay) {
+    user = await User.findOne({ email: social.email });
+    if (user && user.role !== 'admin') {
+      user[field] = social.sub;
+      user.emailVerified = true;
+    }
+  }
+  if (!user) return res.json({ needsSignup: true, provider: social.provider, email: social.relay ? null : social.email, relay: social.relay, firstName: social.firstName });
+  if (user.role === 'admin') throw forbidden('Utilise la connexion administratrice.', 'ADMIN_LOGIN_REQUIRED');
+  if (user.status === 'suspendue') throw forbidden('Ce compte est suspendu.', 'SUSPENDED');
+  user.lastActiveAt = new Date();
+  await user.save();
+  const token = await startSession(req, res, user);
+  res.json({ ...(await sessionPayload(user)), token });
 });
 
 const loginSchema = z.object({ identifier: z.string().min(3).max(120), code: z.string().regex(/^\d{6}$/, 'Le code contient 6 chiffres') });
@@ -219,7 +252,7 @@ router.post(
 
 export { passwordField };
 
-// --- Back-office : connexion par mot de passe seul -------------
+// --- Back-office : mot de passe puis code OTP envoyé par e-mail (double authentification, 8.3) ---
 
 const adminLoginSchema = z.object({ email: z.string().email(), password: z.string().min(8) });
 
@@ -227,9 +260,7 @@ router.post('/admin/login', validate(adminLoginSchema), async (req, res) => {
   const user = await User.findOne({ email: req.body.email.toLowerCase(), role: 'admin' }).select('+passwordHash');
   if (!user?.passwordHash || !(await bcrypt.compare(req.body.password, user.passwordHash))) throw unauthorized('E-mail ou mot de passe incorrect', 'BAD_CREDENTIALS');
   if (user.status === 'suspendue') throw forbidden('Ce compte est suspendu.', 'SUSPENDED');
-  await startSession(req, res, user, { days: 1 });
-  await AuditLog.create({ admin: user._id, action: 'connexion_backoffice' });
-  res.json(await sessionPayload(user));
+  res.json({ step: '2fa', ...(await sendOtp({ channel: 'email', target: user.email, purpose: 'admin2fa', user })) });
 });
 
 const adminVerifySchema = z.object({ email: z.string().email(), code: z.string().regex(/^\d{6}$/) });
@@ -237,6 +268,7 @@ const adminVerifySchema = z.object({ email: z.string().email(), code: z.string()
 router.post('/admin/verify', validate(adminVerifySchema), async (req, res) => {
   const user = await User.findOne({ email: req.body.email.toLowerCase(), role: 'admin' });
   if (!user) throw unauthorized();
+  if (user.status === 'suspendue') throw forbidden('Ce compte est suspendu.', 'SUSPENDED');
   await verifyOtp({ target: user.email, purpose: 'admin2fa', code: req.body.code });
   await startSession(req, res, user, { days: 1 });
   await AuditLog.create({ admin: user._id, action: 'connexion_backoffice' });

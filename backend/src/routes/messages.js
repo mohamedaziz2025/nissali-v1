@@ -246,15 +246,17 @@ router.post('/conversations/:id/messages', validate(sendSchema), async (req, res
     const senderName = as === 'pro' ? practitioner?.displayName || 'Ta praticienne' : req.user.firstName || 'Une cliente';
     const link = `/messages/${conv._id}${as === 'pro' ? '' : '?as=pro'}`;
     const now = new Date();
+    // 9.3 — côté praticienne, les notifications pro portent le préfixe « Espace praticienne · ».
+    const body = as === 'pro' ? 'Tu as un nouveau message' : 'Espace praticienne · Nouveau message';
     await Notification.updateOne(
       { user: recipient, key: `msg-${conv._id}` },
-      { $set: { type: 'message', title: 'Nissali', body: 'Tu as un nouveau message', detail: `${senderName} : ${preview(msg)}`, link, read: false, pushed: false, createdAt: now, updatedAt: now } },
+      { $set: { type: 'message', title: 'Nissali', body, detail: `${senderName} : ${preview(msg)}`, link, read: false, pushed: false, createdAt: now, updatedAt: now } },
       { upsert: true, timestamps: false },
     ).catch(() => {});
     const key = `${conv._id}:${as}`;
     if (!lastPush.has(key) || Date.now() - lastPush.get(key) > 60_000) {
       lastPush.set(key, Date.now());
-      push(recipient, { title: 'Nissali', body: 'Tu as un nouveau message', link, channelId: 'annonces', data: { kind: 'message', conversation: String(conv._id), as: as === 'pro' ? 'user' : 'pro' } }).catch(() => {});
+      push(recipient, { title: 'Nissali', body, link, channelId: 'annonces', data: { kind: 'message', conversation: String(conv._id), as: as === 'pro' ? 'user' : 'pro' } }).catch(() => {});
     }
   }
   res.status(201).json(await presentMessage(msg.toObject(), as, quoted));

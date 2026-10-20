@@ -17,7 +17,8 @@
       },
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "app.nissali",
@@ -84,7 +85,8 @@
           "photosPermission": "Nissali accède à tes photos pour ta photo de profil professionnelle."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": false

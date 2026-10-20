@@ -111,13 +111,7 @@ export default function Login() {
         router.replace(r.practitioner ? '/pro' : '/inscription');
         return;
       }
-      if (mode === 'admin') {
-        const r = await api.post('/auth/admin/login', { email: identifier, password });
-        signIn(r);
-        router.replace(r.user?.role === 'admin' ? '/admin' : '/');
-        return;
-      }
-      const r = await api.post('/auth/otp', { identifier, purpose: 'login' });
+      const r = mode === 'admin' ? await api.post('/auth/admin/login', { email: identifier, password }) : await api.post('/auth/otp', { identifier, purpose: 'login' });
       setSent(r);
       setCode('');
       setWait(RESEND_SECONDS);
@@ -153,7 +147,7 @@ export default function Login() {
           {sent
             ? `Nous avons envoyé un code à 6 chiffres par e-mail à ${sent.target}.`
             : mode === 'admin'
-              ? 'Accès réservé à l’équipe Nissali.'
+              ? 'Accès réservé à l’équipe Nissali, avec double authentification.'
               : 'Heureuse de te revoir. Gère tes rendez-vous, tes clientes et ton profil.'}
         </p>
       </header>
@@ -235,10 +229,11 @@ export default function Login() {
             ) : null}
 
             <button className="btn block lg" disabled={busy || identifier.trim().length < 3 || (usesPassword && password.length < 8)}>
-              {busy ? 'Un instant…' : mode === 'admin' ? 'Me connecter' : method === 'password' ? 'Me connecter' : 'Recevoir mon code'}
+              {busy ? 'Un instant…' : mode === 'admin' ? 'Continuer' : method === 'password' ? 'Me connecter' : 'Recevoir mon code'}
               {!busy ? <Icon name="chevronRight" /> : null}
             </button>
             {method === 'code' && mode === 'pro' ? <p className="muted small center">Le code expire au bout de 10 minutes. Aucun mot de passe à retenir.</p> : null}
+            {mode === 'admin' ? <p className="muted small center">Un code de vérification est envoyé par e-mail après le mot de passe.</p> : null}
           </form>
 
           {mode === 'pro' ? (
