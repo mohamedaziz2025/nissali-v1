@@ -22,6 +22,20 @@ export default function PractitionerDetail() {
       toast(e.message, 'error');
     }
   };
+  const patch = async (body, message) => {
+    try {
+      await api.patch(`/admin/practitioners/${id}`, body);
+      toast(message);
+      reload();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const DOCS = [
+    ['identity', 'Pièce d’identité'],
+    ['diploma', 'Diplôme ou certificat'],
+    ['rcPro', 'RC Pro'],
+  ];
   const remove = async () => {
     if (!window.confirm('Supprimer définitivement ce profil professionnel ? Les rendez-vous à venir seront annulés.')) return;
     await api.delete(`/admin/practitioners/${id}`);
@@ -41,6 +55,33 @@ export default function PractitionerDetail() {
           {data.status !== 'validee' ? <button className="btn" onClick={() => setStatus('validee')}>Valider</button> : <button className="btn outline" onClick={() => setStatus('suspendue')}>Suspendre</button>}
           <button className="btn danger" onClick={remove}>Supprimer</button>
         </div>
+      </div>
+      <div className="card stack">
+        <h3>Vérification (justificatifs chiffrés, vus seulement par l’équipe)</h3>
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          {DOCS.map(([k, label]) =>
+            data.documents?.[k]?.storedName ? (
+              <a key={k} className="btn outline small" href={`/api/pro-profile/admin/${id}/documents/${k}`} target="_blank" rel="noreferrer">
+                {label} · {data.documents[k].name}
+              </a>
+            ) : (
+              <span key={k} className="badge">{label} : non fourni</span>
+            ),
+          )}
+        </div>
+        {data.professionalId ? <p className="small">Numéro RPPS : <strong>{data.professionalId}</strong></p> : null}
+        {data.specialty === 'hijama' ? <p className="small">Engagement matériel stérile et contre-indications : {data.sterileCommitment ? 'oui' : 'non'}</p> : null}
+        <label className="check">
+          <input type="checkbox" checked={Boolean(data.diplomaVerified)} disabled={!data.documents?.diploma?.storedName} onChange={(e) => patch({ diplomaVerified: e.target.checked }, e.target.checked ? 'Badge « Diplômée » attribué' : 'Badge « Diplômée » retiré')} />
+          <span>Diplôme vérifié (badge « Diplômée », RG-47)</span>
+        </label>
+        {data.specialty === 'autre' ? (
+          <label className="check">
+            <input type="checkbox" checked={Boolean(data.otherValidated)} onChange={(e) => patch({ otherValidated: e.target.checked }, e.target.checked ? 'Métier validé : affiché sur la fiche' : 'Métier masqué')} />
+            <span>Métier « {data.otherSpecialty || '—'} » validé (sinon masqué sur la fiche)</span>
+          </label>
+        ) : null}
+        {data.visible === false ? <p className="small muted">Profil mis en pause par la praticienne (caché de l’annuaire).</p> : null}
       </div>
       <div className="grid grid-2">
         <div className="card stack">

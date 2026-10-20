@@ -1,28 +1,31 @@
 'use client';
+// 4.13 · 8.3 — Magazine : liste des articles (titre, catégorie, statut, date, vues), filtre par statut.
 import Link from 'next/link';
 import { useState } from 'react';
 import { ErrorBox, Loading } from '@/components/ui';
 import { shortDate } from '@/lib/format';
 import { useFetch } from '@/lib/useFetch';
 
-const VALIDATION = { a_valider: ['À valider', 'warning'], valide_comite: ['Validé par le comité', 'success'], valide_sante: ['Validé santé', 'success'] };
-const CATEGORIES = { cycle: 'Cycle', fiqh: 'Fiqh féminin', grossesse: 'Grossesse', ramadan: 'Ramadan', fertilite: 'Fertilité', sante: 'Santé féminine' };
+const STATUS = { brouillon: ['Brouillon', ''], programme: ['Programmé', 'warning'], publie: ['Publié', 'success'] };
 
 export default function BlogAdmin() {
-  const { data, error, loading } = useFetch('/admin/articles');
   const [filter, setFilter] = useState('');
-  const list = (data || []).filter((a) => !filter || a.validation === filter);
+  const { data, error, loading } = useFetch(`/admin/articles${filter ? `?status=${filter}` : ''}`);
+  const list = data || [];
   return (
     <div className="stack" style={{ gap: 20 }}>
       <div className="page-head">
         <div>
-          <h1>Blog</h1>
-          <p>Seuls les articles validés (comité ou professionnelle de santé), publiés et dont la date est passée sont visibles dans l’appli.</p>
+          <h1>Magazine</h1>
+          <p>Deux étapes : Brouillon → Publié (tout de suite ou programmé). Les catégories sont gérées par l’équipe.</p>
         </div>
-        <Link className="btn" href="/admin/blog/nouveau">Nouvel article</Link>
+        <div className="row">
+          <Link className="btn ghost" href="/admin/blog/categories">Gérer les catégories</Link>
+          <Link className="btn" href="/admin/blog/nouveau">Nouvel article</Link>
+        </div>
       </div>
       <div className="chips">
-        {[['', 'Tous'], ...Object.entries(VALIDATION).map(([k, [l]]) => [k, l])].map(([k, l]) => (
+        {[['', 'Tous'], ...Object.entries(STATUS).map(([k, [l]]) => [k, l])].map(([k, l]) => (
           <button key={k} className={`chip ${filter === k ? 'on' : ''}`} onClick={() => setFilter(k)}>
             {l}
           </button>
@@ -33,15 +36,15 @@ export default function BlogAdmin() {
           <Loading />
         ) : error ? (
           <ErrorBox error={error} />
-        ) : (
+        ) : list.length ? (
           <table>
             <thead>
               <tr>
                 <th>Titre</th>
                 <th>Catégorie</th>
-                <th>Validation</th>
-                <th>Publication</th>
-                <th>Lectures</th>
+                <th>Statut</th>
+                <th>Date</th>
+                <th>Vues</th>
               </tr>
             </thead>
             <tbody>
@@ -55,17 +58,20 @@ export default function BlogAdmin() {
                       </Link>
                     </div>
                     {a.featured ? <span className="badge" style={{ marginLeft: 8 }}>À la une</span> : null}
+                    {a.pushOnPublish ? <span className="badge" style={{ marginLeft: 8 }}>{a.pushBroadcast ? 'Push envoyé' : 'Push à la publication'}</span> : null}
                   </td>
-                  <td>{CATEGORIES[a.category]}</td>
+                  <td>{a.categoryLabel}</td>
                   <td>
-                    <span className={`badge ${VALIDATION[a.validation][1]}`}>{VALIDATION[a.validation][0]}</span>
+                    <span className={`badge ${STATUS[a.status][1]}`}>{STATUS[a.status][0]}</span>
                   </td>
-                  <td>{a.published ? shortDate(a.publishAt) : <span className="muted">Brouillon</span>}</td>
+                  <td>{shortDate(a.publishAt)}</td>
                   <td>{a.views}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        ) : (
+          <p className="muted">Aucun article.</p>
         )}
       </div>
     </div>

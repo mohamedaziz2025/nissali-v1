@@ -1,5 +1,6 @@
 'use client';
-// Éditeur d'article : catégorie, phases du cycle, statut de validation, programmation.
+// 4.13 · 8.3 — Éditeur d'article : Brouillon → Publié (immédiat ou programmé), à la une, phase du cycle,
+// catégories gérées par l'équipe (« + Nouvelle catégorie »), notification push à la publication (désactivée par défaut).
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -7,14 +8,13 @@ import CoverCropper from '@/components/CoverCropper';
 import { Chips, Field, Loading, useToast } from '@/components/ui';
 import { api } from '@/lib/api';
 
-const CATEGORIES = [
-  { key: 'cycle', label: 'Cycle' },
-  { key: 'fiqh', label: 'Fiqh féminin' },
-  { key: 'grossesse', label: 'Grossesse' },
-  { key: 'ramadan', label: 'Ramadan' },
-  { key: 'fertilite', label: 'Fertilité' },
-  { key: 'sante', label: 'Santé féminine' },
-];
+const pad = (n) => String(n).padStart(2, '0');
+/** Date ISO → « AAAA-MM-JJTHH:mm » (heure locale) pour le champ date et heure. */
+const toLocalInput = (iso) => {
+  const d = iso ? new Date(iso) : new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const PHASES = [
   { key: 'menstruelle', label: 'Menstruelle' },
   { key: 'folliculaire', label: 'Folliculaire' },
@@ -27,12 +27,6 @@ const COLORS = [
   { key: 'blush', label: 'Blush' },
   { key: 'bordeaux', label: 'Bordeaux' },
 ];
-const VALIDATIONS = [
-  { key: 'a_valider', label: 'À valider' },
-  { key: 'valide_comite', label: 'Validé par le comité' },
-  { key: 'valide_sante', label: 'Validé par une professionnelle de santé' },
-];
-
 const slugify = (s) =>
   s
     .toLowerCase()
@@ -47,18 +41,34 @@ export default function ArticleEditor() {
   const isNew = id === 'nouveau';
   const router = useRouter();
   const toast = useToast();
-  const [a, setA] = useState(isNew ? { title: '', slug: '', category: 'cycle', excerpt: '', body: '', readMinutes: 4, featured: false, phases: [], validation: 'a_valider', reviewer: '', sources: '', publishAt: new Date().toISOString().slice(0, 10), published: true, color: 'rose', coverUrl: '', coverAlt: '', coverCredit: '' } : null);
+  const [a, setA] = useState(isNew ? { title: '', slug: '', category: '', excerpt: '', body: '', readMinutes: 4, featured: false, phases: [], reviewer: '', sources: '', when: 'now', publishAt: toLocalInput(), published: false, color: 'rose', coverUrl: '', coverAlt: '', coverCredit: '', pushOnPublish: false } : null);
+  const [cats, setCats] = useState([]);
+  const [newCat, setNewCat] = useState(null);
+  const loadCats = () => api.get('/admin/article-categories').then((l) => setCats(l.filter((c) => !c.hidden))).catch(() => {});
 
   useEffect(() => {
+    loadCats();
     if (isNew) return;
-    api.get(`/admin/articles/${id}`).then((d) => setA({ ...d, sources: (d.sources || []).join('\n'), publishAt: (d.publishAt || '').slice(0, 10) }));
+    api.get(`/admin/articles/${id}`).then((d) => setA({ ...d, sources: (d.sources || []).join('\n'), when: new Date(d.publishAt) > new Date() ? 'later' : 'now', publishAt: toLocalInput(d.publishAt) }));
   }, [id, isNew]);
   if (!a) return <Loading />;
+  const addCategory = async () => {
+    try {
+      const c = await api.post('/admin/article-categories', { label: newCat.trim() });
+      await loadCats();
+      setA((x) => ({ ...x, category: c.key }));
+      setNewCat(null);
+      toast('Catégorie créée');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
   const set = (k) => (v) => setA((x) => ({ ...x, [k]: v?.target ? (v.target.type === 'checkbox' ? v.target.checked : v.target.value) : v }));
 
   const save = async (e) => {
     e.preventDefault();
     if (a.coverUrl && !String(a.coverAlt || '').trim()) return toast('Ajoute un texte alternatif à la photo de couverture', 'error');
+    if (!a.category) return toast('Choisis une catégorie', 'error');
     const body = {
       title: a.title,
       slug: a.slug || slugify(a.title),
@@ -68,11 +78,11 @@ export default function ArticleEditor() {
       readMinutes: Number(a.readMinutes),
       featured: a.featured,
       phases: a.phases,
-      validation: a.validation,
       reviewer: a.reviewer,
       sources: String(a.sources || '').split('\n').map((s) => s.trim()).filter(Boolean),
-      publishAt: a.publishAt,
+      publishAt: a.when === 'later' ? new Date(a.publishAt).toISOString() : a.published && isNew ? new Date().toISOString() : a.publishAt ? new Date(a.publishAt).toISOString() : new Date().toISOString(),
       published: a.published,
+      pushOnPublish: Boolean(a.pushOnPublish),
       color: a.color,
       coverUrl: a.coverUrl || '',
       coverAlt: a.coverAlt || '',
@@ -98,7 +108,7 @@ export default function ArticleEditor() {
 
   return (
     <form className="stack" style={{ gap: 20 }} onSubmit={save}>
-      <Link href="/admin/blog">← Blog</Link>
+      <Link href="/admin/blog">← Magazine</Link>
       <div className="page-head">
         <h1>{isNew ? 'Nouvel article' : 'Modifier l’article'}</h1>
         <div className="row">
@@ -129,41 +139,89 @@ export default function ArticleEditor() {
         </div>
         <div className="stack">
           <div className="card stack">
-            <h3>Validation</h3>
-            <Chips items={VALIDATIONS} value={a.validation} onChange={set('validation')} />
-            <Field label="Mention affichée">
-              <input className="input" value={a.reviewer} onChange={set('reviewer')} placeholder="Relu par une sage-femme" />
-            </Field>
-          </div>
-          <div className="card stack">
-            <h3>Publication</h3>
-            <Field label="Date de publication" hint="Une date future programme l’article.">
-              <input className="input" type="date" value={a.publishAt} onChange={set('publishAt')} />
-            </Field>
-            <label className="check">
-              <input type="checkbox" checked={a.published} onChange={set('published')} />
-              <span>Publié</span>
-            </label>
+            <h3>Statut</h3>
+            <div className="tabs">
+              <button type="button" className={!a.published ? 'on' : ''} onClick={() => set('published')(false)}>Brouillon</button>
+              <button type="button" className={a.published ? 'on' : ''} onClick={() => set('published')(true)}>Publié</button>
+            </div>
+            {a.published ? (
+              <>
+                <label className="check">
+                  <input type="radio" name="when" checked={a.when === 'now'} onChange={() => set('when')('now')} />
+                  <span>Publier tout de suite</span>
+                </label>
+                <label className="check">
+                  <input type="radio" name="when" checked={a.when === 'later'} onChange={() => set('when')('later')} />
+                  <span>Programmer (date et heure)</span>
+                </label>
+                {a.when === 'later' ? <input className="input" type="datetime-local" value={a.publishAt} onChange={set('publishAt')} /> : null}
+              </>
+            ) : (
+              <p className="muted small">Visible seulement dans le back-office.</p>
+            )}
             <label className="check">
               <input type="checkbox" checked={a.featured} onChange={set('featured')} />
-              <span>À la une</span>
+              <span>Mettre à la une</span>
             </label>
             <Field label="Temps de lecture (min)">
               <input className="input" type="number" min="1" max="60" value={a.readMinutes} onChange={set('readMinutes')} />
             </Field>
+            <Field label="Mention affichée (facultatif)">
+              <input className="input" value={a.reviewer || ''} onChange={set('reviewer')} placeholder="Relu par une sage-femme" />
+            </Field>
+          </div>
+          <div className="card stack">
+            <h3>Notification push</h3>
+            <label className="check">
+              <input type="checkbox" checked={Boolean(a.pushOnPublish)} disabled={Boolean(a.pushBroadcast)} onChange={set('pushOnPublish')} />
+              <span>Envoyer une notification push</span>
+            </label>
+            {a.pushOnPublish ? (
+              <div className="stack" style={{ gap: 6 }}>
+                <div className="notif-preview">
+                  <strong>Nouvel article à lire</strong>
+                  <span>{a.title || 'Titre de l’article'}</span>
+                </div>
+                <p className="muted small">{a.pushBroadcast ? 'Notification envoyée à la publication.' : 'Envoyée au moment de la publication, selon les règles de fréquence de chacune.'}</p>
+                <Link className="small" href={`/admin/notifications?titre=${encodeURIComponent('Nouvel article à lire')}&texte=${encodeURIComponent(a.title || '')}&lien=${encodeURIComponent(`/blog/${a.slug || slugify(a.title)}`)}&type=article`}>
+                  Personnaliser le message et le ciblage →
+                </Link>
+              </div>
+            ) : (
+              <p className="muted small">Désactivé : l’article apparaît seulement dans le Magazine, sans prévenir personne.</p>
+            )}
           </div>
           <div className="card stack">
             <h3>Classement</h3>
             <Field label="Catégorie">
-              <Chips items={CATEGORIES} value={a.category} onChange={set('category')} />
+              <Chips items={cats.map((c) => ({ key: c.key, label: c.label }))} value={a.category} onChange={set('category')} />
             </Field>
-            <Field label="Article du jour pour les phases">
+            {newCat === null ? (
+              <button type="button" className="btn ghost small" onClick={() => setNewCat('')}>+ Nouvelle catégorie</button>
+            ) : (
+              <div className="row" style={{ gap: 8 }}>
+                <input className="input" value={newCat} onChange={(e) => setNewCat(e.target.value.slice(0, 25))} placeholder="2 à 25 caractères" autoFocus />
+                <button type="button" className="btn small" disabled={newCat.trim().length < 2} onClick={addCategory}>Créer</button>
+              </div>
+            )}
+            <Link className="small" href="/admin/blog/categories">Gérer les catégories</Link>
+            <Field label="Lier à une phase du cycle (conseil santé de l’onglet Cycle)">
               <Chips items={PHASES} value={a.phases} onChange={set('phases')} multi />
             </Field>
             <Field label="Couleur de la vignette">
               <Chips items={COLORS} value={a.color} onChange={set('color')} />
             </Field>
           </div>
+          {a.revisions?.length ? (
+            <div className="card stack" style={{ gap: 6 }}>
+              <h3>Modifications</h3>
+              {[...a.revisions].reverse().slice(0, 10).map((r, i) => (
+                <p key={i} className="small muted" style={{ margin: 0 }}>
+                  {new Date(r.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · {r.by?.firstName || r.name || '—'} · {r.action}
+                </p>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </form>

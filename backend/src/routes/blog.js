@@ -1,19 +1,22 @@
 // 5.11 — Blog : catégories, recherche, article à la une, article du jour adapté à la phase.
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
-import { Article, CATEGORIES } from '../models/index.js';
+import { Article } from '../models/index.js';
+import { articleCategories, categoryLabels } from '../services/articleCategories.js';
 import { loadCycleContext } from '../services/context.js';
 import { escapeRegex, notFound } from '../utils/http.js';
 
 const router = Router();
 
-const visible = () => ({ published: true, publishAt: { $lte: new Date() }, validation: { $in: ['valide_comite', 'valide_sante'] } });
+// 4.13 · 8.3 — deux étapes seulement : Brouillon → Publié (immédiat ou programmé), pas de relecture obligatoire.
+const visible = () => ({ published: true, publishAt: { $lte: new Date() } });
+let LABELS = {};
 const card = (a) => ({
   id: String(a._id),
   slug: a.slug,
   title: a.title,
   category: a.category,
-  categoryLabel: CATEGORIES[a.category],
+  categoryLabel: LABELS[a.category] || a.category,
   excerpt: a.excerpt,
   readMinutes: a.readMinutes,
   featured: a.featured,
@@ -25,13 +28,19 @@ const card = (a) => ({
   coverCredit: a.coverCredit || '',
 });
 
-router.get('/categories', (_req, res) => {
-  res.json(Object.entries(CATEGORIES).map(([key, label]) => ({ key, label })));
+// Libellés à jour avant chaque réponse (catégories modifiables dans le back-office).
+router.use(async (_req, _res, next) => {
+  LABELS = await categoryLabels().catch(() => LABELS);
+  next();
+});
+
+router.get('/categories', async (_req, res) => {
+  res.json((await articleCategories()).map((c) => ({ key: c.key, label: c.label })));
 });
 
 router.get('/', authenticate, async (req, res) => {
   const filter = visible();
-  if (req.query.category && CATEGORIES[req.query.category]) filter.category = req.query.category;
+  if (req.query.category && LABELS[req.query.category]) filter.category = req.query.category;
   if (req.query.q) {
     const rx = new RegExp(escapeRegex(String(req.query.q).slice(0, 80)), 'i');
     filter.$or = [{ title: rx }, { excerpt: rx }, { body: rx }];

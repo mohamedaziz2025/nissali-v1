@@ -9,7 +9,8 @@ import {
   AuditLog,
   Booking,
   BOOKING_STATUSES,
-  CATEGORIES,
+  ArticleCategory,
+  DhikrEntry,
   Category,
   ClientRecord,
   MadeUpFast,
@@ -27,10 +28,13 @@ import { activePlanFor, refreshRating } from '../services/marketplace.js';
 import { removeClientFiles } from '../services/purge.js';
 import { notify } from '../services/notifications.js';
 import { METHODS, HIGH_LATITUDE_RULES } from '../services/prayerService.js';
-import { getSettings, SETTING_DEFINITIONS, updateSettings } from '../services/settings.js';
+import { getSettings, revertSetting, SETTING_DEFINITIONS, updateSettings } from '../services/settings.js';
 import { cancelAtPeriodEnd, stripeEnabled } from '../services/stripe.js';
 import { isDay } from '../utils/dates.js';
-import { badRequest, escapeRegex, notFound } from '../utils/http.js';
+import { ramadanInfo } from '../services/hijri.js';
+import { badRequest, conflict, escapeRegex, notFound } from '../utils/http.js';
+import { articleCategories, articlesIn, categoryKey, categoryLabels } from '../services/articleCategories.js';
+import { dhikrCatalog, invalidateDhikrCatalog } from '../services/dhikrCatalog.js';
 
 const router = Router();
 router.use(requireRole('admin'));
@@ -300,7 +304,19 @@ router.get('/practitioners/:id', async (req, res) => {
 
 router.patch(
   '/practitioners/:id',
-  validate(z.object({ status: z.enum(['en_attente', 'validee', 'refusee', 'suspendue']).optional(), rejectionReason: z.string().max(500).optional(), displayName: z.string().max(80).optional(), specialty: z.string().optional(), description: z.string().max(2000).optional() })),
+  validate(
+    z.object({
+      status: z.enum(['en_attente', 'validee', 'refusee', 'suspendue']).optional(),
+      rejectionReason: z.string().max(500).optional(),
+      displayName: z.string().max(80).optional(),
+      specialty: z.string().optional(),
+      description: z.string().max(2000).optional(),
+      // RG-47 — badge « Diplômée » après vérification du diplôme ; 9.5 — métier « Autre » validé par l'équipe.
+      diplomaVerified: z.boolean().optional(),
+      otherValidated: z.boolean().optional(),
+      otherSpecialty: z.string().trim().max(40).optional(),
+    }),
+  ),
   async (req, res) => {
     const p = await Practitioner.findById(req.params.id);
     if (!p) throw notFound();
@@ -461,7 +477,7 @@ router.patch('/reviews/:id', validate(z.object({ hidden: z.boolean() })), async 
 const articleSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]{3,120}$/, 'Slug : minuscules, chiffres et tirets'),
   title: z.string().min(3).max(200),
-  category: z.enum(Object.keys(CATEGORIES)),
+  category: z.string().min(1).max(40),
   excerpt: z.string().max(400).optional(),
   body: z.string().min(10),
   readMinutes: z.number().int().min(1).max(60).optional(),
@@ -476,22 +492,75 @@ const articleSchema = z.object({
   coverUrl: z.string().max(500).regex(/^(https?:\/\/\S+)?$/, 'Lien d’image invalide').optional(),
   coverAlt: z.string().max(200).optional(),
   coverCredit: z.string().max(160).optional(),
+  pushOnPublish: z.boolean().optional(),
 });
 
-router.get('/articles', async (_req, res) => res.json(await Article.find().sort({ publishAt: -1 }).lean()));
-router.get('/articles/:id', async (req, res) => res.json(await Article.findById(req.params.id).lean()));
+const revision = (req, action) => ({ by: req.user._id, name: req.user.firstName || req.user.email, at: new Date(), action });
+async function assertCategory(key) {
+  if (key && !(await ArticleCategory.exists({ key }))) throw badRequest('Catégorie inconnue');
+}
+
+// Liste : titre, catégorie, statut (brouillon, programmé, publié), date, vues ; filtre par statut.
+router.get('/articles', async (req, res) => {
+  const now = new Date();
+  const filter = req.query.status === 'brouillon' ? { published: false } : req.query.status === 'programme' ? { published: true, publishAt: { $gt: now } } : req.query.status === 'publie' ? { published: true, publishAt: { $lte: now } } : {};
+  const list = await Article.find(filter).sort({ publishAt: -1 }).select('-body').lean();
+  const labels = await categoryLabels();
+  res.json(list.map((a) => ({ ...a, categoryLabel: labels[a.category] || a.category, status: !a.published ? 'brouillon' : new Date(a.publishAt) > now ? 'programme' : 'publie' })));
+});
+router.get('/articles/:id', async (req, res) => res.json(await Article.findById(req.params.id).populate({ path: 'revisions.by', model: User, select: 'firstName email' }).lean()));
 router.post('/articles', validate(articleSchema), async (req, res) => {
+  await assertCategory(req.body.category);
   if (req.body.featured) await Article.updateMany({}, { $set: { featured: false } });
-  const a = await Article.create(req.body);
+  const a = await Article.create({ ...req.body, revisions: [revision(req, 'creation')] });
   await audit(req, 'article_cree', a._id);
   res.status(201).json(a);
 });
 router.patch('/articles/:id', validate(articleSchema.partial()), async (req, res) => {
+  await assertCategory(req.body.category);
   if (req.body.featured) await Article.updateMany({ _id: { $ne: req.params.id } }, { $set: { featured: false } });
-  const a = await Article.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+  const a = await Article.findByIdAndUpdate(req.params.id, { $set: req.body, $push: { revisions: { $each: [revision(req, req.body.published === true ? 'publication' : 'modification')], $slice: -50 } } }, { new: true });
   if (!a) throw notFound();
   await audit(req, 'article_modifie', a._id);
   res.json(a);
+});
+
+// --- Catégories du Magazine (8.3) : créer, renommer, réordonner, masquer ; supprimer seulement une catégorie vide.
+const catLabel = z.string().trim().min(2, '2 caractères minimum').max(25, '25 caractères maximum');
+router.get('/article-categories', async (_req, res) => {
+  const list = await articleCategories({ withHidden: true });
+  res.json(await Promise.all(list.map(async (c) => ({ ...c, id: String(c._id), articles: await articlesIn(c.key) }))));
+});
+router.post('/article-categories', validate(z.object({ label: catLabel })), async (req, res) => {
+  if (await ArticleCategory.exists({ label: new RegExp(`^${escapeRegex(req.body.label)}$`, 'i') })) throw conflict('Cette catégorie existe déjà');
+  const last = await ArticleCategory.findOne().sort({ order: -1 }).lean();
+  const c = await ArticleCategory.create({ key: await categoryKey(req.body.label), label: req.body.label, order: (last?.order ?? -1) + 1 });
+  await audit(req, 'categorie_article_creee', c._id);
+  res.status(201).json(c);
+});
+router.patch('/article-categories/:id', validate(z.object({ label: catLabel.optional(), hidden: z.boolean().optional() })), async (req, res) => {
+  if (req.body.label && (await ArticleCategory.exists({ _id: { $ne: req.params.id }, label: new RegExp(`^${escapeRegex(req.body.label)}$`, 'i') }))) throw conflict('Cette catégorie existe déjà');
+  const c = await ArticleCategory.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+  if (!c) throw notFound();
+  await audit(req, 'categorie_article_modifiee', c._id);
+  res.json(c);
+});
+router.put('/article-categories/order', validate(z.object({ ids: z.array(z.string().regex(/^[a-f\d]{24}$/i)).max(100) })), async (req, res) => {
+  await Promise.all(req.body.ids.map((id, order) => ArticleCategory.updateOne({ _id: id }, { $set: { order } })));
+  res.json({ ok: true });
+});
+router.delete('/article-categories/:id', async (req, res) => {
+  const c = await ArticleCategory.findById(req.params.id);
+  if (!c) throw notFound();
+  const n = await articlesIn(c.key);
+  if (n) {
+    const to = req.query.moveTo ? await ArticleCategory.findOne({ key: String(req.query.moveTo) }) : null;
+    if (!to || to.key === c.key) throw conflict(`${n} article${n > 1 ? 's' : ''} dans cette catégorie : choisis une autre catégorie où les déplacer`, 'CATEGORY_NOT_EMPTY');
+    await Article.updateMany({ category: c.key }, { $set: { category: to.key } });
+  }
+  await c.deleteOne();
+  await audit(req, 'categorie_article_supprimee', c._id, { moved: n });
+  res.json({ ok: true, moved: n });
 });
 router.delete('/articles/:id', async (req, res) => {
   await Article.deleteOne({ _id: req.params.id });
@@ -501,12 +570,69 @@ router.delete('/articles/:id', async (req, res) => {
 
 // --- Petit rappel du jour --------------------------------------------------------
 
-const reminderSchema = z.object({ kind: z.enum(['verset', 'hadith', 'conseil']), text: z.string().min(3).max(500), source: z.string().max(200).optional(), scheduledFor: z.string().refine(isDay).nullable().optional(), validated: z.boolean().optional() });
-router.get('/reminders', async (_req, res) => res.json(await Reminder.find().sort({ scheduledFor: -1, createdAt: -1 }).lean()));
-router.post('/reminders', validate(reminderSchema), async (req, res) => res.status(201).json(await Reminder.create(req.body)));
-router.patch('/reminders/:id', validate(reminderSchema.partial()), async (req, res) => res.json(await Reminder.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true })));
+// 8.5 — un texte par jour, 4 types ; 160 caractères ; source obligatoire sauf pour un message (« L'équipe Nissali »).
+const reminderSchema = z
+  .object({
+    kind: z.enum(['verset', 'hadith', 'invocation', 'message']),
+    text: z.string().trim().min(3).max(160, '160 caractères maximum'),
+    source: z.string().trim().max(200).optional().nullable(),
+    scheduledFor: z.string().refine(isDay).nullable().optional(),
+    validated: z.boolean().optional(),
+  })
+  .refine((r) => r.kind === 'message' || (r.source && r.source.length >= 2), { message: 'Source obligatoire pour un verset, un hadith ou une invocation', path: ['source'] });
+router.get('/reminders', async (_req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const items = await Reminder.find().sort({ scheduledFor: -1, createdAt: -1 }).lean();
+  const upcoming = items.filter((r) => r.scheduledFor && r.scheduledFor >= today).length;
+  res.json({ items, upcoming, alert: upcoming < 7 ? `Plus que ${upcoming} jour${upcoming > 1 ? 's' : ''} programmé${upcoming > 1 ? 's' : ''} : pense à en ajouter.` : null });
+});
+router.post('/reminders', validate(reminderSchema), async (req, res) => {
+  if (req.body.scheduledFor && (await Reminder.exists({ scheduledFor: req.body.scheduledFor }))) throw conflict('Un rappel est déjà programmé ce jour-là');
+  res.status(201).json(await Reminder.create({ ...req.body, source: req.body.source || (req.body.kind === 'message' ? 'L’équipe Nissali' : req.body.source) }));
+});
+router.patch('/reminders/:id', validate(reminderSchema.innerType().partial()), async (req, res) => {
+  if (req.body.scheduledFor && (await Reminder.exists({ _id: { $ne: req.params.id }, scheduledFor: req.body.scheduledFor }))) throw conflict('Un rappel est déjà programmé ce jour-là');
+  res.json(await Reminder.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true }));
+});
 router.delete('/reminders/:id', async (req, res) => {
   await Reminder.deleteOne({ _id: req.params.id });
+  res.json({ ok: true });
+});
+
+// --- Bibliothèque de dhikr (8.5, RG-41) : « Par défaut » (les 6 de base) ou « Proposé » (Les plus connus).
+// Retirer un dhikr ne l'efface pas chez celles qui l'ont déjà ajouté ; les dhikr personnels n'apparaissent jamais ici.
+const dhikrSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  arabic: z.string().trim().min(1).max(300),
+  meaning: z.string().trim().max(300).optional().default(''),
+  source: z.string().trim().max(200).optional().default(''),
+  goal: z.number().int().min(1).max(10000),
+  isDefault: z.boolean().optional(),
+  published: z.boolean().optional(),
+  validatedBy: z.string().trim().max(120).optional(),
+});
+router.get('/dhikr', async (_req, res) => {
+  await dhikrCatalog();
+  res.json(await DhikrEntry.find().sort({ order: 1, createdAt: 1 }).lean());
+});
+router.post('/dhikr', validate(dhikrSchema), async (req, res) => {
+  const last = await DhikrEntry.findOne().sort({ order: -1 }).lean();
+  const key = `d_${Date.now().toString(36)}`;
+  const d = await DhikrEntry.create({ ...req.body, key, order: (last?.order ?? -1) + 1 });
+  invalidateDhikrCatalog();
+  await audit(req, 'dhikr_ajoute', d._id);
+  res.status(201).json(d);
+});
+router.patch('/dhikr/:id', validate(dhikrSchema.partial()), async (req, res) => {
+  const d = await DhikrEntry.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+  if (!d) throw notFound();
+  invalidateDhikrCatalog();
+  await audit(req, 'dhikr_modifie', d._id);
+  res.json(d);
+});
+router.put('/dhikr-order', validate(z.object({ ids: z.array(z.string().regex(/^[a-f\d]{24}$/i)).max(200) })), async (req, res) => {
+  await Promise.all(req.body.ids.map((id, order) => DhikrEntry.updateOne({ _id: id }, { $set: { order } })));
+  invalidateDhikrCatalog();
   res.json({ ok: true });
 });
 
@@ -532,6 +658,18 @@ router.put('/settings', async (req, res) => {
 });
 
 router.get('/settings/history', async (_req, res) => res.json(await SettingHistory.find().sort({ createdAt: -1 }).limit(200).lean()));
+router.post('/settings/history/:id/revert', async (req, res) => {
+  const result = await revertSetting(req.params.id, req.user);
+  if (Object.keys(result.applied).length) await audit(req, 'parametre_retabli', req.params.id, result.applied);
+  res.status(result.errors.length ? 400 : 200).json({ ...result, values: await getSettings() });
+});
+// Aperçu immédiat du 1er Ramadan avec un ajustement du calendrier hégirien (−1 / 0 / +1).
+router.get('/settings/ramadan-preview', async (req, res) => {
+  const adj = [-1, 0, 1].includes(Number(req.query.adj)) ? Number(req.query.adj) : 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const r = ramadanInfo(today, adj);
+  res.json({ adj, start: r.current ? r.start : r.nextStart || r.start, hijriYear: r.hijriYear, current: r.current });
+});
 
 router.get('/audit', async (req, res) => {
   const { skip, limit } = page(req);

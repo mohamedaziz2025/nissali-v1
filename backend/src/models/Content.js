@@ -31,6 +31,17 @@ const broadcastSchema = new Schema(
       userId: String,
     },
     category: { type: String, enum: ['conseil', 'essentiel'], default: 'conseil' }, // 5.12
+    // 4.13 · 8.4 — canal (push + centre, ou seulement dans l'appli), type de message, ciblage (jamais de santé),
+    // programmation, envois décalés par utilisatrice (nuit, heure de prière : RG-37).
+    channel: { type: String, enum: ['push', 'app'], default: 'push' },
+    kind: { type: String, enum: ['conseil', 'article', 'evenement', 'nouveaute'], default: 'conseil' },
+    targeting: { country: String, region: String, city: String, situation: String, ageMin: Number, ageMax: Number },
+    status: { type: String, enum: ['programmee', 'en_cours', 'envoyee', 'annulee'], default: 'envoyee' },
+    scheduledAt: Date,
+    sentAt: Date,
+    queue: { type: [{ _id: false, user: Schema.Types.ObjectId, at: Date, tries: { type: Number, default: 0 } }], default: [] },
+    article: { type: Schema.Types.ObjectId, ref: 'Article' },
+    blockedReason: String,
     recipients: { type: Number, default: 0 },
     pushed: { type: Number, default: 0 },
     sentBy: { type: Schema.Types.ObjectId, ref: 'User' },

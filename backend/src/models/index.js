@@ -5,7 +5,7 @@ export { PrayerLog } from './PrayerLog.js';
 export { MissedFast, MadeUpFast, FastPlan, PriorMadeUp, VoluntaryFast, VOLUNTARY_TYPES } from './Fast.js';
 export { Pregnancy } from './Pregnancy.js';
 export { Appointment } from './Appointment.js';
-export { Article, CATEGORIES } from './Article.js';
+export { Article, ArticleCategory, CATEGORIES } from './Article.js';
 export { Reminder } from './Reminder.js';
 export { Setting, SettingHistory } from './Setting.js';
 export { Notification, PushSubscription } from './Notification.js';

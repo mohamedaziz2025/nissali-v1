@@ -627,3 +627,25 @@ tbody tr:hover { background: #fdf9f9; }
 .cover-preview { width: 320px; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; display: block; }
 .cover-thumb { width: 84px; height: 84px; object-fit: cover; border-radius: 12px; display: block; }
 .thumb-sm { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; display: block; flex: none; }
+
+/* 4.13 — aperçu de notification et petits boutons du back-office */
+.btn.small { padding: 6px 12px; font-size: 13px; min-height: 0; }
+.notif-preview { display: flex; flex-direction: column; gap: 2px; background: var(--blush, #F7E8EA); border-radius: 12px; padding: 10px 12px; font-size: 13.5px; }
+.notif-preview strong { font-weight: 700; }
+
+/* 4.13 · 8.4 — aperçus téléphone (écran verrouillé iPhone / Android, dans l'appli) */
+.pp-lock { border-radius: 26px; padding: 22px 14px 18px; color: #fff; background: linear-gradient(160deg, #3E1220, #7A1E35 60%, #B88A55); display: flex; flex-direction: column; gap: 4px; }
+.pp-lock.android { background: linear-gradient(160deg, #2A1218, #4A2430); }
+.pp-date { text-align: center; font-size: 13px; opacity: .85; text-transform: capitalize; }
+.pp-time { text-align: center; font-size: 46px; font-weight: 700; letter-spacing: -1px; margin-bottom: 10px; }
+.pp-card { border-radius: 16px; padding: 10px 12px; background: rgba(255,255,255,.72); color: #1c1c1e; backdrop-filter: blur(14px); }
+.pp-lock.android .pp-card { background: #fff; border-radius: 18px; }
+.pp-head { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #555; margin-bottom: 3px; }
+.pp-now { margin-left: auto; }
+.pp-icon { width: 18px; height: 18px; border-radius: 5px; background: #7A1E35; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+.pp-icon.android { border-radius: 50%; }
+.pp-card strong { font-size: 14px; display: block; }
+.pp-clamp { margin: 2px 0 0; font-size: 13.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pp-app { display: flex; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.pp-dot { width: 9px; height: 9px; border-radius: 50%; background: #7A1E35; margin-top: 6px; flex-shrink: 0; }
+.alert.danger { background: #FCE8E6; color: #B3261E; }

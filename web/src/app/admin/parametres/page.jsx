@@ -1,5 +1,6 @@
 'use client';
-// 7.2 — Paramètres religieux et techniques, jamais codés en dur, avec historique des modifications.
+// 7.2 / 4.13 · 8.6 — Paramètres religieux et techniques, jamais codés en dur ; aperçu immédiat du 1er Ramadan selon
+// l'ajustement hégirien ; historique (ancienne valeur, nouvelle, qui, quand) avec retour arrière.
 import { useEffect, useState } from 'react';
 import { ErrorBox, Field, Loading, useToast } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -22,9 +23,15 @@ export default function Settings() {
   const { data, error, loading, reload } = useFetch('/admin/settings');
   const history = useFetch('/admin/settings/history');
   const [values, setValues] = useState(null);
+  const [ramadan, setRamadan] = useState(null);
   useEffect(() => {
     if (data) setValues(data.values);
   }, [data]);
+  const adj = values?.hijriAdjustment;
+  useEffect(() => {
+    if (adj === undefined) return;
+    api.get(`/admin/settings/ramadan-preview?adj=${adj}`).then(setRamadan).catch(() => setRamadan(null));
+  }, [adj]);
   if ((loading && !data) || !values) return error ? <ErrorBox error={error} /> : <Loading />;
 
   const changed = Object.keys(values).filter((k) => values[k] !== data.values[k]);
@@ -33,6 +40,18 @@ export default function Settings() {
       const r = await api.put('/admin/settings', Object.fromEntries(changed.map((k) => [k, values[k]])));
       if (r.errors?.length) toast(r.errors[0], 'error');
       else toast('Paramètres enregistrés');
+      reload();
+      history.reload();
+    } catch (e) {
+      toast(e.data?.errors?.[0] || e.message, 'error');
+    }
+  };
+
+  const revert = async (h) => {
+    if (!window.confirm(`Rétablir « ${show(h.oldValue)} » pour « ${data.definitions[h.key]?.label || h.key} » ?`)) return;
+    try {
+      await api.post(`/admin/settings/history/${h._id}/revert`);
+      toast('Ancienne valeur rétablie');
       reload();
       history.reload();
     } catch (e) {
@@ -68,7 +87,11 @@ export default function Settings() {
     } else {
       control = <textarea className="textarea" style={{ minHeight: 80 }} value={v} onChange={(e) => set(e.target.value)} />;
     }
-    return <Field label={def.label}>{control}</Field>;
+    return (
+      <Field label={def.label} hint={key === 'hijriAdjustment' && ramadan?.start ? `1er Ramadan ${ramadan.hijriYear} avec ce réglage : ${new Date(`${ramadan.start}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}` : null}>
+        {control}
+      </Field>
+    );
   };
 
   return (
@@ -103,6 +126,7 @@ export default function Settings() {
                 <th>Avant</th>
                 <th>Après</th>
                 <th>Par</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -113,6 +137,9 @@ export default function Settings() {
                   <td className="muted">{show(h.oldValue)}</td>
                   <td>{show(h.newValue)}</td>
                   <td>{h.byName}</td>
+                  <td>
+                    <button className="btn ghost small" onClick={() => revert(h)}>Rétablir</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -5,17 +5,17 @@ import { z } from 'zod';
 import { CATEGORY_GROUPS } from '../content/categories.js';
 import { requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Practitioner, PushSubscription, User } from '../models/index.js';
+import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Notification, Practitioner, PushSubscription, User } from '../models/index.js';
+import { audienceFilter, BROADCAST_PAGES, deliverBroadcast, estimateAudience, sensitiveWordsIn } from '../services/broadcasts.js';
 import { COMMISSION_RATE, presentEvent } from '../services/events.js';
 import { bestCity } from '../services/geo.js';
 import { forgetTips } from '../services/healthTips.js';
-import { adviceGate, notify } from '../services/notifications.js';
-import { userTimings } from '../services/prayerSource.js';
+import { notify } from '../services/notifications.js';
 import { getSettings } from '../services/settings.js';
 import { forgetMosque } from '../services/prayerSource.js';
 import { imageUpload, publicUploadUrl } from '../services/upload.js';
 import { isDay, isTime, zonedToDate } from '../utils/dates.js';
-import { badRequest, escapeRegex, notFound } from '../utils/http.js';
+import { badRequest, notFound } from '../utils/http.js';
 
 const router = Router();
 router.use(requireRole('admin'));
@@ -31,88 +31,83 @@ router.post('/upload-image', imageUpload.single('image'), async (req, res) => {
   res.status(201).json({ url: publicUploadUrl(req.file.filename) });
 });
 
-// --- Notifications push envoyées par l'équipe -----------------------------------------
+// --- Notifications de l'équipe (8.4) --------------------------------------------------------
 
 const audienceSchema = z.object({
-  type: z.enum(['toutes', 'actualites', 'praticiennes', 'ville', 'situation', 'utilisatrice']),
+  type: z.enum(['toutes', 'actualites', 'praticiennes', 'ville', 'situation', 'utilisatrice']).default('toutes'),
   city: z.string().max(80).optional(),
   situation: z.enum(['mariee', 'celibataire']).optional(),
   userId: z.string().regex(oid).optional(),
 });
-
-async function audienceUsers(a) {
-  const base = { role: 'user', status: 'active' };
-  if (a.type === 'actualites') return User.find({ ...base, $or: [{ 'consents.marketingEmail.accepted': true }, { 'consents.marketingSms.accepted': true }, { 'consents.marketingWhatsapp.accepted': true }] }).select('_id').lean();
-  if (a.type === 'praticiennes') return (await Practitioner.find({ status: 'validee' }).select('user').lean()).map((p) => ({ _id: p.user }));
-  if (a.type === 'ville') {
-    if (!a.city) throw badRequest('Indique la ville');
-    return User.find({ ...base, 'city.name': new RegExp(`^${escapeRegex(a.city)}`, 'i') }).select('_id').lean();
-  }
-  if (a.type === 'situation') return User.find({ ...base, situation: a.situation }).select('_id').lean();
-  if (a.type === 'utilisatrice') return User.find({ _id: a.userId }).select('_id').lean();
-  return User.find(base).select('_id').lean();
-}
+// Ciblage par zone, situation et âge — jamais par une donnée de santé (8.2).
+const targetingSchema = z
+  .object({
+    country: z.string().trim().max(60).optional(),
+    region: z.string().trim().max(80).optional(),
+    city: z.string().trim().max(80).optional(),
+    situation: z.enum(['mariee', 'celibataire']).optional(),
+    ageMin: z.number().int().min(15).max(100).optional(),
+    ageMax: z.number().int().min(15).max(100).optional(),
+  })
+  .strict('Ciblage par zone, situation et âge uniquement')
+  .default({});
+const broadcastSchema = z.object({
+  channel: z.enum(['push', 'app']).default('push'),
+  kind: z.enum(['conseil', 'article', 'evenement', 'nouveaute']).default('conseil'),
+  title: z.string().trim().min(2).max(40, 'Titre : 40 caractères maximum'),
+  body: z.string().trim().min(2).max(120, 'Texte : 120 caractères maximum'),
+  detail: z.string().max(2000).optional(),
+  imageUrl: z.string().url().max(500).optional(),
+  link: z.string().max(200).optional(),
+  audience: audienceSchema.default({ type: 'toutes' }),
+  targeting: targetingSchema,
+  // « conseil » : soumis aux règles de fréquence ; « essentiel » : information importante, sans plafond.
+  category: z.enum(['conseil', 'essentiel']).default('conseil'),
+  scheduledAt: z.string().datetime({ offset: true }).optional(),
+});
 
 router.get('/broadcasts', async (_req, res) => {
-  const list = await Broadcast.find().sort({ createdAt: -1 }).limit(100).populate({ path: 'sentBy', model: User, select: 'firstName email' }).lean();
+  const list = await Broadcast.find().sort({ createdAt: -1 }).limit(100).populate({ path: 'sentBy', model: User, select: 'firstName email' }).select('-queue').lean();
+  const opened = await Notification.aggregate([{ $match: { key: { $in: list.map((b) => `broadcast-${b._id}`) }, read: true } }, { $group: { _id: '$key', n: { $sum: 1 } } }]);
+  const openBy = new Map(opened.map((o) => [o._id, o.n]));
   const devices = await PushSubscription.countDocuments({ endpoint: /^ExponentPushToken/ });
-  res.json({ items: list.map((b) => ({ ...b, id: String(b._id) })), devices });
+  res.json({
+    items: list.map((b) => ({ ...b, id: String(b._id), opened: openBy.get(`broadcast-${b._id}`) || 0, openRate: b.recipients ? Math.round(((openBy.get(`broadcast-${b._id}`) || 0) / b.recipients) * 100) : null })),
+    devices,
+    pages: BROADCAST_PAGES,
+    articles: (await Article.find({ published: true }).sort({ publishAt: -1 }).limit(40).select('slug title').lean()).map((a) => ({ link: `/blog/${a.slug}`, label: a.title })),
+    events: (await Event.find({ status: 'publie' }).sort({ startAt: -1 }).limit(30).select('title').lean().catch(() => [])).map((e) => ({ link: `/evenement/${e._id}`, label: e.title })),
+  });
 });
 
-router.post('/broadcasts/preview', validate(z.object({ audience: audienceSchema })), async (req, res) => {
-  const users = await audienceUsers(req.body.audience);
-  const devices = await PushSubscription.countDocuments({ user: { $in: users.map((u) => u._id) }, endpoint: /^ExponentPushToken/ });
-  res.json({ recipients: users.length, devices });
+// Audience estimée, recalculée à chaque changement, et mots sensibles trouvés.
+router.post('/broadcasts/preview', async (req, res) => {
+  const parsed = broadcastSchema.partial({ title: true, body: true }).safeParse(req.body || {});
+  if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message || 'Ciblage invalide');
+  const b = parsed.data;
+  const est = await estimateAudience(b);
+  const devices = await PushSubscription.countDocuments({ user: { $in: (await User.find(await audienceFilter(b)).select('_id').lean()).map((u) => u._id) }, endpoint: /^ExponentPushToken/ });
+  res.json({ recipients: est.reachable, total: est.total, capped: est.capped, devices, sensitive: sensitiveWordsIn([b.title, b.body], await getSettings()) });
 });
 
-router.post(
-  '/broadcasts',
-  validate(
-    z.object({
-      title: z.string().trim().min(2).max(80),
-      body: z.string().trim().min(2).max(300),
-      detail: z.string().max(2000).optional(),
-      imageUrl: z.string().url().max(500).optional(),
-      link: z.string().max(200).optional(),
-      audience: audienceSchema,
-      // 5.12 — « conseil » : conseils et actualités, selon la fréquence choisie par chacune ;
-      // « essentiel » : information importante, envoyée à toutes (sans plafond).
-      category: z.enum(['conseil', 'essentiel']).default('conseil'),
-    }),
-  ),
-  async (req, res) => {
-    const b = req.body;
-    const users = await audienceUsers(b.audience);
-    if (!users.length) throw badRequest('Aucune destinataire pour cette audience');
-    const broadcast = await Broadcast.create({ title: b.title, body: b.body, detail: b.detail, imageUrl: b.imageUrl, link: b.link, audience: b.audience, category: b.category, sentBy: req.user._id, recipients: users.length });
-    const settings = b.category === 'conseil' ? await getSettings() : null;
-    let pushed = 0;
-    let delivered = 0;
-    for (const { _id } of users) {
-      let gate = { send: true, push: true };
-      if (settings) {
-        const u = await User.findById(_id);
-        if (!u) continue;
-        let timings = null;
-        try {
-          timings = (await userTimings(u, settings, new Intl.DateTimeFormat('en-CA', { timeZone: u.city?.timezone || 'Europe/Paris' }).format(new Date()))).timings;
-        } catch {
-          // horaires indisponibles : seule la plage de nuit est vérifiée
-        }
-        gate = await adviceGate(u, settings, { timings });
-        if (!gate.send) continue;
-      }
-      const n = await notify(_id, { key: `broadcast-${broadcast.id}`, type: 'annonce', category: b.category, title: b.title, body: b.body, detail: b.detail || b.body, link: b.link || '/notifications', imageUrl: b.imageUrl }, { sendPush: gate.push }).catch(() => null);
-      if (n) delivered += 1;
-      if (n?.pushed) pushed += 1;
-    }
-    broadcast.recipients = delivered;
-    broadcast.pushed = pushed;
-    await broadcast.save();
-    await audit(req, 'notification_envoyee', broadcast._id, { recipients: users.length, pushed });
-    res.status(201).json({ ...broadcast.toObject(), id: broadcast.id });
-  },
-);
+router.post('/broadcasts', validate(broadcastSchema), async (req, res) => {
+  const b = req.body;
+  const found = sensitiveWordsIn([b.title, b.body], await getSettings());
+  if (found.length) throw badRequest(`Envoi bloqué : mot sensible (${found.join(', ')}). Les notifications restent discrètes sur l’écran verrouillé (RG-17).`, 'SENSITIVE_WORDS');
+  if (b.targeting.ageMin && b.targeting.ageMax && b.targeting.ageMin > b.targeting.ageMax) throw badRequest('Tranche d’âge invalide');
+  const scheduled = b.scheduledAt ? new Date(b.scheduledAt) : null;
+  const broadcast = await Broadcast.create({ ...b, scheduledAt: scheduled || new Date(), status: scheduled && scheduled > new Date() ? 'programmee' : 'en_cours', sentBy: req.user._id });
+  if (broadcast.status !== 'programmee') await deliverBroadcast(broadcast);
+  await audit(req, scheduled ? 'notification_programmee' : 'notification_envoyee', broadcast._id, { recipients: broadcast.recipients, pushed: broadcast.pushed });
+  res.status(201).json({ ...broadcast.toObject(), id: broadcast.id, queue: undefined, deferred: broadcast.queue.length });
+});
+
+router.post('/broadcasts/:id/cancel', async (req, res) => {
+  const b = await Broadcast.findOneAndUpdate({ _id: req.params.id, status: 'programmee' }, { $set: { status: 'annulee' } }, { new: true });
+  if (!b) throw notFound('Notification programmée introuvable');
+  await audit(req, 'notification_annulee', b._id);
+  res.json({ ok: true });
+});
 
 // --- Événements (RG-28 à RG-31) ---------------------------------------------------------
 

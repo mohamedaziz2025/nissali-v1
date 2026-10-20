@@ -2,6 +2,7 @@
 // rappels de rendez-vous, clôture des réservations passées, purge RGPD (8.2).
 import cron from 'node-cron';
 import { syncAllJumua } from '../services/mawaqit.js';
+import { broadcastJob } from '../services/broadcasts.js';
 import { Booking, Event, EventRegistration, FastPlan, Plan, Practitioner, PushSubscription, Subscription, User } from '../models/index.js';
 import { loadCycleContext, loadFastContext, nowFor, prayerPause } from '../services/context.js';
 import { ramadanInfo, whiteDays } from '../services/hijri.js';
@@ -154,6 +155,8 @@ async function dailyMaintenance() {
 export function startScheduler() {
   cron.schedule('*/10 * * * *', () => notificationsJob().catch((e) => console.error('[jobs]', e)));
   cron.schedule('* * * * *', () => prayerPushJob().catch((e) => console.error('[jobs] prières', e)));
+  // 8.3 / 8.4 — notifications programmées, articles publiés avec push, envois décalés (nuit, prière).
+  cron.schedule('* * * * *', () => broadcastJob().catch((e) => console.error('[jobs] notifications équipe', e)));
   // Jumu'a des mosquées partenaires depuis Mawaqit (si MAWAQIT_API_TOKEN est défini), chaque nuit.
   cron.schedule('40 3 * * *', () => syncAllJumua().catch((e) => console.error('[jobs] mawaqit', e)));
   cron.schedule('15 3 * * *', () => dailyMaintenance().catch((e) => console.error('[jobs] maintenance', e)));

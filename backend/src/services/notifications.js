@@ -101,5 +101,5 @@ export async function adviceGate(user, settings, { now = new Date(), timings } =
   const night = hm >= '22:00' || hm < '08:00';
   const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
   const atPrayer = timings ? ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].some((p) => timings[p] && Math.abs(toMin(hm) - toMin(timings[p])) <= 15) : false;
-  return { send: true, push: !night && !atPrayer };
+  return { send: true, push: !night && !atPrayer, reason: night ? 'nuit' : atPrayer ? 'priere' : null, localTime: hm };
 }

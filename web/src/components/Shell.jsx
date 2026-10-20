@@ -30,7 +30,7 @@ const ADMIN_NAV = [
       ['/admin/signalements', 'Signalements', 'flag'],
     ],
   ],
-  ['Contenus', [['/admin/blog', 'Magazine', 'book'], ['/admin/evenements', 'Événements', 'sparkle'], ['/admin/conseils', 'Conseils santé', 'heart'], ['/admin/rappels', 'Petit rappel du jour', 'quote']]],
+  ['Contenus', [['/admin/blog', 'Magazine', 'book'], ['/admin/evenements', 'Événements', 'sparkle'], ['/admin/conseils', 'Conseils santé', 'heart'], ['/admin/rappels', 'Dhikr et petit rappel', 'quote']]],
   ['Référentiel', [['/admin/mosquees', 'Mosquées', 'home'], ['/admin/parametres', 'Paramètres', 'settings'], ['/admin/journal', 'Journal d’audit', 'history']]],
 ];
 

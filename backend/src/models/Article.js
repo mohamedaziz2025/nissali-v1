@@ -15,7 +15,7 @@ const articleSchema = new Schema(
   {
     slug: { type: String, required: true, unique: true },
     title: { type: String, required: true },
-    category: { type: String, enum: Object.keys(CATEGORIES), required: true },
+    category: { type: String, required: true }, // clé d'une catégorie gérée dans le back-office (ArticleCategory)
     excerpt: String,
     body: { type: String, required: true }, // Markdown simple
     readMinutes: { type: Number, default: 4 },
@@ -32,6 +32,11 @@ const articleSchema = new Schema(
     coverUrl: String,
     coverAlt: { type: String, maxlength: 200 },
     coverCredit: { type: String, maxlength: 160 },
+    // 4.13 · 8.3 — notification push à la publication (désactivée par défaut), envoyée une seule fois.
+    pushOnPublish: { type: Boolean, default: false },
+    pushBroadcast: { type: Schema.Types.ObjectId, ref: 'Broadcast' },
+    // Auteur et date de chaque modification.
+    revisions: { type: [{ _id: false, by: { type: Schema.Types.ObjectId, ref: 'User' }, name: String, at: Date, action: String }], default: [] },
   },
   { timestamps: true },
 );
@@ -39,3 +44,15 @@ const articleSchema = new Schema(
 articleSchema.index({ title: 'text', excerpt: 'text', body: 'text' }, { default_language: 'french' });
 
 export const Article = mongoose.model('Article', articleSchema);
+
+// 4.13 · 8.3 — catégories du Magazine gérées par l'équipe (ordre = ordre des puces dans l'appli).
+const articleCategorySchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    label: { type: String, required: true, minlength: 2, maxlength: 25 },
+    order: { type: Number, default: 0 },
+    hidden: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+export const ArticleCategory = mongoose.model('ArticleCategory', articleCategorySchema);

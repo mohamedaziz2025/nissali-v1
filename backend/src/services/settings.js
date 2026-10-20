@@ -9,6 +9,15 @@ export const SETTING_DEFINITIONS = {
   maxNifasDays: { group: 'religieux', label: 'Durée maximale du nifas, en jours', type: 'number', default: 60, min: 1, max: 90 },
   purificationMarginMinutes: { group: 'religieux', label: 'Temps du ghusl et d’une partie de la prière (RG-19), en minutes', type: 'number', default: 15, min: 0, max: 90 },
   endSigns: { group: 'religieux', label: 'Signes de fin des règles', type: 'text', default: 'Sécheresse complète ou pertes blanches.' },
+  // 4.13 · 8.6 — prières à accomplir après les règles (RG-19) et textes affichés dans l'appli.
+  purificationRuleText: {
+    group: 'religieux',
+    label: 'Règle des prières à accomplir après les règles (RG-19)',
+    type: 'text',
+    default: 'Avis retenu par notre comité : purification avant le coucher du soleil, avec le temps du ghusl et d’une partie de la prière → Dhuhr et Asr ; avant l’aube → Maghrib et Isha.',
+  },
+  committeeText: { group: 'religieux', label: 'Mention « Avis retenu par notre comité »', type: 'text', default: 'Les règles présentées sont l’avis retenu par notre comité.' },
+  doubtText: { group: 'religieux', label: 'Mention « En cas de doute… »', type: 'text', default: 'En cas de doute, rapproche-toi d’une personne de science.' },
   istihadaInfo: {
     group: 'religieux',
     label: 'Information istihada (au-delà des durées maximales)',
@@ -48,6 +57,8 @@ export const SETTING_DEFINITIONS = {
   // Application
   // 5.12 — Fréquence des notifications : plafonds hebdomadaires des conseils et actualités (RG-36).
   notifCapModeree: { group: 'notifications', label: 'Conseils et actualités par semaine, niveau « Modérée »', type: 'number', default: 3, min: 0, max: 14 },
+  // RG-17 — mots sensibles : un envoi qui en contient est bloqué (titre et texte des notifications de l'équipe).
+  sensitiveWords: { group: 'notifications', label: 'Mots sensibles interdits dans les notifications (séparés par des virgules)', type: 'text', default: 'règles, menstruation, menstruelle, saignement, sang, ovulation, fertile, fertilité, enceinte, grossesse, contraception, pilule, sexe, sexuel, gynécologue, fausse couche, istihada, nifas' },
   notifCapElevee: { group: 'notifications', label: 'Conseils et actualités par semaine, niveau « Élevée »', type: 'number', default: 5, min: 0, max: 14 },
   practitionersMode: { group: 'application', label: 'Onglet Praticiennes (annuaire et réservation)', type: 'select', default: 'auto', options: ['auto', 'ouvert', 'ferme'] },
   contactEmail: { group: 'application', label: 'E-mail de contact des professionnelles', type: 'text', default: 'contact@nissali.fr' },
@@ -104,4 +115,11 @@ export async function updateSettings(changes, admin) {
 
 export function invalidateSettings() {
   cache = null;
+}
+
+/** 4.13 · 8.6 — retour arrière : rétablit l'ancienne valeur d'un changement de l'historique. */
+export async function revertSetting(historyId, admin) {
+  const h = await SettingHistory.findById(historyId).lean();
+  if (!h) return { errors: ['Changement introuvable'], applied: {} };
+  return updateSettings({ [h.key]: h.oldValue ?? SETTING_DEFAULTS[h.key] }, admin);
 }

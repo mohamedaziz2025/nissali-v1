@@ -27,6 +27,7 @@ const dhikrEntrySchema = new Schema(
     arabic: { type: String, required: true },
     name: { type: String, required: true },
     meaning: { type: String, default: '' },
+    source: { type: String, default: '' },
     goal: { type: Number, default: 33 },
     // Proposé au départ dans la liste du jour (les 6 plus connus).
     isDefault: { type: Boolean, default: false },

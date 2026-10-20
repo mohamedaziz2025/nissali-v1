@@ -21,7 +21,8 @@ const router = Router();
 export async function reminderOfTheDay(today) {
   const scheduled = await Reminder.findOne({ scheduledFor: today, validated: true }).lean();
   if (scheduled) return scheduled;
-  const pool = await Reminder.find({ validated: true, $or: [{ scheduledFor: null }, { scheduledFor: { $exists: false } }] })
+  // 8.5 — jour vide : un rappel tiré dans les anciens (jamais de carte vide), le même toute la journée.
+  const pool = await Reminder.find({ validated: true, $or: [{ scheduledFor: null }, { scheduledFor: { $exists: false } }, { scheduledFor: { $lt: today } }] })
     .sort({ createdAt: 1 })
     .lean();
   if (!pool.length) return null;
@@ -227,7 +228,7 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
     healthTip: await tipOfTheDay(pregnant ? 'grossesse' : ctx.summary.phase, today),
     tips: buildHealthTips({ phase: null, weather, ramadan: ramadan.current, pregnant: false }),
     weather,
-    reminder: reminder ? { kind: reminder.kind, text: reminder.text, source: reminder.source } : null,
+    reminder: reminder ? { kind: reminder.kind === 'conseil' ? 'message' : reminder.kind, text: reminder.text, source: reminder.source || (['message', 'conseil'].includes(reminder.kind) ? 'L’équipe Nissali' : null) } : null,
     // 5.2 · 5 — Mes notes : les prochaines notes et rappels.
     // Empreinte des notes : les rappels du téléphone sont reprogrammés dès qu'une note change.
     notesStamp: await Note.find({ user: user._id }).sort({ updatedAt: -1 }).select('updatedAt').lean().then((l) => `${l.length}-${l[0]?.updatedAt?.getTime?.() || 0}`),
