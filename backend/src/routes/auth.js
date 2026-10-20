@@ -81,6 +81,9 @@ const registerSchema = z
   .object({
     identifier: z.string().min(3).max(120),
     code: z.string().regex(/^\d{6}$/, 'Le code contient 6 chiffres'),
+    // Numéro de téléphone demandé à l'inscription (RG-01), saisi sur le même écran que l'e-mail : il n'est
+    // jamais utilisé pour l'envoi du code, seulement enregistré sur le compte (non vérifié).
+    phone: z.string().trim().min(3).max(30).optional(),
     accountType: z.enum(['personnel', 'pro']).default('personnel'),
     firstName: z.string().trim().min(1, 'Ton prénom est obligatoire').max(60),
     age: z.number().int().min(MIN_AGE, `Nissali est accessible à partir de ${MIN_AGE} ans`).max(100).optional(),
@@ -100,6 +103,7 @@ const registerSchema = z
       if (v.age == null) ctx.addIssue({ code: 'custom', path: ['age'], message: 'Ton âge est obligatoire' });
       if (!v.city) ctx.addIssue({ code: 'custom', path: ['city'], message: 'Ta ville est obligatoire' });
       if (!v.situation) ctx.addIssue({ code: 'custom', path: ['situation'], message: 'Ta situation est obligatoire' });
+      if (!v.phone) ctx.addIssue({ code: 'custom', path: ['phone'], message: 'Ton numéro de téléphone est obligatoire' });
     }
   });
 
@@ -110,6 +114,16 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   if (await findByIdentifier(id)) throw conflict('Un compte existe déjà avec cet identifiant. Connecte-toi.', 'ACCOUNT_EXISTS');
   await verifyOtp({ target: id.target, purpose: 'register', code: b.code });
 
+  // Numéro de téléphone saisi à l'inscription (facultatif pour un compte pro) : normalisé et vérifié
+  // disponible, mais jamais vérifié par code (seul l'e-mail l'est à l'inscription).
+  let phone;
+  if (b.phone) {
+    const idPhone = normalizeIdentifier(b.phone);
+    if (idPhone.channel !== 'sms') throw badRequest('Numéro de téléphone invalide', 'INVALID_PHONE');
+    if (await User.findOne({ phone: idPhone.target })) throw conflict('Ce numéro de téléphone est déjà utilisé par un autre compte', 'PHONE_TAKEN');
+    phone = idPhone.target;
+  }
+
   const now = new Date();
   const consent = (accepted) => ({ accepted: Boolean(accepted), at: accepted ? now : undefined });
   const user = await User.create({
@@ -117,7 +131,9 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     birthYear: b.age != null ? now.getUTCFullYear() - b.age : undefined, // RG-05 bis
     city: b.city,
     situation: b.situation,
-    ...(id.channel === 'email' ? { email: id.target, emailVerified: true } : { phone: id.target, phoneVerified: true }),
+    email: id.target,
+    emailVerified: true,
+    ...(phone ? { phone, phoneVerified: false } : {}),
     consents: {
       terms: consent(true),
       health: consent(b.consents.health),

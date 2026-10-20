@@ -1,8 +1,8 @@
 // Connexion : par code reçu par e-mail ou par mot de passe, avec « mot de passe oublié ».
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
-import { Button, CodeInput, Field, Gap, Screen, Segmented, T } from '../components/ui';
+import { Pressable, View } from 'react-native';
+import { Button, CodeInput, Field, Gap, Icon, Screen, Segmented, T } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors } from '../theme';
@@ -12,7 +12,9 @@ export default function Login() {
   const [mode, setMode] = useState('code'); // code | password | forgot
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [sent, setSent] = useState(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -82,7 +84,22 @@ export default function Login() {
         {mode === 'password' ? (
           <>
             {identifierField}
-            <Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" textContentType="password" icon="lock" returnKeyType="go" onSubmitEditing={loginPassword} />
+            <Field
+              label="Mot de passe"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoComplete="current-password"
+              textContentType="password"
+              icon="lock"
+              returnKeyType="go"
+              onSubmitEditing={loginPassword}
+              right={
+                <Pressable onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} hitSlop={8}>
+                  <Icon name={showPassword ? 'eyeOff' : 'eye'} size={22} color={colors.muted} />
+                </Pressable>
+              }
+            />
             {error ? <T color={colors.danger}>{error}</T> : null}
             <Button title="Me connecter" onPress={loginPassword} loading={busy} disabled={identifier.trim().length < 4 || !password} />
             <Button title="Mot de passe oublié ?" variant="ghost" onPress={() => switchMode('forgot')} />
@@ -110,7 +127,21 @@ export default function Login() {
               }}
             />
             {mode === 'forgot' ? (
-              <Field label="Nouveau mot de passe" value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" icon="lock" hint="8 caractères minimum" />
+              <Field
+                label="Nouveau mot de passe"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showNewPassword}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                icon="lock"
+                hint="8 caractères minimum"
+                right={
+                  <Pressable onPress={() => setShowNewPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showNewPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} hitSlop={8}>
+                    <Icon name={showNewPassword ? 'eyeOff' : 'eye'} size={22} color={colors.muted} />
+                  </Pressable>
+                }
+              />
             ) : null}
             {error ? <T color={colors.danger} style={{ textAlign: 'center' }}>{error}</T> : null}
             {mode === 'forgot' ? (
