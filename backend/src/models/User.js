@@ -32,6 +32,8 @@ const userSchema = new Schema(
     birthYear: Number,
     city: citySchema,
     situation: { type: String, enum: ['mariee', 'celibataire'] },
+    // 4.7 · 6.2 — glaire et température dans le Suivi santé (sinon seulement en mode « Je veux un enfant »).
+    fertilitySigns: { type: Boolean, default: false },
 
     email: { type: String, lowercase: true, trim: true, unique: true, sparse: true },
     emailVerified: { type: Boolean, default: false },
@@ -187,6 +189,7 @@ userSchema.methods.toPublic = function toPublic() {
     birthYear: this.birthYear,
     city: this.city,
     situation: this.situation,
+    fertilitySigns: Boolean(this.fertilitySigns),
     email: this.email,
     emailVerified: this.emailVerified,
     phone: this.phone,

@@ -1,127 +1,100 @@
-// 11 — Mon cycle (structure des références Flo, identité Nissali) : semaine en haut, résumé du cycle,
-// raccourcis (Mes règles, Symptômes, Mon poids), journal du jour, comprendre mon cycle ; calendrier mois/année.
+// 4.7 · 6.1 — Onglet Cycle, de haut en bas : carte Ma phase (bordeaux), bandeau santé éventuel, calendrier mensuel
+// glissable, « Comment tu te sens ? » (enregistré au toucher), conseil santé de la phase. Toucher un jour → 6.3.
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { BrandBar } from '../../components/Brand';
-import { DayPanel, HistorySheet, JournalSheet } from '../../components/CycleDay';
+import { CalendarGrid, Legend, MonthNav } from '../../components/Calendar';
+import { HistorySheet } from '../../components/CycleDay';
+import DaySheet from '../../components/DaySheet';
 import { DateField, TimeField } from '../../components/forms';
-import { FlowSheet } from '../../components/Flow';
+import { FeelCard, Frieze, TipCard, TipSheet } from '../../components/HealthCards';
 import Icon from '../../components/Icon';
 import { usePeriodActions } from '../../components/PeriodSheets';
-import { Button, Card, ErrorState, Field, Gap, Label, ListItem, Loader, Notice, OfflineBanner, Row, Screen, Segmented, Sheet, T, useToast } from '../../components/ui';
-import { kg, WeightSheet } from '../../components/Weight';
-import { api } from '../../lib/api';
-import { addDays, dayMonth, longDate, toDay } from '../../lib/format';
+import { Button, Card, ErrorState, Field, Gap, ListItem, Loader, Notice, OfflineBanner, Row, Screen, Sheet, T, useToast } from '../../components/ui';
+import { WeightSheet } from '../../components/Weight';
+import { api, sendOrQueue } from '../../lib/api';
+import { addDays, dayMonth, longDate, shiftMonth, toDay } from '../../lib/format';
+import { readJson, writeJson } from '../../lib/storage';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const TEAL = '#2E7D7A'; // fenêtre fertile estimée (contraste AA sur ivoire)
+const PHASE_TITLES = { menstruelle: 'Menstruelle', folliculaire: 'Folliculaire', ovulatoire: 'Ovulatoire', luteale: 'Lutéale' };
 
-/** Semaine en cours : règles notées pleines, prévues en pointillé, fertile en vert d'eau, aujourd'hui en bordeaux. */
-function WeekStrip({ week = [], onPress }) {
-  return (
-    <View style={s.week}>
-      {week.map((d, i) => {
-        const real = d.period === 'reelle' || d.period === 'nifas';
-        const predicted = d.period === 'prevue';
-        const fertile = (d.fertile || d.ovulation) && !real;
-        return (
-          <Pressable key={d.day} onPress={() => onPress(d)} accessibilityRole="button" accessibilityLabel={`${longDate(d.day)}${real ? ', règles notées' : predicted ? ', règles prévues' : fertile ? ', fertile (estimation)' : ''}`} style={s.weekCol}>
-            <Text style={[s.weekLetter, d.today && { color: colors.bordeaux, fontFamily: fonts.bold }]}>{LETTERS[i]}</Text>
-            <View style={[s.weekDay, real && { backgroundColor: colors.rose }, predicted && s.weekPredicted, d.today && { backgroundColor: colors.bordeaux, borderWidth: 0 }]}>
-              <Text style={[s.weekNum, real && { color: colors.bordeaux, fontFamily: fonts.bold }, fertile && { color: TEAL, fontFamily: fonts.bold }, predicted && { color: colors.bordeaux }, d.today && { color: colors.white, fontFamily: fonts.bold }]}>{Number(d.day.slice(8))}</Text>
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function Shortcut({ icon, label, value, onPress, accessibilityLabel }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel || label} style={({ pressed }) => [s.shortcut, pressed && { opacity: 0.8 }]}>
-      <View style={s.shortcutCircle}>
-        {value ? <Text style={s.shortcutValue}>{value}</Text> : <Icon name={icon} size={24} color={colors.bordeaux} />}
-      </View>
-      <Row gap={3}>
-        <Text style={s.shortcutLabel}>{label}</Text>
-        {value ? <Icon name="edit" size={12} color={colors.bordeaux} /> : null}
-      </Row>
+/** Carte Ma phase : jour du cycle, phase en 32 px, explication, frise (phase en cours en doré). */
+function PhaseCard({ data, onStart, onEnd }) {
+  const p = data.inPeriod;
+  const btn = (title, onPress) => (
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [s.whiteBtn, pressed && { opacity: 0.9 }]}>
+      <Text style={s.whiteBtnText}>{title}</Text>
     </Pressable>
   );
-}
-
-/** Résumé central : jour du cycle et prochaines règles (estimation indicative). */
-function Summary({ data, onStart, onEnd, onFlow }) {
-  if (data.inPeriod) {
+  const head = (label) => (
+    <Row justify="space-between">
+      <Text style={s.phaseLabel}>{label}</Text>
+      <Pressable onPress={() => router.push('/mes-regles')} accessibilityRole="link" hitSlop={8} style={s.pill}>
+        <Text style={s.pillText}>Mes règles</Text>
+        <Icon name="chevronRight" size={12} color={colors.white} />
+      </Pressable>
+    </Row>
+  );
+  if (p) {
     return (
-      <View style={s.summary}>
-        <Text style={s.big}>Jour {data.inPeriod.day} des règles</Text>
-        <View style={s.rule} />
-        <T variant="muted">Commencées le {dayMonth(data.inPeriod.start)}</T>
-        <Row gap={10} style={{ marginTop: 12 }}>
-          <Button title="Flux du jour" small icon="drop" onPress={onFlow} />
-          <Button title="Terminées" small variant="outline" onPress={() => onEnd(data.inPeriod.id)} />
-        </Row>
+      <View style={s.phase}>
+        {head('Ma phase')}
+        <Text style={s.phaseBig}>Règles · jour {p.day}</Text>
+        <Text style={s.phaseText}>Commencées le {dayMonth(p.start)}. {data.phase?.what || ''}</Text>
+        <Frieze frieze={data.frieze} phase="menstruelle" />
+        {btn('Mes règles sont terminées', () => onEnd(p.id, 'hayd', p.start))}
       </View>
     );
   }
-  if (!data.next) {
+  if (!data.next || !data.phase) {
     return (
-      <View style={s.summary}>
-        <Text style={s.big}>{data.noPrediction ? 'Retour des règles imprévisible' : 'Note tes règles'}</Text>
-        <View style={s.rule} />
-        <T variant="muted">Les prévisions démarrent dès ta première saisie.</T>
-        <Button title="Mes règles ont commencé" small icon="drop" onPress={onStart} style={{ marginTop: 12 }} />
+      <View style={s.phase}>
+        {head('Ma phase')}
+        <Text style={[s.phaseBig, { fontSize: 28, lineHeight: 34 }]}>{data.noPrediction ? 'Retour des règles imprévisible' : 'Note tes règles'}</Text>
+        <Text style={s.phaseText}>Ta phase et ton calendrier apparaissent dès ta première saisie.</Text>
+        {btn('Mes règles ont commencé', onStart)}
       </View>
     );
   }
   const n = data.next;
-  const late = n.lateDays > 0;
   return (
-    <View style={s.summary}>
-      <Text style={s.big}>Jour {n.cycleDay} du cycle</Text>
-      <View style={s.rule} />
-      <T variant="muted">{late ? 'Règles en retard' : 'Prochaines règles'}</T>
-      <Text style={s.when}>{late ? `${n.lateDays} jour${n.lateDays > 1 ? 's' : ''} de retard` : n.rangeStart ? `Entre le ${dayMonth(n.rangeStart)} et le ${dayMonth(n.rangeEnd)}` : `Autour du ${dayMonth(n.date)}`}</Text>
-      <Row gap={5} style={{ marginTop: 4 }}>
-        <Icon name="info" size={14} color={colors.muted} />
-        <T variant="small">Estimation indicative · fiabilité {data.reliability.label}</T>
-      </Row>
-      <Button title="Mes règles ont commencé" small variant="outline" icon="drop" onPress={onStart} style={{ marginTop: 12 }} />
+    <View style={s.phase}>
+      {head(`Ma phase · jour ${n.cycleDay}`)}
+      <Text style={s.phaseBig}>{PHASE_TITLES[data.phase.key] || data.phase.label}</Text>
+      <Text style={s.phaseText}>{data.phase.what}</Text>
+      <Frieze frieze={data.frieze} phase={data.phase.key} />
+      <Text style={[s.phaseText, { marginTop: 10 }]}>
+        {n.lateDays > 0 ? `Règles en retard de ${n.lateDays} jour${n.lateDays > 1 ? 's' : ''}` : `Prochaines règles vers le ${dayMonth(n.date)}`} · fiabilité {data.reliability.label}
+      </Text>
+      {btn('Mes règles ont commencé', onStart)}
     </View>
-  );
-}
-
-function Leaves() {
-  return (
-    <Svg width={92} height={92} viewBox="0 0 92 92">
-      <Path d="M46 88C44 60 40 36 28 14" stroke="#C26A7E" strokeWidth={2} fill="none" />
-      <Path d="M30 20c-12 2-18 12-16 22 10-1 18-9 16-22zM38 40c-12 0-20 9-20 19 10 1 19-6 20-19zM42 30c10-8 22-6 28 2-8 7-20 7-28-2zM45 54c11-6 22-2 26 7-9 5-20 3-26-7z" fill="#E9B9C1" />
-    </Svg>
   );
 }
 
 export default function Cycle() {
   const toast = useToast();
-  const [tab, setTab] = useState('regles');
-  const { data, loading, error, offline, reload } = useApi('/cycle');
+  const { width } = useWindowDimensions();
+  const [month, setMonth] = useState(toDay(new Date()).slice(0, 7));
+  const { data, setData, loading, error, offline, reload } = useApi(`/cycle?month=${month}`);
   const { openStart, openEnd, sheets } = usePeriodActions(reload);
-  const [sheet, setSheet] = useState(null); // 'flow' | 'weight' | 'journal' | 'history' | 'day' | 'past' | 'appt'
-  const [focus, setFocus] = useState(null);
-  const [dayInfo, setDayInfo] = useState(null);
+  const [sheet, setSheet] = useState(null); // 'weight' | 'history' | 'past' | 'appt' | 'tip'
+  const [day, setDay] = useState(null);
+  const [hiddenAlerts, setHiddenAlerts] = useState(null);
   const [appt, setAppt] = useState({ title: '', day: toDay(new Date()), time: null });
   const [past, setPast] = useState({ start: null, end: null });
   const [busy, setBusy] = useState(false);
+  const touchX = useRef(null);
+  useEffect(() => {
+    readJson('nissali.hiddenHealthAlerts', []).then(setHiddenAlerts).catch(() => setHiddenAlerts([]));
+  }, []);
 
   const top = (
     <BrandBar
       right={
-        <Pressable onPress={() => router.push('/calendrier')} accessibilityRole="button" accessibilityLabel="Mon calendrier" hitSlop={6} style={s.calBtn}>
+        <Pressable onPress={() => router.push('/calendrier')} accessibilityRole="button" accessibilityLabel="Mon calendrier, vue année" hitSlop={6} style={s.calBtn}>
           <Icon name="calendar" size={21} color={colors.bordeaux} />
         </Pressable>
       }
@@ -129,6 +102,15 @@ export default function Cycle() {
   );
   if (loading && !data) return <Screen top={top}><Loader /></Screen>;
   if (error && !data) return <Screen top={top}><ErrorState error={error} onRetry={reload} /></Screen>;
+
+  const j = data.journal || {};
+  const health = { mood: j.mood, symptoms: j.symptoms || [], lastWeight: data.lastWeight };
+  const saveDay = async (patch) => {
+    setData((d) => ({ ...d, journal: { ...d.journal, ...patch } }));
+    await sendOrQueue('PUT', `/health-log/day/${data.today}`, patch).catch((e) => toast(e.message, 'error'));
+  };
+  const saveSymptom = (k, on) => saveDay({ symptoms: on ? [...new Set([...(j.symptoms || []), k])] : (j.symptoms || []).filter((x) => x !== k) });
+  const openTip = () => (data.healthTip?.article?.slug ? router.push(`/blog/${data.healthTip.article.slug}`) : setSheet('tip'));
 
   const saveAppointment = async () => {
     setBusy(true);
@@ -162,143 +144,88 @@ export default function Cycle() {
     await api.post(`/cycle/cycles/${periodId}/exclude`, { exclude: value }).catch(() => {});
     reload();
   };
-  const journalDay = dayInfo?.day || data.today;
+  const hideAlert = (key) => {
+    const next = [...(hiddenAlerts || []), key];
+    setHiddenAlerts(next);
+    writeJson('nissali.hiddenHealthAlerts', next).catch(() => {});
+  };
+  const alerts = (data.alerts || []).filter((a) => !(hiddenAlerts || []).includes(a.key));
+  const gridWidth = Math.min(width, 520) - 36 - 28;
 
   return (
     <Screen top={top} onRefresh={reload}>
       <OfflineBanner visible={offline} />
-      <Segmented
-        items={[
-          { key: 'regles', label: 'Règles' },
-          { key: 'ovulation', label: 'Ovulation' },
-          { key: 'grossesse', label: 'Grossesse' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
-      <Gap h={14} />
-      <WeekStrip week={data.week} onPress={(d) => { setDayInfo(d); setSheet('day'); }} />
+      <PhaseCard data={data} onStart={() => openStart()} onEnd={openEnd} />
+      <Gap />
 
-      {tab === 'regles' ? (
-        <>
-          <Summary data={data} onStart={openStart} onEnd={openEnd} onFlow={() => { setDayInfo(null); setSheet('flow'); }} />
-          <Row justify="space-around" style={{ marginTop: 6 }}>
-            <Shortcut icon="drop" label="Mes règles" onPress={() => (data.inPeriod ? (setDayInfo(null), setSheet('flow')) : router.push('/mes-regles'))} />
-            <Shortcut icon="plus" label="Symptômes" onPress={() => { setDayInfo(null); setFocus('symptomes'); setSheet('journal'); }} />
-            <Shortcut icon="scale" label="Mon poids" value={data.lastWeight ? `${kg(data.lastWeight.weight)} kg` : null} accessibilityLabel={data.lastWeight ? `Mon poids : ${kg(data.lastWeight.weight)} kilos` : 'Mon poids, ajouter'} onPress={() => router.push('/poids')} />
-          </Row>
-          <Gap h={18} />
-          <Card style={{ gap: 10 }}>
-            <View>
-              <Text style={s.cardTitle}>Mon journal</Text>
-              <T variant="small">Aujourd’hui, {dayMonth(data.today)}</T>
-            </View>
-            {data.journal?.notes ? <T numberOfLines={3}>{data.journal.notes}</T> : null}
-            <Pressable onPress={() => { setDayInfo(null); setFocus('note'); setSheet('journal'); }} accessibilityRole="button" style={s.addNote}>
-              <Icon name="plus" size={17} color={colors.bordeaux} />
-              <Text style={s.addNoteText}>{data.journal?.notes ? 'Modifier ma note' : 'Ajouter une note'}</Text>
-              <Icon name="chevronRight" size={16} color={colors.muted} />
-            </Pressable>
-          </Card>
-          <Gap />
-          <Pressable onPress={() => router.push('/blog/les-4-phases-de-ton-cycle')} accessibilityRole="link" style={({ pressed }) => [s.learn, pressed && { opacity: 0.88 }]}>
-            <View style={s.learnArt}>
-              <Leaves />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={s.cardTitle}>Comprendre mon cycle</Text>
-              <T variant="small">Découvre les différentes phases de ton cycle{data.phase ? ` · tu es en ${data.phase.label.toLowerCase()}` : ''}</T>
-            </View>
-            <Icon name="chevronRight" size={18} color={colors.muted} />
+      {/* Bandeau santé (partie 6.6) : au-dessus du calendrier, jamais sur l'accueil ; on peut le fermer. */}
+      {alerts.map((a) => (
+        <View key={a.key} style={{ marginBottom: 12 }}>
+          <Notice title="Ta santé">{a.text}</Notice>
+          <Pressable onPress={() => hideAlert(a.key)} accessibilityRole="button" hitSlop={6} style={{ alignSelf: 'flex-end', marginTop: 4 }}>
+            <Text style={s.link}>Masquer</Text>
           </Pressable>
-          <Gap />
+        </View>
+      ))}
+      {data.aberrantPending.map((c) => (
+        <Card key={c.periodId} tone="soft" style={{ gap: 8, marginBottom: 12 }}>
+          <T>Le cycle du {dayMonth(c.start)} a duré {c.length} jours, ce qui est inhabituel (oubli de saisie ?). L’écarter des calculs ?</T>
+          <Row>
+            <Button title="L’écarter" small onPress={() => exclude(c.periodId, true)} style={{ flex: 1 }} />
+            <Button title="Le garder" small variant="outline" onPress={() => exclude(c.periodId, false)} style={{ flex: 1 }} />
+          </Row>
+        </Card>
+      ))}
 
-          {data.aberrantPending.map((c) => (
-            <Card key={c.periodId} tone="soft" style={{ gap: 8, marginBottom: 12 }}>
-              <T>Le cycle du {dayMonth(c.start)} a duré {c.length} jours, ce qui est inhabituel (oubli de saisie ?). L’écarter des calculs ?</T>
-              <Row>
-                <Button title="L’écarter" small onPress={() => exclude(c.periodId, true)} style={{ flex: 1 }} />
-                <Button title="Le garder" small variant="outline" onPress={() => exclude(c.periodId, false)} style={{ flex: 1 }} />
-              </Row>
-            </Card>
-          ))}
-          <Card style={{ paddingVertical: 4 }}>
-            <ListItem icon="calendar" title="Mon calendrier" subtitle="Mois ou année, détail de chaque jour" onPress={() => router.push('/calendrier')} />
-            <ListItem icon="chart" title="Historique de mes cycles" subtitle={`Cycle moyen ${data.averages.cycleLength} j · règles ${data.averages.periodLength} j`} onPress={() => setSheet('history')} />
-            <ListItem icon="plus" title="Ajouter des règles passées" subtitle="Pour améliorer tout de suite tes prévisions" onPress={() => setSheet('past')} />
-            <ListItem icon="clock" title="Noter un rendez-vous médical" subtitle={data.appointments.length ? `Prochain : ${data.appointments[0].title}, ${longDate(data.appointments[0].day)}` : 'Échographie, gynécologue…'} onPress={() => setSheet('appt')} last />
-          </Card>
-          {data.alerts.map((a) => (
-            <View key={a.key} style={{ marginTop: 14 }}>
-              <Notice title="Ta santé">{a.text}</Notice>
-            </View>
-          ))}
-        </>
-      ) : null}
+      {/* Calendrier : glisser à gauche ou à droite pour changer de mois */}
+      <View
+        style={s.card}
+        onTouchStart={(e) => (touchX.current = e.nativeEvent.pageX)}
+        onTouchEnd={(e) => {
+          const dx = e.nativeEvent.pageX - (touchX.current ?? e.nativeEvent.pageX);
+          if (Math.abs(dx) > 60) setMonth((m) => shiftMonth(m, dx < 0 ? 1 : -1));
+          touchX.current = null;
+        }}
+      >
+        <MonthNav month={month} onChange={setMonth} />
+        <CalendarGrid month={month} days={data.month === month ? data.calendar : []} width={gridWidth} onDayPress={(d) => setDay(d)} />
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 12 }}>
+          <Legend />
+        </View>
+      </View>
+      <Gap />
 
-      {tab === 'ovulation' ? (
+      <FeelCard health={health} onMood={(mood) => saveDay({ mood })} onSymptom={saveSymptom} onWeight={() => setSheet('weight')} />
+      <Gap />
+      {data.healthTip ? (
         <>
-          <Gap h={6} />
-          {data.ovulation && !data.inPeriod ? (
-            <Card style={{ gap: 8 }}>
-              <Label color={colors.or}>Ovulation et fertilité · estimation</Label>
-              <Text style={s.big}>{dayMonth(data.ovulation.day)}</Text>
-              <T>
-                Ovulation {data.ovulation.source === 'estimation' ? 'estimée' : 'détectée'} · fenêtre fertile du {dayMonth(data.ovulation.fertileStart)} au {dayMonth(data.ovulation.fertileEnd)}.
-              </T>
-              {data.fertileToday ? <T color={colors.bordeaux}>Tu es dans ta fenêtre fertile.</T> : null}
-              <Pressable onPress={() => router.push('/sante')}>
-                <T variant="medium" color={colors.bordeaux}>Affiner avec ma température ou un test →</T>
-              </Pressable>
-            </Card>
-          ) : (
-            <Card tone="soft">
-              <T>{data.inPeriod ? 'Pendant tes règles, l’ovulation du prochain cycle sera estimée à la fin de tes règles.' : 'Ton ovulation sera estimée dès que ton cycle sera connu.'}</T>
-            </Card>
-          )}
-          {data.phase ? (
-            <>
-              <Gap />
-              <Card style={{ gap: 8 }}>
-                <Label>{data.phase.label}</Label>
-                <T>{data.phase.what}</T>
-              </Card>
-            </>
-          ) : null}
+          <TipCard tip={data.healthTip} onOpen={openTip} />
           <Gap />
-          <T variant="small">Nissali n’est pas un moyen de contraception : ces dates sont des estimations.</T>
         </>
       ) : null}
 
-      {tab === 'grossesse' ? (
-        <>
-          <Gap h={6} />
-          <Card tone="soft" style={{ gap: 10 }}>
-            <Label>Grossesse</Label>
-            <T>{data.mode === 'grossesse' ? 'Ton suivi de grossesse semaine par semaine : terme, trimestre, rendez-vous.' : 'Tu es enceinte ? Active le suivi de grossesse : semaines, terme et conseils adaptés.'}</T>
-            <Button title={data.mode === 'grossesse' ? 'Ouvrir mon suivi' : 'Activer le suivi de grossesse'} onPress={() => router.push('/grossesse')} />
-          </Card>
-        </>
+      <Card style={{ paddingVertical: 4 }}>
+        <ListItem icon="drop" title="Mes règles" subtitle="Dates, flux, prévisions" onPress={() => router.push('/mes-regles')} />
+        <ListItem icon="chart" title="Historique de mes cycles" subtitle={`Cycle moyen ${data.averages.cycleLength} j · règles ${data.averages.periodLength} j`} onPress={() => setSheet('history')} />
+        <ListItem icon="plus" title="Ajouter des règles passées" subtitle="Pour améliorer tout de suite tes prévisions" onPress={() => setSheet('past')} />
+        <ListItem icon="clock" title="Noter un rendez-vous médical" subtitle={data.appointments.length ? `Prochain : ${data.appointments[0].title}, ${longDate(data.appointments[0].day)}` : 'Échographie, gynécologue…'} onPress={() => setSheet('appt')} />
+        <ListItem icon="baby" title={data.mode === 'grossesse' ? 'Mon suivi de grossesse' : 'Grossesse'} subtitle={data.mode === 'grossesse' ? 'Semaines, terme, rendez-vous' : 'Active le suivi si tu es enceinte'} onPress={() => router.push('/grossesse')} last />
+      </Card>
+      {data.ovulation && !data.inPeriod ? (
+        <T variant="small" style={{ marginTop: 12 }}>
+          Ovulation estimée le {dayMonth(data.ovulation.day)} · fenêtre fertile du {dayMonth(data.ovulation.fertileStart)} au {dayMonth(data.ovulation.fertileEnd)}. Nissali n’est pas un moyen de contraception.
+        </T>
       ) : null}
 
-      <Sheet visible={sheet === 'day' && Boolean(dayInfo)} onClose={() => setSheet(null)} title="Ma journée">
-        {dayInfo ? (
-          <DayPanel
-            day={dayInfo.day}
-            info={dayInfo}
-            periods={data.periods}
-            weight={data.lastWeight?.day === dayInfo.day ? data.lastWeight.weight : null}
-            today={data.today}
-            onJournal={(f) => { setFocus(f); setSheet('journal'); }}
-            onFlow={() => setSheet('flow')}
-            onWeight={() => router.push('/poids')}
-            onHistory={() => setSheet('history')}
-          />
-        ) : null}
-      </Sheet>
-      <FlowSheet visible={sheet === 'flow'} day={dayInfo?.day || data.today} onClose={() => setSheet(null)} onSaved={reload} />
-      <JournalSheet visible={sheet === 'journal'} day={journalDay} focus={focus} onClose={() => setSheet(null)} onSaved={reload} />
-      <WeightSheet visible={sheet === 'weight'} entry={null} lastWeight={data.lastWeight?.weight} onClose={() => setSheet(null)} onSaved={reload} />
+      <DaySheet day={day} onClose={() => setDay(null)} onStartPeriod={(d) => openStart(d)} />
+      <TipSheet tip={data.healthTip} visible={sheet === 'tip'} onClose={() => setSheet(null)} />
+      <WeightSheet
+        visible={sheet === 'weight'}
+        entry={data.lastWeight?.day === data.today ? data.lastWeight : null}
+        lastWeight={data.lastWeight?.weight}
+        onClose={() => setSheet(null)}
+        onSaved={reload}
+      />
       <HistorySheet visible={sheet === 'history'} onClose={() => setSheet(null)} history={data.history} averages={data.averages} />
       <Sheet visible={sheet === 'appt'} onClose={() => setSheet(null)} title="Rendez-vous médical" footer={<Button title="Ajouter" onPress={saveAppointment} loading={busy} disabled={!appt.title.trim()} />}>
         <Field label="Intitulé" value={appt.title} onChangeText={(v) => setAppt((a) => ({ ...a, title: v }))} placeholder="Échographie, gynécologue…" />
@@ -317,23 +244,14 @@ export default function Cycle() {
 
 const s = StyleSheet.create({
   calBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
-  week: { flexDirection: 'row', justifyContent: 'space-between' },
-  weekCol: { alignItems: 'center', gap: 6, flex: 1 },
-  weekLetter: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted },
-  weekDay: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  weekPredicted: { borderWidth: 1.5, borderColor: colors.bordeaux, borderStyle: 'dashed' },
-  weekNum: { fontFamily: fonts.medium, fontSize: 15, color: colors.prune },
-  summary: { alignItems: 'center', paddingTop: 26, paddingBottom: 18, gap: 4 },
-  big: { fontFamily: fonts.title, fontSize: 34, lineHeight: 40, color: colors.prune, textAlign: 'center' },
-  rule: { width: 46, height: 2, borderRadius: 1, backgroundColor: colors.rose, marginVertical: 10 },
-  when: { fontFamily: fonts.title, fontSize: 21, color: colors.prune, textAlign: 'center' },
-  shortcut: { alignItems: 'center', gap: 8, width: 100 },
-  shortcutCircle: { width: 68, height: 68, borderRadius: 34, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, shadowColor: '#3E1220', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  shortcutValue: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.prune },
-  shortcutLabel: { fontFamily: fonts.medium, fontSize: 13.5, color: colors.prune },
-  cardTitle: { fontFamily: fonts.title, fontSize: 19, color: colors.prune },
-  addNote: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.blush, borderRadius: 16, paddingHorizontal: 14, minHeight: 48 },
-  addNoteText: { flex: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.bordeaux },
-  learn: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.white, borderRadius: 24, padding: 12, paddingRight: 16, borderWidth: 1, borderColor: colors.line },
-  learnArt: { width: 92, height: 92, borderRadius: 18, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  card: { backgroundColor: colors.white, borderRadius: 24, padding: 14, gap: 12, borderWidth: 1, borderColor: colors.line },
+  link: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux },
+  phase: { backgroundColor: colors.bordeaux, borderRadius: 28, padding: 20, gap: 6 },
+  phaseLabel: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.2, color: colors.onBordeaux, textTransform: 'uppercase' },
+  phaseBig: { fontFamily: fonts.extra, fontSize: 32, lineHeight: 38, letterSpacing: -1, color: colors.white, marginTop: 4 },
+  phaseText: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.onBordeaux },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.onBordeauxSurface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  pillText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.white },
+  whiteBtn: { marginTop: 14, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
+  whiteBtnText: { fontFamily: fonts.bold, fontSize: 15, color: colors.bordeaux },
 });

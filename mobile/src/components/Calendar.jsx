@@ -62,11 +62,17 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
     if (fill === 'transparent') textColor = colors.muted;
   }
   // Aujourd'hui : cerclé (maquette « Mon calendrier »), sans masquer les règles notées.
+  // Aujourd'hui en prune (4.7 · 6.1) ; cerclé seulement s'il tombe pendant des règles notées.
   if (info?.today) {
-    stroke = colors.prune;
-    strokeWidth = 2.5;
+    if (info?.period === 'reelle' || info?.period === 'nifas') {
+      stroke = colors.prune;
+      strokeWidth = 2.5;
+    } else {
+      fill = colors.prune;
+      textColor = colors.white;
+      stroke = info?.ovulation ? colors.or : null;
+    }
     dash = null;
-    if (fill === 'transparent' || fill === colors.rose) textColor = colors.prune;
     bold = true;
   }
   if (selected) {
@@ -161,7 +167,7 @@ export function Legend() {
       )}
       {item(<View style={[s.legendDot, { backgroundColor: colors.rose }]} />, 'Fertile (estimation)')}
       {item(<View style={[s.legendDot, { backgroundColor: colors.rose, borderWidth: 3, borderColor: colors.or }]} />, 'Ovulation (estimation)')}
-      {item(<View style={[s.legendDot, { borderWidth: 2.5, borderColor: colors.prune }]} />, 'Aujourd’hui')}
+      {item(<View style={[s.legendDot, { backgroundColor: colors.prune }]} />, 'Aujourd’hui')}
       {item(<View style={[s.legendDot, { borderWidth: 3, borderColor: '#E2CBB0' }]} />, 'Rendez-vous')}
       {item(<View style={[s.legendDot, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }]}><View style={[s.noteDot, { position: 'relative', backgroundColor: colors.or }]} /></View>, 'Note')}
     </View>

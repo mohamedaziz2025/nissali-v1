@@ -34,6 +34,7 @@ const profileSchema = z.object({
   age: z.number().int().min(15).max(100).optional(),
   city: citySchema.optional(),
   situation: z.enum(['mariee', 'celibataire']).optional(),
+  fertilitySigns: z.boolean().optional(),
   specialProfile: z.enum(['aucun', 'adolescente', 'arret_pilule', 'post_partum', 'allaitement', 'premenopause']).optional(),
   lastSpace: z.enum(['personnel', 'pro']).optional(),
   prayerSettings: z
@@ -88,7 +89,7 @@ const profileSchema = z.object({
 router.patch('/', validate(profileSchema), async (req, res) => {
   const u = req.user;
   const b = req.body;
-  for (const key of ['firstName', 'city', 'situation', 'specialProfile', 'lastSpace']) if (b[key] !== undefined) u[key] = b[key];
+  for (const key of ['firstName', 'city', 'situation', 'fertilitySigns', 'specialProfile', 'lastSpace']) if (b[key] !== undefined) u[key] = b[key];
   if (b.age !== undefined) u.birthYear = new Date().getUTCFullYear() - b.age;
   if (b.goal) u.onboarding.goal = b.goal;
   if (b.prayerSettings) {

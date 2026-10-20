@@ -5,6 +5,7 @@ import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { DailyLog, MOODS, SYMPTOMS } from '../models/index.js';
 import { loadCycleContext, nowFor } from '../services/context.js';
+import { upcomingNotes } from '../services/notes.js';
 import { buildHealthTips, getWeather } from '../services/health.js';
 import { prayerOptionsFor } from '../services/prayerService.js';
 import { getSettings } from '../services/settings.js';
@@ -20,7 +21,10 @@ router.get('/options', (_req, res) => {
 
 router.get('/day/:day', async (req, res) => {
   if (!isDay(req.params.day)) throw badRequest('Date invalide');
-  res.json((await DailyLog.findOne({ user: req.user._id, day: req.params.day }).lean()) || { day: req.params.day });
+  const [log, notes] = await Promise.all([DailyLog.findOne({ user: req.user._id, day: req.params.day }).lean(), upcomingNotes(req.user._id, req.params.day, { days: 0, limit: 20 })]);
+  // 4.7 · 6.2 — médicaments et compléments repris des notes « Médicament » du jour (case = pris).
+  const medicationNotes = notes.filter((n) => n.type === 'medicament' && n.day === req.params.day).map((n) => ({ id: n.noteId, text: n.text, time: n.time }));
+  res.json({ ...(log || { day: req.params.day }), medicationNotes });
 });
 
 const logSchema = z

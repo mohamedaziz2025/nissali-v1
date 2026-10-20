@@ -39,12 +39,12 @@ function SwitchLine({ icon, label, value, onChange, last }) {
 }
 
 export default function NewNote() {
-  const { id, day: dayParam } = useLocalSearchParams();
+  const { id, day: dayParam, type: typeParam } = useLocalSearchParams();
   const toast = useToast();
   const today = toDay(new Date());
   const list = useApi('/notes');
   const existing = useApi(id ? `/notes/${id}` : null);
-  const [form, setForm] = useState({ ...EMPTY, day: dayParam || today });
+  const [form, setForm] = useState({ ...EMPTY, day: dayParam || today, ...(NOTE_TYPES.some((t) => t.key === typeParam) ? { type: typeParam } : {}) });
   const [loaded, setLoaded] = useState(!id);
   const [picker, setPicker] = useState(null); // 'day' | 'until' | 'time'
   const [busy, setBusy] = useState(false);

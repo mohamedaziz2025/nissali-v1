@@ -4,11 +4,14 @@ import { upcomingNotes } from '../services/notes.js';
 import { z } from 'zod';
 import { requireAuth, requireHealthConsent } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { Appointment, Booking, DailyLog, Period, Practitioner } from '../models/index.js';
+import { Appointment, Booking, DailyLog, MadeUpFast, Period, Practitioner, VoluntaryFast } from '../models/index.js';
 import { GHUSL_STEPS, HEALTH_ALERTS, PHASES, RELIABILITY_LABELS } from '../content/phases.js';
-import { loadCycleContext, nowFor } from '../services/context.js';
+import { loadCycleContext, loadFastContext, nowFor } from '../services/context.js';
+import { plannedFast } from '../services/contextCard.js';
+import { VOLUNTARY_LABELS } from '../services/voluntary.js';
 import { phaseOf } from '../services/cycleCalc.js';
-import { isRamadan } from '../services/hijri.js';
+import { tipOfTheDay } from '../services/healthTips.js';
+import { isRamadan, toHijri } from '../services/hijri.js';
 import { notify } from '../services/notifications.js';
 import { prayersAfterPurification } from '../services/prayerService.js';
 import { userTimings } from '../services/prayerSource.js';
@@ -129,6 +132,11 @@ router.get('/', async (req, res) => {
     journal: { day: ctx.today, notes: todayLog?.notes || '', mood: todayLog?.mood || null, symptoms: todayLog?.symptoms || [] },
     appointments: appointments.filter((a) => a.day >= ctx.today).slice(0, 10),
     alerts: s.alerts.map((a) => ({ key: a, text: HEALTH_ALERTS[a] })),
+    // 4.7 · 6.1 — carte Ma phase : frise des 4 phases proportionnelle aux durées calculées.
+    frieze: s.phaseBounds ? { bounds: s.phaseBounds, cycleLength: s.cycleLength, cycleDay: s.cycleDay } : null,
+    // Conseil santé de la phase (RG-08 ter), déplacé de l'accueil vers l'onglet Cycle.
+    healthTip: await tipOfTheDay(req.user.mode === 'grossesse' ? 'grossesse' : s.phase, ctx.today),
+    hijriToday: toHijri(ctx.today, ctx.settings.hijriAdjustment || 0)?.label || null,
   });
 });
 
@@ -281,13 +289,50 @@ router.post('/cycles/:periodId/exclude', validate(z.object({ exclude: z.boolean(
   res.json({ ok: true });
 });
 
-// Phase d'un jour quelconque (pour le détail d'une date du calendrier).
+// 4.7 · 6.3 — Détail d'un jour (feuille ouverte en touchant une date) : jour du cycle, phase, date hégirienne,
+// jeûne prévu ou fait, notes, règles et flux, symptômes notés, prévisions si le jour est futur.
 router.get('/day/:day', async (req, res) => {
-  if (!isDay(req.params.day)) throw badRequest('Date invalide');
+  const d = req.params.day;
+  if (!isDay(d)) throw badRequest('Date invalide');
   const ctx = await loadCycleContext(req.user);
-  const c = ctx.summary.projections.find((p) => req.params.day >= p.start && req.params.day < p.nextStart);
-  const log = await DailyLog.findOne({ user: req.user._id, day: req.params.day }).lean();
-  res.json({ day: req.params.day, phase: c ? phaseOf(req.params.day, c) : null, log });
+  const s = ctx.summary;
+  const luteal = ctx.settings.lutealLength || 14;
+  const adj = ctx.settings.hijriAdjustment || 0;
+  const projected = s.projections.find((p) => d >= p.start && d < p.nextStart);
+  const past = !projected && s.cycles.find((c) => d >= c.start && d < c.nextStart);
+  const cycle = projected || (past ? { start: past.start, periodEnd: past.periodEnd || addDays(past.start, (past.periodLength || s.periodLength) - 1), ovulation: addDays(past.nextStart, -luteal) } : null);
+  const phase = cycle ? phaseOf(d, cycle) : null;
+  const period = ctx.periods.find((p) => d >= p.start && d <= (p.end || ctx.today));
+  const [log, notes, madeUp, voluntary, fastCtx] = await Promise.all([
+    DailyLog.findOne({ user: req.user._id, day: d }).lean(),
+    upcomingNotes(req.user._id, d, { days: 0, limit: 20 }),
+    MadeUpFast.exists({ user: req.user._id, day: d }),
+    VoluntaryFast.findOne({ user: req.user._id, day: d }).lean(),
+    d > ctx.today ? loadFastContext(req.user, ctx) : null,
+  ]);
+  const planned = fastCtx ? plannedFast(d, { fastCtx, user: req.user, adj, excl: ctx.settings.excludeDhulHijja13 !== false }) : null;
+  const fast = madeUp ? { status: 'fait', label: 'Jeûne rattrapé' } : voluntary ? { status: 'fait', label: `Jeûne · ${VOLUNTARY_LABELS[voluntary.type] || 'volontaire'}` } : planned ? { status: 'prevu', label: planned.label } : null;
+  const next = s.nextPeriod;
+  const future = d > ctx.today;
+  const ovulation = cycle ? cycle.ovulation : null;
+  res.json({
+    day: d,
+    today: ctx.today,
+    hijri: toHijri(d, adj)?.label || null,
+    cycleDay: cycle ? diffDays(d, cycle.start) + 1 : null,
+    phase: phase ? { key: phase, label: PHASES[phase].label } : null,
+    period: period ? { id: period.id, kind: period.kind, day: diffDays(d, period.start) + 1, start: period.start, flow: (period.flows || []).find((f) => f.day === d)?.level || null } : null,
+    log: log ? { mood: log.mood || null, symptoms: log.symptoms || [], energy: log.energy ?? null, sleepHours: log.sleepHours ?? null, weight: log.weight ?? null } : null,
+    notes: notes.filter((n) => n.day === d).map((n) => ({ id: n.noteId, text: n.text, time: n.time, type: n.type, repeatLabel: n.repeatLabel, repeat: n.repeat })),
+    fast,
+    forecast: future
+      ? {
+          period: Boolean(projected && d >= projected.start && d <= projected.periodEnd) || Boolean(next && d >= (next.rangeStart || next.date) && d <= (next.rangeEnd || next.date)),
+          fertile: Boolean(projected && d >= projected.fertileStart && d <= ovulation),
+          ovulation: Boolean(ovulation && d === ovulation),
+        }
+      : null,
+  });
 });
 
 export default router;

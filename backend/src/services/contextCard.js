@@ -9,7 +9,7 @@ import { addDays, timeToMinutes, weekday } from '../utils/dates.js';
 const WEEKDAY_SUNNA = { 1: 'Sunna du lundi', 4: 'Sunna du jeudi' };
 
 /** Jeûne programmé ce jour-là : rattrapage (programme) ou jeûne volontaire programmé. */
-function plannedFast(day, { fastCtx, user, adj, excl }) {
+export function plannedFast(day, { fastCtx, user, adj, excl }) {
   if (isRamadan(day, adj) || forbiddenFastReason(day, adj) || fastCtx.periodOn(day)) return null;
   const plan = fastCtx.plan;
   const wd = weekday(day);

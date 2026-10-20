@@ -96,7 +96,7 @@ export function FeelCard({ health, onMood, onSymptom, onWeight }) {
         <Text style={last ? s.weightValue : s.weightAdd}>{last ? `${kg(last.weight)} kg` : 'Ajouter'}</Text>
         <Icon name="chevronRight" size={14} color={colors.muted} />
       </Pressable>
-      <Button title="Suivi santé" icon="heart" onPress={() => router.push('/sante')} />
+      <Button title="Suivi santé complet" icon="heart" onPress={() => router.push('/sante')} />
     </Card>
   );
 }
@@ -155,7 +155,7 @@ export function TipSheet({ tip, weatherTips, visible, onClose }) {
 }
 
 const s = StyleSheet.create({
-  cardTitle: { fontFamily: fonts.title, fontSize: 19, color: colors.prune },
+  cardTitle: { fontFamily: fonts.extra, fontSize: 19, letterSpacing: -0.4, color: colors.prune },
   frieze: { flexDirection: 'row', height: 8, gap: 4, alignItems: 'center' },
   friezeSeg: { height: 8, borderRadius: 4 },
   friezeDot: { position: 'absolute', top: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: colors.white, borderWidth: 3, borderColor: colors.or },
@@ -171,7 +171,7 @@ const s = StyleSheet.create({
   tipCard: { backgroundColor: colors.white, borderRadius: 24, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.line },
   tipIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F6EBDD', alignItems: 'center', justifyContent: 'center' },
   tipTitle: { fontFamily: fonts.title, fontSize: 18, lineHeight: 23, color: colors.prune },
-  tipLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.or, letterSpacing: 0.4 },
+  tipLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.orText, letterSpacing: 0.4 },
   moreCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.blush, borderRadius: 18, padding: 10, paddingRight: 14 },
   moreImg: { width: 72, height: 54, borderRadius: 12, backgroundColor: colors.line },
   moreLabel: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.6, color: colors.bordeaux, textTransform: 'uppercase' },
