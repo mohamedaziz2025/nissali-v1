@@ -12,9 +12,15 @@ const categorySchema = new Schema(
     description: String,
     order: { type: Number, default: 0 },
     active: { type: Boolean, default: true },
+    // 5.10 V4 — particularités du métier : numéro RPPS (diététicienne), engagement matériel stérile (hijama).
+    requiresRpps: { type: Boolean, default: false },
+    requiresSterile: { type: Boolean, default: false },
+    disclaimer: { type: String, default: '' }, // mention ajoutée sur la fiche (« Ne remplace pas un avis médical »)
   },
   { timestamps: true },
 );
+
+const proDocSchema = new Schema({ storedName: String, name: String, mime: String, size: Number, uploadedAt: Date }, { _id: false });
 
 const practitionerSchema = new Schema(
   {
@@ -43,6 +49,15 @@ const practitionerSchema = new Schema(
     atHome: { type: Boolean, default: false }, // 5.10 — consultations à domicile (étiquette « Domicile »)
     supportsVideo: { type: Boolean, default: false },
     status: { type: String, enum: ['en_attente', 'validee', 'refusee', 'suspendue'], default: 'en_attente' },
+    // 4.14 — métier « Autre » saisi par la praticienne, masqué sur la fiche jusqu'à validation par l'équipe.
+    otherSpecialty: { type: String, default: '' },
+    otherValidated: { type: Boolean, default: false },
+    sterileCommitment: { type: Boolean, default: false }, // hijama : matériel stérile à usage unique
+    // 9.7 — justificatifs chiffrés, vus seulement par l'équipe : identité obligatoire, diplôme et RC Pro facultatifs.
+    documents: { identity: proDocSchema, diploma: proDocSchema, rcPro: proDocSchema },
+    diplomaVerified: { type: Boolean, default: false }, // RG-47 : badge « Diplômée »
+    visible: { type: Boolean, default: true }, // 9.3 : profil en pause = caché de l'annuaire, messages gardés
+    viewsMonth: { month: String, count: { type: Number, default: 0 } },
     rejectionReason: String,
     rating: { type: Number, default: 0 },
     reviewsCount: { type: Number, default: 0 },

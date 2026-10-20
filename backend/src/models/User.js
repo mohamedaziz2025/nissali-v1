@@ -32,6 +32,8 @@ const userSchema = new Schema(
     birthYear: Number,
     city: citySchema,
     situation: { type: String, enum: ['mariee', 'celibataire'] },
+    // 4.14 — brouillon du parcours « Configurer mon profil praticienne » (4 écrans), repris dans l'appli et sur le site.
+    proDraft: { type: Schema.Types.Mixed, default: undefined },
     // 4.7 · 6.2 — glaire et température dans le Suivi santé (sinon seulement en mode « Je veux un enfant »).
     fertilitySigns: { type: Boolean, default: false },
 
@@ -194,6 +196,8 @@ userSchema.methods.toPublic = function toPublic() {
     city: this.city,
     situation: this.situation,
     fertilitySigns: Boolean(this.fertilitySigns),
+    // 4.14 — profil praticienne « à compléter » (étape du brouillon).
+    proDraft: this.proDraft ? { step: this.proDraft.step || 1, later: Boolean(this.proDraft.later) } : null,
     email: this.email,
     emailVerified: this.emailVerified,
     phone: this.phone,

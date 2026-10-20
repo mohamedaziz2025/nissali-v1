@@ -23,26 +23,30 @@ export const REMINDERS = [
 ];
 
 // 5.10 — Catégories des praticiennes (liste validée par Nissali) : une catégorie = une spécialité.
+// 5.10 (V4) — métiers non médicaux, une seule liste gérée dans le back-office.
 export const CATEGORIES_SEED = [
-  { key: 'psychologue', label: 'Psychologue', group: 'psychologue', order: 1 },
-  { key: 'naturopathe', label: 'Naturopathe', group: 'naturopathe', order: 2 },
-  { key: 'dieteticienne', label: 'Diététicienne / nutritionniste', group: 'dieteticienne', order: 3 },
-  { key: 'hijama', label: 'Hijama', group: 'hijama', order: 4 },
-  { key: 'masseuse', label: 'Masseuse', group: 'masseuse', order: 5 },
-  { key: 'coach', label: 'Coach', group: 'coach', order: 6 },
-  { key: 'doula', label: 'Doula', group: 'doula', order: 7 },
-  { key: 'sage_femme', label: 'Sage-femme', group: 'sage_femme', order: 8 },
+  { key: 'dieteticienne', label: 'Diététicienne', group: 'dieteticienne', order: 1, requiresRpps: true },
+  { key: 'nutritionniste', label: 'Nutritionniste', group: 'nutritionniste', order: 2 },
+  { key: 'naturopathe', label: 'Naturopathe', group: 'naturopathe', order: 3 },
+  { key: 'hijama', label: 'Hijama', group: 'hijama', order: 4, requiresSterile: true, disclaimer: 'Ne remplace pas un avis médical' },
+  { key: 'coach', label: 'Coach', group: 'coach', order: 5 },
+  { key: 'doula', label: 'Doula', group: 'doula', order: 6 },
+  { key: 'autre', label: 'Autre', group: 'autre', order: 99 },
 ];
 // Anciennes spécialités → catégories actuelles (migration).
 export const LEGACY_SPECIALTIES = {
-  gynecologue: 'sage_femme',
-  sophrologue: 'psychologue',
-  consultante_lactation: 'sage_femme',
+  // V4 : plus aucun métier médical dans l'annuaire.
+  psychologue: 'coach',
+  sage_femme: 'doula',
+  masseuse: 'naturopathe',
+  gynecologue: 'doula',
+  sophrologue: 'coach',
+  consultante_lactation: 'doula',
   accompagnante_perinatalite: 'doula',
-  massage_bien_etre: 'masseuse',
+  massage_bien_etre: 'naturopathe',
   coach_sportive: 'coach',
   kinesitherapeute: 'coach',
-  osteopathe: 'masseuse',
+  osteopathe: 'coach',
 };
 
 export const PLANS_SEED = [

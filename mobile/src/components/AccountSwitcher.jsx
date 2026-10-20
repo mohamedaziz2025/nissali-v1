@@ -70,7 +70,7 @@ export function AccountSheet({ visible, onClose }) {
           onPress={() => choose('pro')}
         />
       ) : (
-        <SpaceRow icon="briefcase" title="Devenir praticienne" subtitle="Crée ton espace pro avec le même compte" onPress={() => go(() => router.push('/pro-inscription'))} />
+        <SpaceRow icon="briefcase" title="Devenir praticienne" subtitle="Crée ton espace pro avec le même compte" onPress={() => go(() => router.push('/devenir-praticienne'))} />
       )}
       <View style={{ height: 6 }} />
       {current === 'personnel' ? <MenuRow icon="settings" label="Profil et réglages" onPress={() => go(() => router.push('/profil'))} /> : <MenuRow icon="user" label="Profil professionnel" onPress={() => go(() => router.push('/pro/profil'))} />}

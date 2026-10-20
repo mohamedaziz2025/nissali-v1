@@ -25,3 +25,17 @@ export function open(sealed) {
     return '';
   }
 }
+
+// 4.14 · 9.7 — justificatifs des praticiennes chiffrés au repos (fichiers) : iv (12) + tag (16) + données.
+export function sealBuffer(buf) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv);
+  const data = Buffer.concat([cipher.update(buf), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), data]);
+}
+
+export function openBuffer(buf) {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', KEY, buf.subarray(0, 12));
+  decipher.setAuthTag(buf.subarray(12, 28));
+  return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]);
+}

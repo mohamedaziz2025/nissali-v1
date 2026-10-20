@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/Icon';
-import { DayStrip, euros, nextLabel, PractitionerAvatar, PractitionerCover, Stars, TimeGrid } from '../../components/Practitioners';
+import { DayStrip, DiplomaBadge, euros, nextLabel, PractitionerAvatar, PractitionerCover, Stars, TimeGrid } from '../../components/Practitioners';
 import { Button, Card, ErrorState, Field, Label, Loader, Segmented, Sheet, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
 import { callPhone, openConversation } from '../../lib/contact';
@@ -295,6 +295,7 @@ export default function PractitionerProfile() {
                   <Icon name="check" size={12} color={colors.white} strokeWidth={3} />
                 </View>
               ) : null}
+              {data.diplomaVerified ? <DiplomaBadge /> : null}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Stars value={data.rating} size={14} />
@@ -423,6 +424,12 @@ export default function PractitionerProfile() {
             ))}
           </Section>
 
+          {data.disclaimer ? (
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: colors.sable, borderRadius: 14, padding: 12, marginBottom: 12 }}>
+              <Icon name="info" size={16} color={colors.orText} />
+              <T style={{ flex: 1 }}>{data.disclaimer}</T>
+            </View>
+          ) : null}
           {data.diplomas?.length ? (
             <Section title="Diplômes et certifications">
               {data.diplomas.map((d) => (

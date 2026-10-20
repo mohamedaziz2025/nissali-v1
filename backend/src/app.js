@@ -28,6 +28,7 @@ import dhikrRoutes from './routes/dhikr.js';
 import noteRoutes from './routes/notes.js';
 import pregnancyRoutes from './routes/pregnancy.js';
 import proRoutes from './routes/pro.js';
+import proProfileRoutes from './routes/proProfile.js';
 import stripeRoutes from './routes/stripe.js';
 import todayRoutes from './routes/today.js';
 
@@ -87,6 +88,7 @@ export function createApp() {
   app.use('/api/geo', geoRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/practitioners', practitionerRoutes);
+  app.use('/api/pro-profile', proProfileRoutes);
   app.use('/api/pro', proRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin', adminContentRoutes);

@@ -50,25 +50,33 @@ export async function removeConversations(filter) {
   await Conversation.deleteMany({ _id: { $in: ids } });
 }
 
+/** RG-50 — supprime le profil praticienne seul (le compte personnel reste intact) : fiche, avis, messages, justificatifs. */
+export async function purgePractitioner(practitioner) {
+  if (!practitioner) return;
+  const p = practitioner._id;
+  await removeConversations({ practitioner: p });
+  await removeClientFiles({ practitioner: p });
+  for (const d of Object.values(practitioner.documents?.toObject?.() || practitioner.documents || {})) {
+    if (d?.storedName) fs.rm(path.join(path.resolve(env.privateDir), 'pro-docs', d.storedName), { force: true }, () => {});
+  }
+  await Promise.all([
+    Service.deleteMany({ practitioner: p }),
+    Availability.deleteMany({ practitioner: p }),
+    TimeOff.deleteMany({ practitioner: p }),
+    Subscription.deleteMany({ practitioner: p }),
+    ClientRecord.deleteMany({ practitioner: p }),
+    Review.deleteMany({ practitioner: p }),
+    Favorite.deleteMany({ practitioner: p }),
+    Booking.deleteMany({ practitioner: p }),
+  ]);
+  await Practitioner.deleteOne({ _id: p });
+}
+
 export async function purgeUser(userId) {
   const practitioner = await Practitioner.findOne({ user: userId });
-  await removeConversations({ $or: [{ user: userId }, ...(practitioner ? [{ practitioner: practitioner._id }] : [])] });
+  await removeConversations({ user: userId });
   await EventRegistration.deleteMany({ user: userId });
-  if (practitioner) {
-    const p = practitioner._id;
-    await removeClientFiles({ practitioner: p });
-    await Promise.all([
-      Service.deleteMany({ practitioner: p }),
-      Availability.deleteMany({ practitioner: p }),
-      TimeOff.deleteMany({ practitioner: p }),
-      Subscription.deleteMany({ practitioner: p }),
-      ClientRecord.deleteMany({ practitioner: p }),
-      Review.deleteMany({ practitioner: p }),
-      Favorite.deleteMany({ practitioner: p }),
-      Booking.deleteMany({ practitioner: p }),
-    ]);
-    await practitioner.deleteOne();
-  }
+  await purgePractitioner(practitioner);
   await removeClientFiles({ client: userId });
   await Promise.all([
     Period.deleteMany({ user: userId }),

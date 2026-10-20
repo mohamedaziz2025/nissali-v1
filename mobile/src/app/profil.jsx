@@ -145,8 +145,14 @@ export default function Profile() {
           <Icon name="briefcase" size={20} color={colors.orText} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.proTitle}>{practitioner ? 'Mon espace praticienne' : 'Devenir praticienne'}</Text>
-          <Text style={s.proSub}>{practitioner ? practitioner.displayName : 'Diététicienne, naturopathe, hijama, doula… Propose tes services dans Nissali.'}</Text>
+          <Text style={s.proTitle}>{practitioner ? 'Mon espace praticienne' : user.proDraft ? 'Termine ton profil praticienne' : 'Devenir praticienne'}</Text>
+          <Text style={s.proSub}>
+            {practitioner
+              ? `${practitioner.status === 'validee' ? 'En ligne' : 'En vérification'} · ${practitioner.displayName}`
+              : user.proDraft
+                ? `Étape ${user.proDraft.step} sur 4`
+                : 'Diététicienne, naturopathe, hijama, doula… Propose tes services dans Nissali.'}
+          </Text>
         </View>
         <Icon name="chevronRight" size={18} color={colors.orText} />
       </Pressable>

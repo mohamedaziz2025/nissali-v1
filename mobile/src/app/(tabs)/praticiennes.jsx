@@ -41,24 +41,25 @@ function PractitionerRow({ p, i, onPress, categories }) {
 }
 
 function ProCard({ status }) {
-  const { practitioner, switchSpace } = useAuth();
+  const { practitioner } = useAuth();
+  if (practitioner) {
+    // 4.14 — une praticienne voit sa propre carte avec « Gérer mon profil ».
+    return (
+      <Card tone="dashed" style={{ gap: 10 }}>
+        <Label color={colors.or}>Mon profil praticienne</Label>
+        <T>« {practitioner.displayName} » · {practitioner.status === 'validee' ? 'en ligne' : 'en cours de vérification'}</T>
+        <Button title="Gérer mon profil" icon="briefcase" onPress={() => router.push('/espace-praticienne')} />
+      </Card>
+    );
+  }
   return (
     <Card tone="dashed" style={{ gap: 10 }}>
       <Label color={colors.or}>Vous êtes praticienne ?</Label>
-      {practitioner ? (
-        <>
-          <T>Ton profil professionnel « {practitioner.displayName} » est {practitioner.status === 'validee' ? 'validé' : 'en cours de validation'}.</T>
-          <Button title="Accéder à mon espace pro" icon="swap" onPress={() => switchSpace('pro')} />
-        </>
-      ) : (
-        <>
-          <T>Inscrivez-vous en tant que professionnelle et choisissez la formule qui vous convient, ou contactez-nous sur</T>
-          <Pressable onPress={() => Linking.openURL(`mailto:${status?.contactEmail || 'contact@nissali.fr'}`)} accessibilityRole="link">
-            <T variant="bold" color={colors.bordeaux} style={{ fontSize: 18 }}>{status?.contactEmail || 'contact@nissali.fr'}</T>
-          </Pressable>
-          <Button title="Je m’inscris comme praticienne" onPress={() => router.push('/pro-inscription')} />
-        </>
-      )}
+      <T>Inscrivez-vous en tant que professionnelle et choisissez la formule qui vous convient, ou contactez-nous sur</T>
+      <Pressable onPress={() => Linking.openURL(`mailto:${status?.contactEmail || 'contact@nissali.fr'}`)} accessibilityRole="link">
+        <T variant="bold" color={colors.bordeaux} style={{ fontSize: 18 }}>{status?.contactEmail || 'contact@nissali.fr'}</T>
+      </Pressable>
+      <Button title="Je m’inscris comme praticienne" onPress={() => router.push('/devenir-praticienne')} />
     </Card>
   );
 }
@@ -127,6 +128,7 @@ export default function Practitioners() {
   const [sort, setSort] = useState('distance');
   const [favOnly, setFavOnly] = useState(false);
   const [visio, setVisio] = useState(false);
+  const [diplome, setDiplome] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [picker, setPicker] = useState(null); // 'city' | 'region'
   useEffect(() => {
@@ -136,7 +138,7 @@ export default function Practitioners() {
   const status = useApi('/practitioners/status');
   const places = useApi('/practitioners/places');
   const unread = useApi('/messages/unread');
-  const query = `/practitioners?${new URLSearchParams({ sort, ...(debounced.length > 1 ? { q: debounced } : {}), ...(group ? { group } : {}), ...(family && !group ? { family } : {}), ...(city ? { city } : {}), ...(region ? { region } : {}), ...(visio ? { visio: '1' } : {}) })}`;
+  const query = `/practitioners?${new URLSearchParams({ sort, ...(debounced.length > 1 ? { q: debounced } : {}), ...(group ? { group } : {}), ...(family && !group ? { family } : {}), ...(city ? { city } : {}), ...(region ? { region } : {}), ...(visio ? { visio: '1' } : {}), ...(diplome ? { diplome: '1' } : {}) })}`;
   const list = useApi(query);
   const enabled = status.data?.enabled;
   const groups = status.data?.groups || [];
@@ -183,8 +185,8 @@ export default function Practitioners() {
   const items = (list.data?.items || []).filter((p) => !favOnly || p.favorite);
   const sortInfo = SORTS.find((x) => x.key === sort);
   const unreadCount = unread.data?.user || 0;
-  const activeCount = [visio, sort !== 'distance', family].filter(Boolean).length;
-  const filtering = Boolean(debounced.length > 1 || group || family || city || region || favOnly || visio);
+  const activeCount = [visio, diplome, sort !== 'distance', family].filter(Boolean).length;
+  const filtering = Boolean(debounced.length > 1 || group || family || city || region || favOnly || visio || diplome);
   const families = status.data?.families || [];
   const inFamily = family ? families.find((f) => f.key === family)?.specialties || [] : null;
   const featured = filtering ? [] : [...items].sort((a, b) => Number(b.featured) - Number(a.featured) || b.rating - a.rating || b.reviewsCount - a.reviewsCount).slice(0, 5);
@@ -249,6 +251,7 @@ export default function Practitioners() {
           {family ? <Chip label={`${families.find((f) => f.key === family)?.label || 'Catégorie'} ✕`} selected onPress={() => setFamily('')} /> : null}
           {sort !== 'distance' ? <Chip label={`Tri : ${sortInfo.label} ✕`} selected onPress={() => setSort('distance')} /> : null}
           {visio ? <Chip label="Visio ✕" selected onPress={() => setVisio(false)} /> : null}
+          {diplome ? <Chip label="Diplômées ✕" selected onPress={() => setDiplome(false)} /> : null}
         </ScrollView>
       ) : null}
 
@@ -308,6 +311,7 @@ export default function Practitioners() {
         <Chips items={SORTS.map((o) => ({ key: o.key, label: o.label }))} value={sort} onChange={(k) => k && setSort(k)} />
         <Text style={s.fHint}>{SORTS.find((o) => o.key === sort)?.hint}{sort === 'distance' ? ' (ville choisie ou ta position)' : ''}</Text>
         <Toggle label="Consultation en visio" value={visio} onChange={setVisio} />
+        <Toggle label="Diplômées" hint="Diplôme vérifié par l’équipe Nissali" value={diplome} onChange={setDiplome} />
       </Sheet>
       <PlaceSheet
         kind={picker}

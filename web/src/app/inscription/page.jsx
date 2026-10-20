@@ -1,6 +1,6 @@
 'use client';
-// Inscription praticienne : compte vérifié par un code envoyé par e-mail, essai gratuit (ou formule
-// payante), puis profil professionnel. Sans formule payante proposée, l'essai démarre directement.
+// Devenir praticienne sur le site (RG-50 : un seul compte) : le compte se crée dans l'appli ; une fois connectée,
+// formule (essai gratuit ou payante) puis profil professionnel.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,13 +12,10 @@ import { useSession } from '@/lib/session';
 import { useFetch } from '@/lib/useFetch';
 
 export default function ProSignup() {
-  const { status, user, practitioner, signIn, refresh } = useSession();
+  const { status, user, practitioner, refresh } = useSession();
   const router = useRouter();
   const { data: meta } = useFetch('/practitioners/status');
   const [step, setStep] = useState('compte');
-  const [account, setAccount] = useState({ firstName: '', identifier: '', terms: false, marketing: false });
-  const [sent, setSent] = useState(null);
-  const [code, setCode] = useState('');
   const [billing, setBilling] = useState('mensuel');
   const [plan, setPlan] = useState(null); // null : essai gratuit (ou formule gratuite)
   const [pro, setPro] = useState({ displayName: '', specialty: '', city: '', address: '', description: '', siret: '', inPerson: true, supportsVideo: false });
@@ -45,25 +42,6 @@ export default function ProSignup() {
     }
   };
 
-  const sendCode = (e) => {
-    e.preventDefault();
-    run(async () => setSent(await api.post('/auth/otp', { identifier: account.identifier, purpose: 'register' })));
-  };
-  const createAccount = (e) => {
-    e.preventDefault();
-    run(async () => {
-      const r = await api.post('/auth/register', {
-        identifier: account.identifier,
-        code,
-        accountType: 'pro',
-        firstName: account.firstName,
-        consents: { terms: true, marketingEmail: account.marketing, marketingSms: account.marketing, marketingWhatsapp: account.marketing },
-      });
-      signIn(r);
-      setPro((p) => ({ ...p, displayName: account.firstName }));
-      setStep('formule');
-    });
-  };
   const trial = meta?.trial || null;
   // Avec un essai gratuit, les formules gratuites ne se choisissent pas : l'essai les inclut puis y bascule.
   const plans = (meta?.plans || []).filter((p) => !trial || p.priceMonthly > 0 || p.priceYearly > 0);
@@ -87,42 +65,19 @@ export default function ProSignup() {
         <>
           <h1>Devenir praticienne</h1>
           <p className="muted">Un seul compte pour ton espace pro et ton suivi personnel dans l’app mobile Nissali.</p>
-          {!sent ? (
-            <form className="stack" onSubmit={sendCode}>
-              <Field label="Prénom">
-                <input className="input" value={account.firstName} onChange={(e) => setAccount((a) => ({ ...a, firstName: e.target.value }))} required />
-              </Field>
-              <Field label="Adresse e-mail" hint="Nous t’envoyons un code de vérification. Ton numéro de téléphone est facultatif (profil).">
-                <input className="input" type="email" value={account.identifier} onChange={(e) => setAccount((a) => ({ ...a, identifier: e.target.value }))} required autoComplete="email" />
-              </Field>
-              <label className="check">
-                <input type="checkbox" checked={account.terms} onChange={(e) => setAccount((a) => ({ ...a, terms: e.target.checked }))} />
-                <span>J’accepte les conditions d’utilisation et la politique de confidentialité.</span>
-              </label>
-              <label className="check">
-                <input type="checkbox" checked={account.marketing} onChange={(e) => setAccount((a) => ({ ...a, marketing: e.target.checked }))} />
-                <span>J’accepte de recevoir les actualités de Nissali (facultatif).</span>
-              </label>
-              {error ? <p className="error">{error}</p> : null}
-              <button className="btn block" disabled={busy || !account.terms}>
-                Recevoir mon code
-              </button>
-              <p className="muted small">
-                Déjà un compte Nissali ? <Link href="/connexion">Connecte-toi</Link> : tu pourras créer ton profil pro ensuite.
-              </p>
-            </form>
-          ) : (
-            <form className="stack" onSubmit={createAccount}>
-              <p className="muted">
-                Code envoyé à <strong>{sent.target}</strong>.
-              </p>
-              <input className="input code-input" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoFocus aria-label="Code à 6 chiffres" />
-              {error ? <p className="error">{error}</p> : null}
-              <button className="btn block" disabled={busy || code.length !== 6}>
-                Créer mon compte
-              </button>
-            </form>
-          )}
+          <div className="stack">
+            <p>
+              Avec Nissali, toute praticienne est d’abord une utilisatrice : <strong>un seul compte</strong> pour ton suivi personnel et ton profil pro.
+            </p>
+            <ol className="muted" style={{ paddingLeft: 18, lineHeight: 1.7 }}>
+              <li>Télécharge l’app Nissali et crée ton compte (prénom, âge, ville, e-mail, téléphone).</li>
+              <li>À la question « Es-tu aussi praticienne ? », réponds Oui, ou plus tard depuis Profil › Devenir praticienne.</li>
+              <li>Reviens ici avec le même e-mail pour gérer ton espace pro sur grand écran.</li>
+            </ol>
+            <Link className="btn block" href="/connexion">
+              J’ai déjà un compte Nissali : me connecter
+            </Link>
+          </div>
         </>
       ) : view === 'formule' ? (
         <div className="stack">

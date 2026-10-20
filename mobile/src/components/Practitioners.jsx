@@ -107,6 +107,7 @@ export function FeaturedCard({ p, label, onPress, onFav }) {
             {p.displayName}
           </Text>
           {p.verified ? <Icon name="check" size={15} color={colors.success} strokeWidth={2.6} /> : null}
+          {p.diplomaVerified ? <DiplomaBadge /> : null}
         </View>
         <Text style={s.meta} numberOfLines={1}>
           {label} · {p.city}
@@ -132,6 +133,15 @@ export function FeaturedCard({ p, label, onPress, onFav }) {
   );
 }
 
+/** RG-47 — badge doré « Diplômée » (diplôme fourni et vérifié par l'équipe). */
+export function DiplomaBadge() {
+  return (
+    <View style={s.diploma} accessibilityLabel="Diplômée">
+      <Text style={s.diplomaText}>Diplômée</Text>
+    </View>
+  );
+}
+
 /** Carte de la liste. */
 export function PractitionerCard({ p, label, onPress, onFav }) {
   const next = nextLabel(p.nextAvailable);
@@ -146,6 +156,7 @@ export function PractitionerCard({ p, label, onPress, onFav }) {
               {p.displayName}
             </Text>
             {p.verified ? <Icon name="check" size={15} color={colors.success} strokeWidth={2.6} /> : null}
+            {p.diplomaVerified ? <DiplomaBadge /> : null}
           </View>
           <Text style={s.meta} numberOfLines={1}>
             {label} · {p.city}
@@ -225,6 +236,8 @@ export function TimeGrid({ slots, value, onChange }) {
 const shadow = { shadowColor: '#3E1220', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 2 };
 
 const s = StyleSheet.create({
+  diploma: { backgroundColor: colors.or, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
+  diplomaText: { fontFamily: fonts.bold, fontSize: 10.5, color: colors.white },
   cat: { height: 36, borderRadius: 999, paddingHorizontal: 16, flexShrink: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white, borderWidth: 1, borderColor: '#EAD9DD' },
   catOn: { backgroundColor: colors.bordeaux, borderColor: colors.bordeaux },
   catName: { fontFamily: fonts.medium, fontSize: 14, color: colors.prune, flexShrink: 0 },

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { Booking, Category, Favorite, Plan, Practitioner, Review, Service, User } from '../models/index.js';
-import { activePlanFor, ACTIVE_BOOKING, availableSlots, directoryOpen, nextAvailableDays, nextSlot, planCard, publicPractitioner, refreshRating } from '../services/marketplace.js';
+import { activePlanFor, ACTIVE_BOOKING, availableSlots, directoryOpen, LISTED, nextAvailableDays, nextSlot, planCard, publicPractitioner, refreshRating, specialtyLabelOf } from '../services/marketplace.js';
 import { sendMail } from '../services/mailer.js';
 import { notify } from '../services/notifications.js';
 import { getSettings } from '../services/settings.js';
@@ -30,7 +30,7 @@ router.get('/status', async (_req, res) => {
     // Formules à souscrire ; l'essai gratuit (s'il est actif) est proposé à part, par défaut.
     plans: plans.filter((p) => !p.trial).map(planCard),
     trial: ((t) => (t ? planCard(t) : null))(plans.find((p) => p.trial)),
-    categories: categories.map((c) => ({ key: c.key, label: c.label, group: c.group })),
+    categories: categories.map((c) => ({ key: c.key, label: c.label, group: c.group, requiresRpps: c.requiresRpps, requiresSterile: c.requiresSterile, disclaimer: c.disclaimer })),
     // 5.10 — Catégories de l'annuaire (gérées dans le back-office).
     groups: categories.map((c) => ({ key: c.key, label: c.label, specialties: [{ key: c.key, label: c.label }] })),
     // Cahier V3 : les 6 catégories qui regroupent ces spécialités dans les filtres.
@@ -40,7 +40,7 @@ router.get('/status', async (_req, res) => {
 
 // Villes et régions où exercent des praticiennes (filtres Ville et Région avec saisie automatique).
 router.get('/places', requireAuth, async (_req, res) => {
-  const list = await Practitioner.find({ status: 'validee' }).select('location').lean();
+  const list = await Practitioner.find(LISTED).select('location').lean();
   const count = (key) => Object.entries(list.reduce((acc, p) => ((v) => (v ? { ...acc, [v]: (acc[v] || 0) + 1 } : acc))(p.location?.[key]?.trim()), {})).map(([name, n]) => ({ name, count: n })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fr'));
   res.json({ cities: count('city'), regions: count('region') });
 });
@@ -67,7 +67,9 @@ function positionOf(req) {
 router.get('/', requireAuth, async (req, res) => {
   const enabled = await directoryOpen(await getSettings());
   // Une praticienne ne se voit pas elle-même dans l'annuaire de son espace personnel.
-  const filter = { status: 'validee', user: { $ne: req.user._id } };
+  const filter = { ...LISTED, user: { $ne: req.user._id } };
+  // RG-47 — filtre « Diplômées ».
+  if (req.query.diplome === '1') filter.diplomaVerified = true;
   const categories = await Category.find().lean();
   if (req.query.specialty) filter.specialty = String(req.query.specialty);
   if (req.query.family) filter.specialty = { $in: familySpecialties(String(req.query.family), categories) };
@@ -96,13 +98,17 @@ router.get('/', requireAuth, async (req, res) => {
     enabled,
     sort,
     total: withPlans.length,
-    items: withPlans.map((p) => ({ ...p, specialtyLabel: labels.get(p.specialty)?.label || p.specialty, group: p.specialty, groupLabel: labels.get(p.specialty)?.label || p.specialty, favorite: favorites.has(p.id) })),
+    items: withPlans.map((p) => {
+      const raw = list.find((x) => String(x._id) === p.id);
+      const label = specialtyLabelOf(raw || p, labels.get(p.specialty));
+      return { ...p, specialtyLabel: label, group: p.specialty, groupLabel: label, favorite: favorites.has(p.id) };
+    }),
   });
 });
 
 router.get('/favorites', requireAuth, async (req, res) => {
   const favs = await Favorite.find({ client: req.user._id }).populate({ path: 'practitioner', model: Practitioner }).lean();
-  const list = favs.filter((f) => f.practitioner && f.practitioner.status === 'validee' && !f.practitioner.user.equals(req.user._id)).map((f) => f.practitioner);
+  const list = favs.filter((f) => f.practitioner && f.practitioner.status === 'validee' && f.practitioner.visible !== false && !f.practitioner.user.equals(req.user._id)).map((f) => f.practitioner);
   res.json(await Promise.all(list.map(async (p) => ({ ...publicPractitioner(p, await activePlanFor(p)), ...(await offerSummary(p)), favorite: true }))));
 });
 
@@ -129,8 +135,13 @@ router.get('/bookings/mine', requireAuth, async (req, res) => {
 
 router.get('/:id', requireAuth, async (req, res) => {
   await assertOpen();
-  const p = await Practitioner.findOne({ _id: req.params.id, status: 'validee' });
+  const p = await Practitioner.findOne({ _id: req.params.id, ...LISTED });
   if (!p) throw notFound('Praticienne introuvable');
+  // 9.3 — vues du mois (sa propre visite ne compte pas).
+  if (!p.user.equals(req.user._id)) {
+    const month = new Date().toISOString().slice(0, 7);
+    await Practitioner.updateOne({ _id: p._id }, p.viewsMonth?.month === month ? { $inc: { 'viewsMonth.count': 1 } } : { $set: { viewsMonth: { month, count: 1 } } });
+  }
   const [services, reviews, planInfo, fav] = await Promise.all([
     Service.find({ practitioner: p._id, active: true }).sort({ price: 1 }).lean(),
     Review.find({ practitioner: p._id, hidden: false }).sort({ createdAt: -1 }).limit(20).populate({ path: 'client', model: User, select: 'firstName' }).lean(),
@@ -141,9 +152,10 @@ router.get('/:id', requireAuth, async (req, res) => {
   const cat = await Category.findOne({ key: p.specialty }).lean();
   res.json({
     ...publicPractitioner(p, planInfo, positionOf(req)),
-    specialtyLabel: cat?.label || p.specialty,
+    specialtyLabel: specialtyLabelOf(p, cat),
     group: p.specialty,
-    groupLabel: cat?.label || p.specialty,
+    groupLabel: specialtyLabelOf(p, cat),
+    disclaimer: cat?.disclaimer || '',
     ...summary,
     isSelf: p.user.equals(req.user._id),
     favorite: Boolean(fav),
@@ -155,7 +167,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.get('/:id/slots', requireAuth, async (req, res) => {
   await assertOpen();
-  const p = await Practitioner.findOne({ _id: req.params.id, status: 'validee' });
+  const p = await Practitioner.findOne({ _id: req.params.id, ...LISTED });
   if (!p) throw notFound('Praticienne introuvable');
   const service = await Service.findOne({ _id: req.query.service, practitioner: p._id, active: true });
   if (!service) throw notFound('Prestation introuvable');
@@ -183,7 +195,7 @@ const bookingSchema = z.object({
 
 router.post('/:id/bookings', requireAuth, validate(bookingSchema), async (req, res) => {
   await assertOpen();
-  const p = await Practitioner.findOne({ _id: req.params.id, status: 'validee' });
+  const p = await Practitioner.findOne({ _id: req.params.id, ...LISTED });
   if (!p) throw notFound('Praticienne introuvable');
   if (p.user.equals(req.user._id)) throw badRequest('Tu ne peux pas réserver chez toi-même');
   const service = await Service.findOne({ _id: req.body.serviceId, practitioner: p._id, active: true });

@@ -8,7 +8,7 @@ const ICONS = { index: 'home', reservations: 'calendar', messages: 'mail', clien
 export default function ProLayout() {
   const { status, practitioner } = useAuth();
   if (status === 'anon') return <Redirect href="/bienvenue" />;
-  if (status === 'ready' && !practitioner) return <Redirect href="/pro-inscription" />;
+  if (status === 'ready' && !practitioner) return <Redirect href="/devenir-praticienne" />;
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <TabBar {...props} icons={ICONS} />}>
       <Tabs.Screen name="index" options={{ title: 'Accueil' }} />

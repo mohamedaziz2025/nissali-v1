@@ -24,6 +24,17 @@ const DOCS = {
       ['Contact', 'contact@nissali.fr'],
     ],
   },
+  charte: {
+    title: 'Charte des praticiennes',
+    sections: [
+      ['Un seul compte', 'Ton profil praticienne s’ajoute à ton compte personnel. Tes données personnelles (cycle, notes, prières, jeûnes) ne sont jamais visibles par tes clientes ni côté pro.'],
+      ['Métiers non médicaux', 'L’annuaire réunit des métiers du bien-être et de l’accompagnement. Tu ne poses aucun diagnostic et tu orientes vers une professionnelle de santé quand c’est nécessaire.'],
+      ['Vérification', 'Ta pièce d’identité est vérifiée par l’équipe avant la mise en ligne. Le badge « Diplômée » n’est attribué qu’après vérification de ton diplôme. Les diététiciennes indiquent leur numéro RPPS.'],
+      ['Hijama', 'Matériel stérile à usage unique et information sur les contre-indications obligatoires. La mention « Ne remplace pas un avis médical » figure sur ta fiche.'],
+      ['Respect et bienveillance', 'Échanges courtois, tarifs affichés honnêtement, aucune donnée de santé demandée par message. Tout manquement peut entraîner la suspension du profil.'],
+      ['Tes données pro', 'Tu peux mettre ton profil en pause ou le supprimer à tout moment depuis « Mon espace praticienne » ; ton compte personnel reste intact.'],
+    ],
+  },
 };
 
 export default function Legal() {

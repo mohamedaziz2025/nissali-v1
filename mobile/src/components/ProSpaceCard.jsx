@@ -139,7 +139,7 @@ export default function ProSpaceCard() {
             </Row>
           ) : null}
           <Button title="Vérifier" icon="search" variant="soft" loading={busy} disabled={busy || identifier.trim().length < 3} onPress={() => check()} />
-          <Button title="Devenir praticienne" variant="outline" onPress={() => router.push('/pro-inscription')} />
+          <Button title="Devenir praticienne" variant="outline" onPress={() => router.push('/devenir-praticienne')} />
         </>
       ) : step.status === 'code_sent' ? (
         <>

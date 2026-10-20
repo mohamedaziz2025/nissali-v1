@@ -252,5 +252,16 @@ export function publicPractitioner(p, { plan } = {}, from = null) {
     reviewsCount: p.reviewsCount,
     verified: Boolean(plan?.features?.verifiedBadge),
     featured: Boolean(plan?.features?.featured),
+    // RG-47 — badge doré « Diplômée » quand un diplôme a été fourni et vérifié par l'équipe.
+    diplomaVerified: Boolean(p.diplomaVerified),
   };
 }
+
+/** Libellé du métier sur la fiche : « Autre » reste masqué jusqu'à validation par l'équipe (4.14 · 9.5). */
+export function specialtyLabelOf(p, cat) {
+  if (p.specialty === 'autre') return p.otherValidated && p.otherSpecialty ? p.otherSpecialty : 'Praticienne';
+  return cat?.label || p.specialty;
+}
+
+/** Fiches visibles dans l'annuaire : validées et pas en pause (9.3). */
+export const LISTED = { status: 'validee', visible: { $ne: false } };

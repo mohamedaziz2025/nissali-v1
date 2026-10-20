@@ -16,7 +16,7 @@ const router = Router();
 
 // Limite les demandes de codes et les tentatives de connexion (pas /me ni /logout).
 const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Trop de tentatives, réessaie dans quelques minutes.', code: 'RATE_LIMIT' } });
-router.use(['/otp', '/register', '/login', '/admin'], limiter);
+router.use(['/otp', '/register', '/login', '/admin', '/exists'], limiter);
 
 const MIN_AGE = 15; // 8.2 : inscription refusée en dessous de 15 ans
 
@@ -64,6 +64,12 @@ function assertEmailSignup(id) {
   if (id.channel !== 'email') throw badRequest('L’inscription se fait avec ton adresse e-mail. Tu pourras ajouter ton numéro ensuite dans ton profil.', 'EMAIL_REQUIRED');
 }
 
+// 4.4 · 3.6 — e-mail déjà utilisé → « Ce compte existe déjà, te connecter ? » (même information que l'envoi du code).
+router.post('/exists', validate(z.object({ identifier: z.string().min(3).max(120) })), async (req, res) => {
+  const id = normalizeIdentifier(req.body.identifier);
+  res.json({ exists: Boolean(await findByIdentifier(id)) });
+});
+
 router.post('/otp', validate(otpRequest), async (req, res) => {
   const id = normalizeIdentifier(req.body.identifier);
   if (req.body.purpose === 'register') assertEmailSignup(id);
@@ -85,6 +91,8 @@ const registerSchema = z
     // jamais utilisé pour l'envoi du code, seulement enregistré sur le compte (non vérifié).
     phone: z.string().trim().min(3).max(30).optional(),
     accountType: z.enum(['personnel', 'pro']).default('personnel'),
+    // 4.4 · 3.6 — mot de passe choisi à l'inscription (8 caractères minimum).
+    password: z.string().min(8, 'Le mot de passe contient au moins 8 caractères').max(128).optional(),
     firstName: z.string().trim().min(1, 'Ton prénom est obligatoire').max(60),
     age: z.number().int().min(MIN_AGE, `Nissali est accessible à partir de ${MIN_AGE} ans`).max(100).optional(),
     city: citySchema.optional(),
@@ -109,6 +117,8 @@ const registerSchema = z
 
 router.post('/register', validate(registerSchema), async (req, res) => {
   const b = req.body;
+  // RG-50 — impossible de créer un compte uniquement pro : on s'inscrit dans l'appli, le profil pro s'ajoute ensuite.
+  if (b.accountType === 'pro') throw badRequest('Crée d’abord ton compte dans l’appli Nissali, puis ajoute ton profil praticienne.', 'APP_SIGNUP_REQUIRED');
   const id = normalizeIdentifier(b.identifier);
   assertEmailSignup(id);
   if (await findByIdentifier(id)) throw conflict('Un compte existe déjà avec cet identifiant. Connecte-toi.', 'ACCOUNT_EXISTS');
@@ -142,6 +152,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
       marketingWhatsapp: consent(b.consents.marketingWhatsapp),
     },
     lastSpace: b.accountType === 'pro' ? 'pro' : 'personnel',
+    ...(b.password ? { passwordHash: await bcrypt.hash(b.password, 12), passwordSet: true } : {}),
   });
   const token = await startSession(req, res, user);
   res.status(201).json({ ...(await sessionPayload(user)), token });

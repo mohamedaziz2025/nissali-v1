@@ -1,17 +1,21 @@
-// Inscription (5.1, RG-05 bis) : prénom, âge, ville, situation, coordonnées (e-mail + numéro de téléphone),
-// vérifiées par un code envoyé par e-mail. Le numéro est obligatoire mais jamais utilisé pour l'envoi du
-// code : il est seulement enregistré sur le compte, sur le même écran que l'e-mail. Consentements séparés,
-// non cochés par défaut (RG-03, RG-04).
+// 4.4 — Inscription, une question par écran : 3.2 prénom, 3.3 âge (roue 15–60), 3.4 ville, 3.5 situation,
+// 3.6 e-mail + mot de passe, 3.7 téléphone (indicatif FR par défaut), 3.8 accords (non cochés), puis le code envoyé
+// par e-mail crée le compte. Le numéro est obligatoire mais ne reçoit aucun SMS (choix de Nissali). Si l'appli est
+// fermée en route, on reprend au dernier écran rempli (le mot de passe n'est jamais gardé sur le téléphone).
+// La suite du questionnaire (3.9 à 3.13) est dans accueil.jsx.
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CityPicker } from '../components/forms';
-import { Button, Card, Checkbox, Chips, CodeInput, Field, Icon, ProgressBar, Screen, T } from '../components/ui';
+import { ChoiceCard, NumberWheel, SignupShell } from '../components/Signup';
+import { Checkbox, CodeInput, Field, Icon, T } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { colors } from '../theme';
+import { readJson, writeJson } from '../lib/storage';
+import { colors, fonts } from '../theme';
 
-const STEPS = ['prenom', 'age', 'ville', 'situation', 'contact', 'consentements', 'code'];
+const STEPS = ['prenom', 'age', 'ville', 'situation', 'compte', 'telephone', 'accords', 'code'];
+const SAVED = 'nissali.signup';
 
 // Tous les indicatifs téléphoniques courants ; France sélectionnée par défaut.
 const COUNTRY_CODES = [
@@ -54,30 +58,53 @@ const COUNTRY_CODES = [
   { code: '+60', label: 'Malaisie', flag: '🇲🇾' },
 ];
 
+const capitalize = (v) => v.replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+
 export default function Register() {
   const { signIn } = useAuth();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ firstName: '', age: '', city: null, situation: null, email: '', phoneCountry: '+33', phone: '', terms: false, health: false, marketing: false });
+  const [form, setForm] = useState({ firstName: '', age: 25, city: null, situation: null, email: '', phoneCountry: '+33', phone: '', terms: false, health: false, marketing: false });
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(null);
+  const [exists, setExists] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [loaded, setLoaded] = useState(false);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
-  const age = Number(form.age);
+
+  // Reprise au dernier écran rempli (le mot de passe est redemandé).
+  useEffect(() => {
+    readJson(SAVED, null)
+      .then((saved) => {
+        if (saved?.form) {
+          setForm((f) => ({ ...f, ...saved.form }));
+          setStep(Math.min(saved.step || 0, STEPS.indexOf('compte')));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+  useEffect(() => {
+    if (loaded) writeJson(SAVED, { step, form }).catch(() => {});
+  }, [loaded, step, form]);
 
   const emailValue = form.email.trim();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailValue);
   const phoneDigits = form.phone.replace(/\D/g, '');
   const phoneValid = phoneDigits.length >= 6;
+  const name = form.firstName.trim();
 
   const valid = {
-    prenom: form.firstName.trim().length > 0,
-    age: Number.isInteger(age) && age >= 15 && age <= 100,
+    prenom: name.length >= 2 && name.length <= 30,
+    age: form.age >= 15 && form.age <= 60,
     ville: Boolean(form.city),
     situation: Boolean(form.situation),
-    contact: emailValid && phoneValid,
-    consentements: form.terms,
+    compte: emailValid && password.length >= 8 && !exists,
+    telephone: phoneValid,
+    accords: form.terms && form.health,
     code: code.length === 6,
   }[STEPS[step]];
 
@@ -87,8 +114,13 @@ export default function Register() {
     try {
       const r = await api.post('/auth/otp', { identifier: emailValue, purpose: 'register' });
       setSent(r);
+      setCode('');
       setStep(STEPS.indexOf('code'));
     } catch (e) {
+      if (e.code === 'ACCOUNT_EXISTS') {
+        setExists(true);
+        setStep(STEPS.indexOf('compte'));
+      }
       setError(e.message);
     } finally {
       setBusy(false);
@@ -96,21 +128,27 @@ export default function Register() {
   };
 
   const register = async (value = code) => {
+    if (password.length < 8) {
+      setStep(STEPS.indexOf('compte'));
+      return setError('Choisis ton mot de passe (8 caractères minimum)');
+    }
     setBusy(true);
     setError(null);
     try {
       const r = await api.post('/auth/register', {
         identifier: emailValue,
         code: value,
+        password,
         phone: `${form.phoneCountry}${phoneDigits}`,
-        firstName: form.firstName.trim(),
-        age,
+        firstName: name,
+        age: form.age,
         city: form.city,
         situation: form.situation,
         consents: { terms: true, health: form.health, marketingEmail: form.marketing, marketingSms: form.marketing, marketingWhatsapp: form.marketing },
       });
+      await writeJson(SAVED, null).catch(() => {});
       await signIn(r);
-      router.replace('/securite?bienvenue=1');
+      router.replace('/accueil');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -118,91 +156,102 @@ export default function Register() {
     }
   };
 
-  const next = () => {
-    setError(null);
-    if (STEPS[step] === 'consentements') return sendCode();
-    if (STEPS[step] === 'code') return register();
-    setStep((s) => s + 1);
+  const checkEmail = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post('/auth/exists', { identifier: emailValue });
+      if (r.exists) {
+        setExists(true);
+        return;
+      }
+      setStep((x) => x + 1);
+    } catch {
+      setStep((x) => x + 1); // la vérification sera refaite à l'envoi du code
+    } finally {
+      setBusy(false);
+    }
   };
 
+  const next = () => {
+    setError(null);
+    const k = STEPS[step];
+    if (k === 'compte') return checkEmail();
+    if (k === 'accords') return sendCode();
+    if (k === 'code') return register();
+    setStep((x) => x + 1);
+  };
+  const back = () => {
+    setError(null);
+    if (step === 0) return router.canGoBack() ? router.back() : router.replace('/bienvenue');
+    setStep((x) => x - 1);
+  };
+
+  const k = STEPS[step];
+  const meta = {
+    prenom: { section: 'Ton compte', index: 1, count: 6, title: 'Comment t’appelles-tu ?', subtitle: 'Ton prénom, pour que l’appli te parle à toi.' },
+    age: { section: 'Ton compte', index: 2, count: 6, title: 'Quel âge as-tu ?', subtitle: 'Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.' },
+    ville: { section: 'Ton compte', index: 3, count: 6, title: 'Où vis-tu ?', subtitle: 'Ta ville sert à tes horaires de prière et à la qibla.' },
+    situation: { section: 'Ton compte', index: 4, count: 6, title: 'Ta situation', subtitle: 'Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.' },
+    compte: { section: 'Ton compte', index: 5, count: 6, title: 'Ton e-mail et ton mot de passe' },
+    telephone: { section: 'Ton compte', index: 6, count: 6, title: 'Ton numéro de téléphone', subtitle: 'Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.' },
+    accords: { section: 'Ta confidentialité', index: 1, count: 2, title: 'Tes accords', subtitle: 'Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.' },
+    code: { section: 'Ta confidentialité', index: 2, count: 2, title: 'Vérifie ton e-mail' },
+  }[k];
+
   const content = {
-    prenom: (
-      <>
-        <T variant="h2">Comment t’appelles-tu ?</T>
-        <Field value={form.firstName} onChangeText={set('firstName')} placeholder="Ton prénom" autoFocus autoComplete="given-name" textContentType="givenName" returnKeyType="next" onSubmitEditing={() => valid && next()} />
-      </>
-    ),
-    age: (
-      <>
-        <T variant="h2">Quel âge as-tu ?</T>
-        <Field value={form.age} onChangeText={(v) => set('age')(v.replace(/\D/g, '').slice(0, 3))} placeholder="Ton âge" keyboardType="number-pad" autoFocus error={form.age && age < 15 ? 'Nissali est accessible à partir de 15 ans.' : null} hint="Nous enregistrons une année de naissance estimée." />
-      </>
-    ),
-    ville: (
-      <>
-        <T variant="h2">Où vis-tu ?</T>
-        <T variant="muted">Ta ville sert à calculer tes horaires de prière et la direction de la qibla.</T>
-        <CityPicker value={form.city} onChange={set('city')} />
-      </>
-    ),
+    prenom: <Field value={form.firstName} onChangeText={(v) => set('firstName')(capitalize(v.slice(0, 30)))} placeholder="Ton prénom" autoFocus autoCapitalize="words" autoComplete="given-name" textContentType="givenName" returnKeyType="next" onSubmitEditing={() => valid && next()} hint={name.length === 1 ? 'Au moins 2 lettres' : null} />,
+    age: <NumberWheel min={15} max={60} value={form.age} onChange={set('age')} suffix=" ans" />,
+    ville: <CityPicker value={form.city} onChange={set('city')} />,
     situation: (
       <>
-        <T variant="h2">Ta situation</T>
-        <T variant="muted">Elle adapte les contenus de l’appli. Tu pourras la modifier à tout moment.</T>
-        <Chips items={[{ key: 'celibataire', label: 'Célibataire' }, { key: 'mariee', label: 'Mariée' }]} value={form.situation} onChange={set('situation')} />
+        <ChoiceCard title="Mariée" text="Objectifs fertilité et grossesse proposés" icon="heart" selected={form.situation === 'mariee'} onPress={() => set('situation')('mariee')} />
+        <ChoiceCard title="Célibataire" text="Suivi du cycle, prières, jeûnes" icon="user" selected={form.situation === 'celibataire'} onPress={() => set('situation')('celibataire')} />
       </>
     ),
-    contact: (
+    compte: (
       <>
-        <T variant="h2">Tes coordonnées</T>
-        <T variant="muted">Nous t’envoyons un code par e-mail pour vérifier ton compte. Ton numéro de téléphone est aussi demandé, mais il ne reçoit aucun code.</T>
-        <Field value={form.email} onChangeText={set('email')} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" label="Adresse e-mail" returnKeyType="next" />
-        <View>
-          <T variant="fieldLabel" style={{ marginBottom: 6 }}>Numéro de téléphone</T>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable
-              onPress={() => setShowCountryPicker(true)}
-              accessibilityRole="button"
-              accessibilityLabel={`Indicatif téléphonique, actuellement ${form.phoneCountry}`}
-              style={{
-                minHeight: 54,
-                borderRadius: 999,
-                borderWidth: 1.5,
-                borderColor: colors.line,
-                backgroundColor: colors.white,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 14,
-                gap: 6,
-              }}
-            >
-              <T>{COUNTRY_CODES.find((c) => c.code === form.phoneCountry)?.flag || '🇫🇷'}</T>
-              <T variant="medium">{form.phoneCountry}</T>
-              <Icon name="chevronDown" size={16} color={colors.muted} />
+        <Field label="Adresse e-mail" value={form.email} onChangeText={(v) => { setExists(false); set('email')(v); }} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" error={form.email && !emailValid ? 'Vérifie le format de ton adresse' : null} />
+        {exists ? (
+          <Pressable onPress={() => router.replace('/connexion')} accessibilityRole="link" style={s.exists}>
+            <Icon name="info" size={17} color={colors.bordeaux} />
+            <Text style={s.existsText}>Ce compte existe déjà, te connecter ?</Text>
+            <Icon name="chevronRight" size={15} color={colors.bordeaux} />
+          </Pressable>
+        ) : null}
+        <View style={{ gap: 6 }}>
+          <T variant="fieldLabel">Mot de passe</T>
+          <View style={s.pwd}>
+            <Icon name="lock" size={18} color={colors.muted} />
+            <TextInput value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="8 caractères minimum" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" style={s.pwdInput} accessibilityLabel="Mot de passe" />
+            <Pressable onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} hitSlop={10}>
+              <Icon name={showPassword ? 'eyeOff' : 'eye'} size={20} color={colors.muted} />
             </Pressable>
-            <View style={{ flex: 1 }}>
-              <Field value={form.phone} onChangeText={(v) => set('phone')(v.replace(/\D/g, '').slice(0, 15))} placeholder="6 12 34 56 78" keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
-            </View>
+          </View>
+          <Text style={[s.hint, password && password.length < 8 && { color: colors.danger }]}>{password.length >= 8 ? '✓ Mot de passe valide' : `8 caractères minimum${password ? ` (${password.length}/8)` : ''}`}</Text>
+        </View>
+      </>
+    ),
+    telephone: (
+      <>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable onPress={() => setShowCountryPicker(true)} accessibilityRole="button" accessibilityLabel={`Indicatif téléphonique, actuellement ${form.phoneCountry}`} style={s.country}>
+            <T>{COUNTRY_CODES.find((c) => c.code === form.phoneCountry)?.flag || '🇫🇷'}</T>
+            <T variant="medium">{form.phoneCountry}</T>
+            <Icon name="chevronDown" size={16} color={colors.muted} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Field value={form.phone} onChangeText={(v) => set('phone')(v.replace(/\D/g, '').slice(0, 15))} placeholder="6 12 34 56 78" keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" autoFocus />
           </View>
         </View>
-        <T variant="small">Indicatif par défaut : France (+33). Tous les indicatifs sont disponibles.</T>
         <Modal visible={showCountryPicker} transparent animationType="fade" onRequestClose={() => setShowCountryPicker(false)}>
-          <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }} onPress={() => setShowCountryPicker(false)}>
-            <View style={{ backgroundColor: colors.white, borderRadius: 24, maxHeight: 420, overflow: 'hidden' }}>
-              <View style={{ paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.line }}>
+          <Pressable style={s.modalBg} onPress={() => setShowCountryPicker(false)}>
+            <View style={s.modal}>
+              <View style={s.modalHead}>
                 <T variant="h3">Choisis l’indicatif</T>
               </View>
-              <ScrollView style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+              <ScrollView style={{ paddingHorizontal: 20 }}>
                 {COUNTRY_CODES.map((c) => (
-                  <Pressable
-                    key={c.code}
-                    onPress={() => {
-                      set('phoneCountry')(c.code);
-                      setShowCountryPicker(false);
-                    }}
-                    accessibilityRole="button"
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.line }}
-                  >
+                  <Pressable key={c.code} onPress={() => { set('phoneCountry')(c.code); setShowCountryPicker(false); }} accessibilityRole="button" style={s.countryRow}>
                     <T style={{ fontSize: 24 }}>{c.flag}</T>
                     <View style={{ flex: 1 }}>
                       <T variant="medium">{c.label}</T>
@@ -217,32 +266,25 @@ export default function Register() {
         </Modal>
       </>
     ),
-    consentements: (
+    accords: (
       <>
-        <T variant="h2">Tes consentements</T>
         <Checkbox checked={form.terms} onChange={set('terms')}>
           <T>
-            J’accepte les{' '}
-            <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=cgu')}>conditions d’utilisation</T> et la{' '}
-            <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=confidentialite')}>politique de confidentialité</T>. (obligatoire)
+            J’accepte les <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=cgu')}>conditions d’utilisation</T> et la <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=confidentialite')}>politique de confidentialité</T>. <T variant="small">(obligatoire)</T>
           </T>
         </Checkbox>
         <Checkbox checked={form.health} onChange={set('health')}>
-          <T>J’accepte que Nissali traite mes données de santé (cycle, grossesse, symptômes) pour mon suivi. Elles ne sont jamais vendues ni partagées. (obligatoire pour le suivi)</T>
+          <T>J’accepte que Nissali traite mes données de santé (cycle, grossesse, symptômes) pour mon suivi. Elles sont chiffrées, jamais vendues ni partagées. <T variant="small">(obligatoire)</T></T>
         </Checkbox>
         <Checkbox checked={form.marketing} onChange={set('marketing')}>
-          <T>J’accepte de recevoir les actualités et offres de Nissali par e-mail, SMS et WhatsApp. (facultatif)</T>
+          <T>J’accepte de recevoir les actualités et offres de Nissali par e-mail, SMS et WhatsApp. <T variant="small">(facultatif)</T></T>
         </Checkbox>
-        <Card tone="soft">
-          <T variant="small">Tu pourras modifier tes choix à tout moment dans ton profil. Lien de désinscription dans chaque e-mail, « STOP » pour les SMS.</T>
-        </Card>
       </>
     ),
     code: (
       <>
-        <T variant="h2">Ton code</T>
         <T variant="muted">
-          Code envoyé par e-mail à <T variant="bold">{sent?.target}</T>. Pense à regarder dans tes courriers indésirables.
+          Code à 6 chiffres envoyé à <T variant="bold">{sent?.target}</T>. Pense à regarder dans tes courriers indésirables.
         </T>
         <CodeInput
           value={code}
@@ -251,32 +293,39 @@ export default function Register() {
             if (v.length === 6) register(v);
           }}
         />
-        <Button title="Renvoyer un code" variant="ghost" onPress={sendCode} disabled={busy} />
+        <Pressable onPress={sendCode} disabled={busy} accessibilityRole="button" style={{ alignSelf: 'center', padding: 8 }}>
+          <Text style={s.link}>Renvoyer un code</Text>
+        </Pressable>
       </>
     ),
-  }[STEPS[step]];
+  }[k];
 
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.ivoire }} />;
   return (
-    <Screen
-      back
-      title="Créer mon compte"
-      footer={
-        <View style={{ padding: 20, gap: 10, backgroundColor: colors.ivoire }}>
-          {error ? <T color={colors.danger} style={{ textAlign: 'center' }}>{error}</T> : null}
-          <Button title={STEPS[step] === 'consentements' ? 'Recevoir mon code' : STEPS[step] === 'code' ? 'Créer mon compte' : 'Continuer'} onPress={next} disabled={!valid} loading={busy} />
-          {step > 0 ? <Button title="Retour" variant="ghost" onPress={() => setStep((s) => s - 1)} /> : null}
-        </View>
-      }
+    <SignupShell
+      {...meta}
+      onBack={back}
+      onNext={next}
+      nextLabel={k === 'accords' ? 'Recevoir mon code' : k === 'code' ? 'Créer mon compte' : 'Continuer'}
+      canNext={valid}
+      busy={busy}
+      error={error}
     >
-      <View style={{ gap: 18 }}>
-        <ProgressBar progress={(step + 1) / STEPS.length} color={colors.bordeaux} track={colors.blush} height={6} />
-        {content}
-        {STEPS[step] === 'prenom' ? (
-          <T variant="small" style={{ marginTop: 10 }} onPress={() => Linking.openURL('mailto:contact@nissali.fr')}>
-            Besoin d’aide ? contact@nissali.fr
-          </T>
-        ) : null}
-      </View>
-    </Screen>
+      {content}
+    </SignupShell>
   );
 }
+
+const s = StyleSheet.create({
+  exists: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.blush, borderRadius: 14, padding: 12 },
+  existsText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.bordeaux },
+  pwd: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderRadius: 999, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.white, paddingHorizontal: 18 },
+  pwdInput: { flex: 1, fontFamily: fonts.medium, fontSize: 16, color: colors.prune, paddingVertical: 12 },
+  hint: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted, paddingHorizontal: 6 },
+  country: { minHeight: 54, borderRadius: 999, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 6 },
+  countryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.line },
+  modalBg: { flex: 1, backgroundColor: colors.veil, justifyContent: 'center', padding: 20 },
+  modal: { backgroundColor: colors.white, borderRadius: 24, maxHeight: 440, overflow: 'hidden' },
+  modalHead: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.line },
+  link: { fontFamily: fonts.bold, fontSize: 14, color: colors.bordeaux },
+});
