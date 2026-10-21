@@ -23,6 +23,17 @@ const requestSchema = z.object({
 
 const present = (r) => ({ ...r, id: String(r._id || r.id) });
 
+// Catalogue des marques NissaPlace : fiches validées et publiées par l'équipe, chacune renvoyant vers son
+// propre site (ou à défaut son Instagram) ; l'achat se fait sur nissaplace.fr, jamais dans l'appli.
+router.get('/brands', async (req, res) => {
+  const filter = { status: 'validee', listed: true };
+  if (req.query.category) filter.category = String(req.query.category);
+  const q = String(req.query.q || '').trim();
+  if (q) filter.shopName = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const items = await ShopRequest.find(filter).sort({ shopName: 1 }).select('shopName activity category imageUrl websiteUrl instagramUrl').lean();
+  res.json({ items: items.map((r) => ({ id: String(r._id), shopName: r.shopName, activity: r.activity, category: r.category, imageUrl: r.imageUrl, websiteUrl: r.websiteUrl || r.instagramUrl })) });
+});
+
 router.get('/mine', async (req, res) => {
   const items = await ShopRequest.find({ user: req.user._id }).sort({ createdAt: -1 }).lean();
   res.json(items.map(present));

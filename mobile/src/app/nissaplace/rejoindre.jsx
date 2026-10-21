@@ -4,8 +4,9 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Icon from '../../components/Icon';
-import { Button, Field, Gap, Row, Screen, T, useToast } from '../../components/ui';
+import { Button, Card, Field, Gap, Loader, Row, Screen, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
+import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
 function Section({ title, icon, children }) {
@@ -24,6 +25,8 @@ function Section({ title, icon, children }) {
 
 export default function JoinNissaPlace() {
   const toast = useToast();
+  const { data: mine, loading: loadingMine, reload } = useApi('/nissaplace/mine');
+  const latest = mine?.[0];
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ shopName: '', activity: '', description: '', city: '', phone: '', instagramUrl: '', websiteUrl: '' });
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
@@ -33,7 +36,7 @@ export default function JoinNissaPlace() {
     try {
       await api.post('/nissaplace', f);
       toast('Merci ! Notre équipe étudie ta demande.');
-      router.replace('/lifestyle?tab=nissaplace');
+      reload();
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -43,9 +46,36 @@ export default function JoinNissaPlace() {
 
   const missing = [f.shopName.trim().length < 2 && 'le nom de ta boutique'].filter(Boolean);
 
+  if (loadingMine) return <Screen back title="Rejoindre NissaPlace"><Loader /></Screen>;
+
+  if (latest?.status === 'en_attente' || latest?.status === 'validee') {
+    return (
+      <Screen back title="Rejoindre NissaPlace">
+        <Card tone="soft" style={{ gap: 10 }}>
+          <Icon name={latest.status === 'validee' ? 'check' : 'briefcase'} size={22} color={colors.bordeaux} />
+          <T variant="h3">{latest.status === 'validee' ? 'Ta boutique est validée' : 'Ta demande est en cours d’examen'}</T>
+          <T variant="small">
+            {latest.status === 'validee'
+              ? `« ${latest.shopName} » est validée. Notre équipe te recontacte pour la mettre en ligne sur nissaplace.fr.`
+              : `Notre équipe étudie ta demande pour « ${latest.shopName} » et te recontacte bientôt.`}
+          </T>
+        </Card>
+        <Gap h={24} />
+      </Screen>
+    );
+  }
+
   return (
     <Screen back title="Rejoindre NissaPlace">
       <T variant="muted" style={{ marginTop: -8, marginBottom: 16 }}>Présente ta boutique : notre équipe étudie chaque demande et te recontacte pour la suite.</T>
+
+      {latest?.status === 'refusee' ? (
+        <Card tone="soft" style={{ gap: 6, marginBottom: 14 }}>
+          <T variant="medium">Ta précédente demande n’a pas été retenue.</T>
+          {latest.moderationNote ? <T variant="small">{latest.moderationNote}</T> : null}
+          <T variant="small">Tu peux proposer une nouvelle demande ci-dessous.</T>
+        </Card>
+      ) : null}
 
       <Section title="Ta boutique" icon="briefcase">
         <Field label="Nom de la boutique" value={f.shopName} onChangeText={set('shopName')} placeholder="Ex. Les Perles de Zaynab" maxLength={80} />

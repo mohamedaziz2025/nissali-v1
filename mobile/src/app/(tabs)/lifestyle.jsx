@@ -76,47 +76,76 @@ function Magazine() {
   );
 }
 
-const NISSAPLACE_URL = 'https://nissaplace.fr';
+const NISSAPLACE_CATS = [
+  { key: '', label: 'Tout' },
+  { key: 'mode', label: 'Mode' },
+  { key: 'bien_etre', label: 'Bien-être' },
+];
 
-/** 5.11 — NissaPlace : promotion de la marketplace mode et beauté pour femmes, et demande d'ouverture de boutique. */
+/** Bannière d'une marque du catalogue : touche-la pour l'ouvrir sur son site (l'achat se fait hors appli). */
+function BrandCard({ b }) {
+  const open = () => {
+    if (!b.websiteUrl) return;
+    (Platform.OS === 'web' ? Linking.openURL(b.websiteUrl) : WebBrowser.openBrowserAsync(b.websiteUrl)).catch(() => Linking.openURL(b.websiteUrl));
+  };
+  return (
+    <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${b.shopName}, voir le site`} style={({ pressed }) => [s.brandCard, pressed && { opacity: 0.95 }]}>
+      <EventImage e={{ imageUrl: b.imageUrl }} />
+      <View style={s.brandOverlay} />
+      <Text style={s.brandName} numberOfLines={1}>{b.shopName}</Text>
+      {b.websiteUrl ? (
+        <View style={s.brandBtn}>
+          <Text style={s.brandBtnText}>Voir le site</Text>
+          <Icon name="external" size={13} color={colors.bordeaux} />
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+/** 5.11 — NissaPlace : catalogue des marques (mode, bien-être) qui renvoie vers nissaplace.fr pour l'achat,
+ * et demande d'ouverture de boutique pour une sœur qui a sa propre marque. */
 function NissaPlace() {
-  const { data } = useApi('/nissaplace/mine');
-  const latest = data?.[0];
-  const open = () => (Platform.OS === 'web' ? Linking.openURL(NISSAPLACE_URL) : WebBrowser.openBrowserAsync(NISSAPLACE_URL)).catch(() => Linking.openURL(NISSAPLACE_URL));
+  const [q, setQ] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const [category, setCategory] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  const { data, loading, error, offline, reload } = useApi(`/nissaplace/brands?${new URLSearchParams({ ...(debounced ? { q: debounced } : {}), ...(category ? { category } : {}) })}`);
   return (
     <>
-      <Card tone="hero" style={{ gap: 10, paddingVertical: 24, marginBottom: 14 }}>
-        <Label color={colors.rose}>Shopping entre sœurs</Label>
-        <T variant="h2" color={colors.white} style={{ fontSize: 24, lineHeight: 30 }}>NissaPlace, la marketplace mode et beauté pour femmes</T>
-        <T color={colors.rose}>Abayas, hijabs, cosmétiques, bijoux… découvre les boutiques de sœurs sur nissaplace.fr.</T>
-      </Card>
-      <Pressable onPress={open} accessibilityRole="button" accessibilityLabel="Visiter NissaPlace.fr" style={s.cta}>
-        <Row gap={8}>
-          <Text style={s.ctaText}>Visiter NissaPlace.fr</Text>
-          <Icon name="external" size={15} color={colors.white} />
-        </Row>
-      </Pressable>
-      <Gap h={14} />
-      <Card tone="soft" style={{ gap: 12 }}>
-        <Row gap={12} align="flex-start">
-          <View style={s.plus}>
-            <Icon name="briefcase" size={18} color={colors.bordeaux} />
+      <OfflineBanner visible={offline} />
+      <Card tone="hero" style={{ marginBottom: 14 }}>
+        <Row gap={12} align="center">
+          <View style={{ flex: 1, gap: 2 }}>
+            <T variant="h3" color={colors.white}>Tu as une marque ?</T>
+            <T variant="small" color={colors.rose}>Rejoins NissaPlace et fais-la découvrir à des milliers de sœurs.</T>
           </View>
-          <View style={{ flex: 1 }}>
-            <T variant="h3">Tu es une sœur avec une boutique ?</T>
-            <T variant="small">Rejoins NissaPlace et propose tes produits aux sœurs de la communauté. Notre équipe étudie chaque demande.</T>
-          </View>
-        </Row>
-        {latest?.status === 'en_attente' ? (
-          <T variant="medium" color={colors.or} style={{ textAlign: 'center' }}>Ta demande « {latest.shopName} » est en cours d’examen.</T>
-        ) : latest?.status === 'validee' ? (
-          <T variant="medium" color={colors.success} style={{ textAlign: 'center' }}>✓ Ta boutique « {latest.shopName} » est validée, notre équipe te recontacte.</T>
-        ) : (
-          <Pressable onPress={() => router.push('/nissaplace/rejoindre')} accessibilityRole="button" style={s.cta}>
-            <Text style={s.ctaText}>Rejoindre NissaPlace</Text>
+          <Pressable onPress={() => router.push('/nissaplace/rejoindre')} accessibilityRole="button" style={s.joinBtn}>
+            <Text style={s.joinBtnText}>Rejoindre</Text>
+            <Icon name="external" size={13} color={colors.bordeaux} />
           </Pressable>
-        )}
+        </Row>
       </Card>
+      <Card tone="soft" style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+        <View style={s.plus}>
+          <Icon name="briefcase" size={18} color={colors.bordeaux} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T variant="h3">Le shopping se fait sur nissaplace.fr</T>
+          <T variant="small">Découvre les marques ici, puis touche celle qui te plaît : tu seras redirigée vers le site NissaPlace pour acheter.</T>
+        </View>
+      </Card>
+      <Field value={q} onChangeText={setQ} placeholder="Rechercher une marque" icon="search" returnKeyType="search" />
+      <Gap h={12} />
+      <Chips items={NISSAPLACE_CATS} value={category} onChange={setCategory} scroll />
+      <Gap h={16} />
+      {loading && !data ? <Loader /> : null}
+      {error && !data ? <ErrorState error={error} onRetry={reload} /> : null}
+      {data?.items?.map((b) => <BrandCard key={b.id} b={b} />)}
+      {data && !data.items.length ? <T variant="muted">Aucune marque pour le moment.</T> : null}
     </>
   );
 }
@@ -288,9 +317,9 @@ export default function Lifestyle() {
     <Screen title="Lifestyle" top={<BrandBar />}>
       <Segmented
         items={[
-          { key: 'magazine', label: 'Magazine' },
           { key: 'evenements', label: 'Événements' },
           { key: 'nissaplace', label: 'NissaPlace' },
+          { key: 'magazine', label: 'Magazine' },
         ]}
         value={tab}
         onChange={setTab}
@@ -324,4 +353,11 @@ const s = StyleSheet.create({
   plus: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   cta: { backgroundColor: colors.bordeaux, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center' },
   ctaText: { fontFamily: fonts.bold, color: colors.white, fontSize: 15.5 },
+  joinBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 11 },
+  joinBtnText: { fontFamily: fonts.bold, color: colors.bordeaux, fontSize: 14 },
+  brandCard: { height: 150, borderRadius: 22, overflow: 'hidden', marginBottom: 14, backgroundColor: colors.blush, justifyContent: 'flex-end', padding: 14 },
+  brandOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
+  brandName: { fontFamily: fonts.title, fontSize: 20, color: colors.white },
+  brandBtn: { position: 'absolute', right: 14, bottom: 14, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  brandBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux },
 });
