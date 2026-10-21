@@ -13,6 +13,7 @@ import { useAuth } from '../../lib/auth';
 import { flushDhikr, saveCount, useDhikrData } from '../../lib/dhikr';
 import { colors, fonts, tnum } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 export default function FreeTasbih() {
   useKeepAwake();
   const insets = useSafeAreaInsets();
@@ -53,10 +54,10 @@ export default function FreeTasbih() {
   return (
     <View style={[s.screen, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 14 }]}>
       <View style={s.top}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/dhikr'))} accessibilityRole="button" accessibilityLabel="Retour" hitSlop={12}>
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/dhikr'))} accessibilityRole="button" accessibilityLabel={tr("Retour")} hitSlop={12}>
           <Icon name="chevronLeft" size={26} />
         </Pressable>
-        <Text style={s.topTitle}>Tasbih libre</Text>
+        <Text style={s.topTitle}>{tr("Tasbih libre")}</Text>
         <View style={{ width: 26 }} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={{ flexGrow: 0, marginHorizontal: -20 }}>
@@ -71,23 +72,23 @@ export default function FreeTasbih() {
         })}
       </ScrollView>
 
-      <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={`${current.name} : ${n}. Touche pour compter`} style={s.zone}>
+      <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={tr("{0} : {1}. Touche pour compter", [current.name, n])} style={s.zone}>
         {current.arabic ? <Text style={s.arabic}>{current.arabic}</Text> : null}
         <Text style={s.name}>{current.name}</Text>
         <View style={[s.button, { width: size, height: size, borderRadius: size / 2 }]}>
           <Text style={[s.count, tnum]} adjustsFontSizeToFit numberOfLines={1}>{n}</Text>
-          <Text style={s.touch}>TOUCHE POUR COMPTER</Text>
+          <Text style={s.touch}>{tr("TOUCHE POUR COMPTER")}</Text>
         </View>
-        <Text style={s.hint}>Sans objectif · touche n’importe où sur l’écran</Text>
+        <Text style={s.hint}>{tr("Sans objectif · touche n’importe où sur l’écran")}</Text>
       </Pressable>
 
       <View style={s.foot}>
         <View style={{ flex: 1 }}>
-          <Text style={s.footSmall}>Cette session : <Text style={[s.footStrong, tnum]}>{sessionTotal}</Text></Text>
-          <Text style={s.footSmall}>Aujourd’hui : <Text style={[s.footStrong, tnum]}>{dayTotal}</Text> dhikr</Text>
+          <Text style={s.footSmall}>{tr("Cette session :")} <Text style={[s.footStrong, tnum]}>{sessionTotal}</Text></Text>
+          <Text style={s.footSmall}>{tr("Aujourd’hui :")} <Text style={[s.footStrong, tnum]}>{dayTotal}</Text> {tr("dhikr")}</Text>
         </View>
         <Pressable onPress={finish} accessibilityRole="button" style={s.finish}>
-          <Text style={s.finishText}>Terminer</Text>
+          <Text style={s.finishText}>{tr("Terminer")}</Text>
         </Pressable>
       </View>
     </View>

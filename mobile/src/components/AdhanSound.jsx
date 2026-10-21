@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/useApi';
 import { colors, fonts, PRAYER_LABELS, PRAYERS } from '../theme';
+import { tr } from '../lib/i18n';
 import Icon from './Icon';
 import { Button, Label, Notice, Sheet, T, Toggle, useToast } from './ui';
 
@@ -39,10 +40,10 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
       const r = await testAdhan(10, prefs.voice);
       if (!r.ok) {
         setAccess(await notificationAccess());
-        toast('Autorise les notifications de Nissali pour entendre l’adhan', 'error');
+        toast(tr("Autorise les notifications de Nissali pour entendre l’adhan"), 'error');
         return;
       }
-      toast('L’adhan retentit dans 10 secondes : verrouille ton téléphone');
+      toast(tr("L’adhan retentit dans 10 secondes : verrouille ton téléphone"));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -66,33 +67,33 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
   const voices = adhans.data?.items || [];
 
   return (
-    <Sheet visible={visible} onClose={close} title="Son de l’adhan">
+    <Sheet visible={visible} onClose={close} title={tr("Son de l’adhan")}>
       <Toggle
-        label="Son de l’adhan"
-        hint={prefs.on ? 'L’adhan est joué à l’heure des prières choisies' : 'Notification seule à l’heure de la prière'}
+        label={tr("Son de l’adhan")}
+        hint={prefs.on ? tr("L’adhan est joué à l’heure des prières choisies") : tr("Notification seule à l’heure de la prière")}
         value={prefs.on}
-        onChange={(v) => patch({ adhan: true, adhanMode: v ? 'adhan' : 'notification' }, v ? 'Son de l’adhan activé' : 'Son de l’adhan désactivé')}
+        onChange={(v) => patch({ adhan: true, adhanMode: v ? 'adhan' : 'notification' }, v ? tr("Son de l’adhan activé") : tr("Son de l’adhan désactivé"))}
       />
       {prefs.on && access && (!access.granted || !access.sound) ? (
-        <Notice title={access.granted ? 'Son des notifications coupé' : 'Notifications désactivées'}>
+        <Notice title={access.granted ? tr("Son des notifications coupé") : tr("Notifications désactivées")}>
           {access.granted
-            ? 'Le son des notifications de Nissali est coupé dans les réglages du téléphone : l’adhan ne peut pas retentir. Active « Sons » dans Réglages › Nissali › Notifications.'
-            : 'Le téléphone bloque les notifications de Nissali : l’adhan ne peut pas retentir à l’heure de la prière. Autorise-les dans les réglages.'}
+            ? tr("Le son des notifications de Nissali est coupé dans les réglages du téléphone : l’adhan ne peut pas retentir. Active « Sons » dans Réglages › Nissali › Notifications.")
+            : tr("Le téléphone bloque les notifications de Nissali : l’adhan ne peut pas retentir à l’heure de la prière. Autorise-les dans les réglages.")}
           {'\n'}
-          <Text style={s.link} onPress={() => Linking.openSettings()}>Ouvrir les réglages</Text>
+          <Text style={s.link} onPress={() => Linking.openSettings()}>{tr("Ouvrir les réglages")}</Text>
         </Notice>
       ) : null}
       {prefs.on ? (
         <>
-          {Platform.OS !== 'web' ? <Button title={testing ? 'L’adhan retentit dans quelques secondes…' : 'Tester l’adhan sur ce téléphone'} icon="volume" variant="outline" onPress={test} disabled={testing} /> : null}
-          <Label>Pour quelles prières ?</Label>
+          {Platform.OS !== 'web' ? <Button title={testing ? tr("L’adhan retentit dans quelques secondes…") : tr("Tester l’adhan sur ce téléphone")} icon="volume" variant="outline" onPress={test} disabled={testing} /> : null}
+          <Label>{tr("Pour quelles prières ?")}</Label>
           <View style={s.prayers}>
             {PRAYERS.map((k) => {
               const on = prefs.prayers.includes(k);
               return (
                 <Pressable
                   key={k}
-                  onPress={() => patch({ adhanPrayers: { [k]: !on } }, on ? `Adhan désactivé pour ${PRAYER_LABELS[k]}` : `Adhan activé pour ${PRAYER_LABELS[k]}`)}
+                  onPress={() => patch({ adhanPrayers: { [k]: !on } }, on ? tr("Adhan désactivé pour {0}", [PRAYER_LABELS[k]]) : tr("Adhan activé pour {0}", [PRAYER_LABELS[k]]))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: on }}
                   style={[s.prayer, on && s.prayerOn]}
@@ -103,20 +104,20 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
               );
             })}
           </View>
-          <Label>Voix</Label>
+          <Label>{tr("Voix")}</Label>
           {voices.map((a) => {
             const selected = prefs.voice === a.key;
             const isPlaying = playing === a.key;
             return (
               <View key={a.key} style={[s.voice, selected && s.voiceOn]}>
-                <Pressable onPress={() => patch({ adhanVoice: a.key }, `Voix : ${a.label}`)} accessibilityRole="radio" accessibilityState={{ checked: selected }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Pressable onPress={() => patch({ adhanVoice: a.key }, tr("Voix : {0}", [a.label]))} accessibilityRole="radio" accessibilityState={{ checked: selected }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={[s.radio, selected && { borderColor: colors.bordeaux }]}>{selected ? <View style={s.radioDot} /> : null}</View>
                   <View style={{ flex: 1 }}>
                     <T variant="medium">{a.label}</T>
                     {a.detail ? <T variant="small">{a.detail}</T> : null}
                   </View>
                 </Pressable>
-                <Pressable onPress={() => (isPlaying ? stopAdhan() : playAdhan({ ...a, prayer: 'Aperçu' }))} accessibilityRole="button" accessibilityLabel={isPlaying ? 'Arrêter l’aperçu' : `Écouter ${a.label}`} hitSlop={6} style={s.play}>
+                <Pressable onPress={() => (isPlaying ? stopAdhan() : playAdhan({ ...a, prayer: 'Aperçu' }))} accessibilityRole="button" accessibilityLabel={isPlaying ? tr("Arrêter l’aperçu") : tr("Écouter {0}", [a.label])} hitSlop={6} style={s.play}>
                   <Icon name={isPlaying ? 'stop' : 'volume'} size={18} color={colors.bordeaux} />
                 </Pressable>
               </View>
@@ -124,15 +125,15 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
           })}
         </>
       ) : null}
-      {paused ? <Notice title="Rappels en pause">Tes rappels de prière sont en pause pendant tes règles. Le réglage du son est mémorisé pour leur reprise : il ne les réactive pas.</Notice> : null}
-      {!prefs.notifications ? <Notice title="Rappels désactivés">Tes notifications de prière sont désactivées (Horaires › Mes rappels). Le son de l’adhan ne les réactive pas.</Notice> : null}
+      {paused ? <Notice title={tr("Rappels en pause")}>{tr("Tes rappels de prière sont en pause pendant tes règles. Le réglage du son est mémorisé pour leur reprise : il ne les réactive pas.")}</Notice> : null}
+      {!prefs.notifications ? <Notice title={tr("Rappels désactivés")}>{tr("Tes notifications de prière sont désactivées (Horaires › Mes rappels). Le son de l’adhan ne les réactive pas.")}</Notice> : null}
       <T variant="small">
         {!SYSTEM_ADHAN
-          ? 'Version de test (Expo Go) : l’adhan est joué quand Nissali est ouverte ; appli fermée, la notification garde le son standard du téléphone. L’adhan joué par le téléphone fonctionne dans l’appli installée.'
+          ? tr("Version de test (Expo Go) : l’adhan est joué quand Nissali est ouverte ; appli fermée, la notification garde le son standard du téléphone. L’adhan joué par le téléphone fonctionne dans l’appli installée.")
           : Platform.OS === 'ios'
-            ? 'Appli fermée ou téléphone verrouillé, ton iPhone joue l’adhan avec la notification : les 30 premières secondes (limite d’Apple). Le bouton latéral ne doit pas être sur silencieux (orange) ; en mode Concentration, autorise les notifications urgentes de Nissali. Touche la notification pour l’écouter en entier.'
-            : 'Appli fermée ou téléphone verrouillé, ton téléphone joue l’adhan en entier avec la notification, au volume « Alarme » : il est entendu même en mode vibreur. Canal « Adhan » réglable dans les paramètres Android ; en mode Ne pas déranger, Android peut le couper.'}
-        {SYSTEM_ADHAN ? ' Hors de l’appli, ton téléphone joue la voix choisie avec la notification (en entier sur Android, 30 premières secondes sur iPhone). L’adhan court garde la voix par défaut.' : ''}
+            ? tr("Appli fermée ou téléphone verrouillé, ton iPhone joue l’adhan avec la notification : les 30 premières secondes (limite d’Apple). Le bouton latéral ne doit pas être sur silencieux (orange) ; en mode Concentration, autorise les notifications urgentes de Nissali. Touche la notification pour l’écouter en entier.")
+            : tr("Appli fermée ou téléphone verrouillé, ton téléphone joue l’adhan en entier avec la notification, au volume « Alarme » : il est entendu même en mode vibreur. Canal « Adhan » réglable dans les paramètres Android ; en mode Ne pas déranger, Android peut le couper.")}
+        {SYSTEM_ADHAN ? tr(" Hors de l’appli, ton téléphone joue la voix choisie avec la notification (en entier sur Android, 30 premières secondes sur iPhone). L’adhan court garde la voix par défaut.") : ''}
       </T>
     </Sheet>
   );

@@ -13,6 +13,7 @@ import { useAuth } from '../../lib/auth';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const AVATAR_COLORS = [colors.blush, '#E6D3BC', colors.blush, colors.rose];
 
 function PractitionerRow({ p, i, onPress, categories }) {
@@ -31,10 +32,10 @@ function PractitionerRow({ p, i, onPress, categories }) {
         <T variant="muted">
           {label} · {p.city}
         </T>
-        {p.reviewsCount ? <T variant="small">★ {p.rating} ({p.reviewsCount} avis)</T> : null}
+        {p.reviewsCount ? <T variant="small">★ {p.rating} ({p.reviewsCount} {tr("avis)")}</T> : null}
       </View>
       <View style={s.rdv}>
-        <Text style={s.rdvText}>RDV</Text>
+        <Text style={s.rdvText}>{tr("RDV")}</Text>
       </View>
     </Pressable>
   );
@@ -46,39 +47,39 @@ function ProCard({ status }) {
     // 4.14 — une praticienne voit sa propre carte avec « Gérer mon profil ».
     return (
       <Card tone="dashed" style={{ gap: 10 }}>
-        <Label color={colors.or}>Mon profil praticienne</Label>
-        <T>« {practitioner.displayName} » · {practitioner.status === 'validee' ? 'en ligne' : 'en cours de vérification'}</T>
-        <Button title="Gérer mon profil" icon="briefcase" onPress={() => router.push('/espace-praticienne')} />
+        <Label color={colors.or}>{tr("Mon profil praticienne")}</Label>
+        <T>« {practitioner.displayName} » · {practitioner.status === 'validee' ? tr("en ligne") : tr("en cours de vérification")}</T>
+        <Button title={tr("Gérer mon profil")} icon="briefcase" onPress={() => router.push('/espace-praticienne')} />
       </Card>
     );
   }
   return (
     <Card tone="dashed" style={{ gap: 10 }}>
-      <Label color={colors.or}>Vous êtes praticienne ?</Label>
-      <T>Inscrivez-vous en tant que professionnelle et choisissez la formule qui vous convient, ou contactez-nous sur</T>
+      <Label color={colors.or}>{tr("Vous êtes praticienne ?")}</Label>
+      <T>{tr("Inscrivez-vous en tant que professionnelle et choisissez la formule qui vous convient, ou contactez-nous sur")}</T>
       <Pressable onPress={() => Linking.openURL(`mailto:${status?.contactEmail || 'contact@nissali.fr'}`)} accessibilityRole="link">
         <T variant="bold" color={colors.bordeaux} style={{ fontSize: 18 }}>{status?.contactEmail || 'contact@nissali.fr'}</T>
       </Pressable>
-      <Button title="Je m’inscris comme praticienne" onPress={() => router.push('/devenir-praticienne')} />
+      <Button title={tr("Je m’inscris comme praticienne")} onPress={() => router.push('/devenir-praticienne')} />
     </Card>
   );
 }
 
 const SORTS = [
-  { key: 'distance', label: 'Plus proche', hint: 'de la plus proche à la plus loin' },
-  { key: 'rating', label: 'Mieux notées', hint: 'les mieux notées d’abord' },
-  { key: 'price', label: 'Prix', hint: 'du tarif le plus bas au plus élevé' },
-  { key: 'recent', label: 'Nouvelles', hint: 'les nouvelles inscrites d’abord' },
+  { key: 'distance', label: tr("Plus proche"), hint: tr("de la plus proche à la plus loin") },
+  { key: 'rating', label: tr("Mieux notées"), hint: tr("les mieux notées d’abord") },
+  { key: 'price', label: tr("Prix"), hint: tr("du tarif le plus bas au plus élevé") },
+  { key: 'recent', label: tr("Nouvelles"), hint: tr("les nouvelles inscrites d’abord") },
 ];
 
 /** Bouton Ville / Région : ouvre la liste ; une fois choisie, la valeur s'affiche avec une croix pour l'effacer. */
 function PlaceButton({ icon, placeholder, value, onPress, onClear }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${placeholder} : ${value}` : `Choisir une ${placeholder.toLowerCase()}`} style={({ pressed }) => [s.place, value && s.placeOn, pressed && { opacity: 0.85 }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={value ? `${placeholder} : ${value}` : tr("Choisir une {0}", [placeholder.toLowerCase()])} style={({ pressed }) => [s.place, value && s.placeOn, pressed && { opacity: 0.85 }]}>
       <Icon name={icon} size={17} color={value ? colors.bordeaux : colors.muted} />
       <Text style={[s.placeText, value && { color: colors.bordeaux, fontFamily: fonts.bold }]} numberOfLines={1}>{value || placeholder}</Text>
       {value ? (
-        <Pressable onPress={onClear} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Effacer ${placeholder.toLowerCase()}`}>
+        <Pressable onPress={onClear} hitSlop={10} accessibilityRole="button" accessibilityLabel={tr("Effacer {0}", [placeholder.toLowerCase()])}>
           <Icon name="close" size={16} color={colors.bordeaux} />
         </Pressable>
       ) : (
@@ -96,11 +97,11 @@ function PlaceSheet({ kind, options, value, onPick, onClose }) {
   const list = (options || []).filter((o) => !q.trim() || norm(o.name).includes(norm(q.trim())));
   const city = kind === 'city';
   return (
-    <Sheet visible={Boolean(kind)} onClose={onClose} title={city ? 'Choisir une ville' : 'Choisir une région'}>
-      <Field value={q} onChangeText={setQ} placeholder={city ? 'Rechercher une ville' : 'Rechercher une région'} icon="search" autoCorrect={false} />
+    <Sheet visible={Boolean(kind)} onClose={onClose} title={city ? tr("Choisir une ville") : tr("Choisir une région")}>
+      <Field value={q} onChangeText={setQ} placeholder={city ? tr("Rechercher une ville") : tr("Rechercher une région")} icon="search" autoCorrect={false} />
       <View style={s.placeList}>
         <Pressable onPress={() => onPick('')} accessibilityRole="radio" accessibilityState={{ checked: !value }} style={s.placeRow}>
-          <Text style={[s.placeRowText, !value && { color: colors.bordeaux, fontFamily: fonts.bold }]}>{city ? 'Toutes les villes' : 'Toutes les régions'}</Text>
+          <Text style={[s.placeRowText, !value && { color: colors.bordeaux, fontFamily: fonts.bold }]}>{city ? tr("Toutes les villes") : tr("Toutes les régions")}</Text>
           {!value ? <Icon name="check" size={18} color={colors.bordeaux} strokeWidth={2.4} /> : null}
         </Pressable>
         {list.map((o) => (
@@ -110,7 +111,7 @@ function PlaceSheet({ kind, options, value, onPick, onClose }) {
             {value === o.name ? <Icon name="check" size={18} color={colors.bordeaux} strokeWidth={2.4} /> : null}
           </Pressable>
         ))}
-        {!list.length ? <T variant="muted" style={{ paddingVertical: 14 }}>Aucune praticienne dans cette {city ? 'ville' : 'région'} pour le moment.</T> : null}
+        {!list.length ? <T variant="muted" style={{ paddingVertical: 14 }}>{tr("Aucune praticienne dans cette")} {city ? 'ville' : tr("région")} {tr("pour le moment.")}</T> : null}
       </View>
     </Sheet>
   );
@@ -144,14 +145,14 @@ export default function Practitioners() {
   const groups = status.data?.groups || [];
   const categories = status.data?.categories || [];
 
-  if (status.loading && !status.data) return <Screen title="Praticiennes" top={<BrandBar />}><Loader /></Screen>;
-  if (status.error && !status.data) return <Screen title="Praticiennes" top={<BrandBar />}><ErrorState error={status.error} onRetry={status.reload} /></Screen>;
+  if (status.loading && !status.data) return <Screen title={tr("Praticiennes")} top={<BrandBar />}><Loader /></Screen>;
+  if (status.error && !status.data) return <Screen title={tr("Praticiennes")} top={<BrandBar />}><ErrorState error={status.error} onRetry={status.reload} /></Screen>;
 
   // Annuaire pas encore ouvert : maquette floutée « Bientôt disponible ».
   if (!enabled) {
     return (
-      <Screen title="Praticiennes" top={<BrandBar />} right={<T variant="muted">Entre sœurs</T>}>
-        <Field value={q} onChangeText={setQ} placeholder="Spécialité ou nom" icon="search" editable={false} />
+      <Screen title={tr("Praticiennes")} top={<BrandBar />} right={<T variant="muted">{tr("Entre sœurs")}</T>}>
+        <Field value={q} onChangeText={setQ} placeholder={tr("Spécialité ou nom")} icon="search" editable={false} />
         <Gap h={18} />
         <View style={{ position: 'relative' }}>
           <View style={{ opacity: 0.55 }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
@@ -167,9 +168,9 @@ export default function Practitioners() {
           <View style={s.lockWrap} accessibilityLiveRegion="polite">
             <View style={s.lockPill}>
               <Icon name="lock" size={20} color={colors.white} />
-              <Text style={s.lockText}>BIENTÔT DISPONIBLE</Text>
+              <Text style={s.lockText}>{tr("BIENTÔT DISPONIBLE")}</Text>
             </View>
-            <T variant="medium" style={{ textAlign: 'center', fontSize: 17, lineHeight: 24 }}>Trouve une praticienne et contacte-la en quelques secondes.</T>
+            <T variant="medium" style={{ textAlign: 'center', fontSize: 17, lineHeight: 24 }}>{tr("Trouve une praticienne et contacte-la en quelques secondes.")}</T>
           </View>
         </View>
         <Gap h={22} />
@@ -192,7 +193,7 @@ export default function Practitioners() {
   const featured = filtering ? [] : [...items].sort((a, b) => Number(b.featured) - Number(a.featured) || b.rating - a.rating || b.reviewsCount - a.reviewsCount).slice(0, 5);
   const labelOf = (p) => p.specialtyLabel || categories.find((c) => c.key === p.specialty)?.label || p.specialty;
   const open = (p) => router.push(`/praticienne/${p.id}`);
-  const tiles = [{ key: '', label: 'Toutes' }, ...groups.filter((g) => !inFamily || inFamily.includes(g.key)).map((g) => ({ key: g.key, label: g.label, short: SHORT[g.key] }))];
+  const tiles = [{ key: '', label: tr("Toutes") }, ...groups.filter((g) => !inFamily || inFamily.includes(g.key)).map((g) => ({ key: g.key, label: g.label, short: SHORT[g.key] }))];
   const reset = () => {
     setCity('');
     setRegion('');
@@ -204,15 +205,15 @@ export default function Practitioners() {
 
   return (
     <Screen
-      title="Praticiennes"
+      title={tr("Praticiennes")}
       top={<BrandBar />}
       right={
         <Row gap={10}>
-          <Pressable onPress={() => router.push('/messages')} accessibilityRole="button" accessibilityLabel={`Messages${unreadCount ? `, ${unreadCount} non lus` : ''}`} hitSlop={6} style={({ pressed }) => [s.topIcon, pressed && { opacity: 0.8 }]}>
+          <Pressable onPress={() => router.push('/messages')} accessibilityRole="button" accessibilityLabel={tr("Messages{0}", [(unreadCount ? tr(", {0} non lus", [unreadCount]) : '')])} hitSlop={6} style={({ pressed }) => [s.topIcon, pressed && { opacity: 0.8 }]}>
             <Icon name="chat" size={24} color={colors.bordeaux} />
             {unreadCount ? <View style={s.dot}><Text style={s.dotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
           </Pressable>
-          <Pressable onPress={() => router.push('/rendez-vous')} accessibilityRole="button" accessibilityLabel="Mes rendez-vous" hitSlop={6} style={({ pressed }) => [s.topIcon, { backgroundColor: colors.bordeaux }, pressed && { opacity: 0.8 }]}>
+          <Pressable onPress={() => router.push('/rendez-vous')} accessibilityRole="button" accessibilityLabel={tr("Mes rendez-vous")} hitSlop={6} style={({ pressed }) => [s.topIcon, { backgroundColor: colors.bordeaux }, pressed && { opacity: 0.8 }]}>
             <Icon name="calendar" size={24} color={colors.white} />
           </Pressable>
         </Row>
@@ -222,22 +223,22 @@ export default function Practitioners() {
         unread.reload();
       }}
     >
-      <T variant="muted" style={{ marginTop: -10, marginBottom: 14 }}>Santé, bien-être et accompagnement, entre sœurs.</T>
+      <T variant="muted" style={{ marginTop: -10, marginBottom: 14 }}>{tr("Santé, bien-être et accompagnement, entre sœurs.")}</T>
       <Row gap={10}>
         <View style={{ flex: 1 }}>
-          <Field value={q} onChangeText={setQ} placeholder="Nom ou spécialité" icon="search" returnKeyType="search" />
+          <Field value={q} onChangeText={setQ} placeholder={tr("Nom ou spécialité")} icon="search" returnKeyType="search" />
         </View>
-        <Pressable onPress={() => setFavOnly((v) => !v)} accessibilityRole="button" accessibilityLabel="Mes favorites" accessibilityState={{ selected: favOnly }} style={[s.filterBtn, favOnly && { backgroundColor: colors.blush, borderColor: colors.rose }]}>
+        <Pressable onPress={() => setFavOnly((v) => !v)} accessibilityRole="button" accessibilityLabel={tr("Mes favorites")} accessibilityState={{ selected: favOnly }} style={[s.filterBtn, favOnly && { backgroundColor: colors.blush, borderColor: colors.rose }]}>
           <Icon name="heart" size={21} color={colors.bordeaux} fill={favOnly ? colors.bordeaux : 'none'} />
         </Pressable>
-        <Pressable onPress={() => setFiltersOpen(true)} accessibilityRole="button" accessibilityLabel={`Filtres${activeCount ? `, ${activeCount} actifs` : ''}`} style={[s.filterBtn, activeCount && { backgroundColor: colors.bordeaux }]}>
+        <Pressable onPress={() => setFiltersOpen(true)} accessibilityRole="button" accessibilityLabel={tr("Filtres{0}", [(activeCount ? tr(", {0} actifs", [activeCount]) : '')])} style={[s.filterBtn, activeCount && { backgroundColor: colors.bordeaux }]}>
           <Icon name="sliders" size={20} color={activeCount ? colors.white : colors.bordeaux} />
           {activeCount ? <View style={s.filterCount}><Text style={s.filterCountText}>{activeCount}</Text></View> : null}
         </Pressable>
       </Row>
       <Row gap={10} style={{ marginTop: 10 }}>
-        <PlaceButton icon="pin" placeholder="Ville" value={city} onPress={() => setPicker('city')} onClear={() => setCity('')} />
-        <PlaceButton icon="locate" placeholder="Région" value={region} onPress={() => setPicker('region')} onClear={() => setRegion('')} />
+        <PlaceButton icon="pin" placeholder={tr("Ville")} value={city} onPress={() => setPicker('city')} onClear={() => setCity('')} />
+        <PlaceButton icon="locate" placeholder={tr("Région")} value={region} onPress={() => setPicker('region')} onClear={() => setRegion('')} />
       </Row>
       <Gap h={14} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 2 }}>
@@ -248,18 +249,18 @@ export default function Practitioners() {
 
       {activeCount ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, marginTop: 12 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
-          {family ? <Chip label={`${families.find((f) => f.key === family)?.label || 'Catégorie'} ✕`} selected onPress={() => setFamily('')} /> : null}
-          {sort !== 'distance' ? <Chip label={`Tri : ${sortInfo.label} ✕`} selected onPress={() => setSort('distance')} /> : null}
-          {visio ? <Chip label="Visio ✕" selected onPress={() => setVisio(false)} /> : null}
-          {diplome ? <Chip label="Diplômées ✕" selected onPress={() => setDiplome(false)} /> : null}
+          {family ? <Chip label={`${(families.find((f) => f.key === family)?.label || tr("Catégorie"))} ✕`} selected onPress={() => setFamily('')} /> : null}
+          {sort !== 'distance' ? <Chip label={tr("Tri : {0} ✕", [sortInfo.label])} selected onPress={() => setSort('distance')} /> : null}
+          {visio ? <Chip label={tr("Visio ✕")} selected onPress={() => setVisio(false)} /> : null}
+          {diplome ? <Chip label={tr("Diplômées ✕")} selected onPress={() => setDiplome(false)} /> : null}
         </ScrollView>
       ) : null}
 
       {featured.length > 1 ? (
         <>
           <Row justify="space-between" style={{ marginTop: 22, marginBottom: 12 }}>
-            <T variant="h3" style={{ fontSize: 21 }}>À la une</T>
-            <T variant="small">Les mieux notées</T>
+            <T variant="h3" style={{ fontSize: 21 }}>{tr("À la une")}</T>
+            <T variant="small">{tr("Les mieux notées")}</T>
           </Row>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ gap: 14, paddingHorizontal: 20, paddingBottom: 14 }}>
             {featured.map((p) => (
@@ -270,7 +271,7 @@ export default function Practitioners() {
       ) : null}
 
       <Row justify="space-between" style={{ marginTop: 22, marginBottom: 12 }}>
-        <T variant="h3" style={{ fontSize: 21 }}>{filtering ? 'Résultats' : 'Toutes les praticiennes'}</T>
+        <T variant="h3" style={{ fontSize: 21 }}>{filtering ? tr("Résultats") : tr("Toutes les praticiennes")}</T>
         <T variant="small">{items.length}</T>
       </Row>
       {list.loading && !list.data ? (
@@ -280,9 +281,9 @@ export default function Practitioners() {
       ) : (
         <Card tone="soft" style={{ alignItems: 'center', gap: 6, paddingVertical: 28 }}>
           <Icon name="search" size={26} color={colors.bordeaux} />
-          <T variant="bold">Aucune praticienne trouvée</T>
-          <T variant="small" style={{ textAlign: 'center' }}>{favOnly ? 'Ajoute des praticiennes à tes favorites avec le cœur.' : 'Essaie une autre catégorie, ville ou région.'}</T>
-          {activeCount || city || region ? <Button title="Réinitialiser les filtres" small variant="soft" onPress={reset} /> : null}
+          <T variant="bold">{tr("Aucune praticienne trouvée")}</T>
+          <T variant="small" style={{ textAlign: 'center' }}>{favOnly ? tr("Ajoute des praticiennes à tes favorites avec le cœur.") : tr("Essaie une autre catégorie, ville ou région.")}</T>
+          {activeCount || city || region ? <Button title={tr("Réinitialiser les filtres")} small variant="soft" onPress={reset} /> : null}
         </Card>
       )}
       <Gap h={18} />
@@ -291,27 +292,27 @@ export default function Practitioners() {
       <Sheet
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        title="Filtres"
+        title={tr("Filtres")}
         footer={
           <Row gap={12}>
             <Pressable onPress={reset} accessibilityRole="button" style={({ pressed }) => [s.resetBtn, pressed && { opacity: 0.8 }]}>
-              <Text style={s.resetText} numberOfLines={1}>Réinitialiser</Text>
+              <Text style={s.resetText} numberOfLines={1}>{tr("Réinitialiser")}</Text>
             </Pressable>
-            <Button title={`Voir ${items.length} résultat${items.length > 1 ? 's' : ''}`} onPress={() => setFiltersOpen(false)} style={{ flex: 1 }} />
+            <Button title={tr("Voir {0} résultat{1}", [items.length, items.length > 1 ? 's' : ''])} onPress={() => setFiltersOpen(false)} style={{ flex: 1 }} />
           </Row>
         }
       >
         {families.length ? (
           <>
-            <Text style={s.fTitle}>Catégorie</Text>
-            <Chips items={[{ key: '', label: 'Toutes' }, ...families.map((f) => ({ key: f.key, label: f.label }))]} value={family} onChange={(k) => { setFamily(k || ''); setGroup(''); }} />
+            <Text style={s.fTitle}>{tr("Catégorie")}</Text>
+            <Chips items={[{ key: '', label: tr("Toutes") }, ...families.map((f) => ({ key: f.key, label: f.label }))]} value={family} onChange={(k) => { setFamily(k || ''); setGroup(''); }} />
           </>
         ) : null}
-        <Text style={s.fTitle}>Trier par</Text>
+        <Text style={s.fTitle}>{tr("Trier par")}</Text>
         <Chips items={SORTS.map((o) => ({ key: o.key, label: o.label }))} value={sort} onChange={(k) => k && setSort(k)} />
-        <Text style={s.fHint}>{SORTS.find((o) => o.key === sort)?.hint}{sort === 'distance' ? ' (ville choisie ou ta position)' : ''}</Text>
-        <Toggle label="Consultation en visio" value={visio} onChange={setVisio} />
-        <Toggle label="Diplômées" hint="Diplôme vérifié par l’équipe Nissali" value={diplome} onChange={setDiplome} />
+        <Text style={s.fHint}>{SORTS.find((o) => o.key === sort)?.hint}{sort === 'distance' ? tr(" (ville choisie ou ta position)") : ''}</Text>
+        <Toggle label={tr("Consultation en visio")} value={visio} onChange={setVisio} />
+        <Toggle label={tr("Diplômées")} hint={tr("Diplôme vérifié par l’équipe Nissali")} value={diplome} onChange={setDiplome} />
       </Sheet>
       <PlaceSheet
         kind={picker}

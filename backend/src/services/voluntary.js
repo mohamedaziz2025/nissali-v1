@@ -26,13 +26,18 @@ export function suggestType(day, adj = 0, excl = true) {
 export function nextVoluntary(plan, { from, days = 60, adj = 0, excl = true, periodOn = () => null, done = new Set(), limit = 8 }) {
   const out = [];
   const weekdays = new Set(plan?.weekdays || []);
+  const dates = new Set(plan?.dates || []);
+  const skip = new Set(plan?.skip || []);
   for (let i = 0; i < days && out.length < limit; i += 1) {
     const day = addDays(from, i);
-    if (done.has(day) || isRamadan(day, adj) || forbiddenFastReason(day, adj)) continue;
+    // « Jusqu'à » : au-delà de la date de fin, le programme s'arrête (les dates précises restent).
+    const active = !plan?.until || day <= plan.until;
+    if (done.has(day) || skip.has(day) || isRamadan(day, adj) || forbiddenFastReason(day, adj)) continue;
     const cal = calendarFast(day, adj, excl);
     let type = null;
-    if (cal && plan?.[{ jours_blancs: 'blancs', arafat: 'arafat', achoura: 'achoura', chawwal: 'chawwal' }[cal]]) type = cal;
-    else if (weekdays.has(weekday(day))) type = [1, 4].includes(weekday(day)) ? 'lundi_jeudi' : 'autre';
+    if (active && cal && plan?.[{ jours_blancs: 'blancs', arafat: 'arafat', achoura: 'achoura', chawwal: 'chawwal' }[cal]]) type = cal;
+    else if (active && weekdays.has(weekday(day))) type = [1, 4].includes(weekday(day)) ? 'lundi_jeudi' : 'autre';
+    else if (dates.has(day)) type = cal || 'autre';
     if (!type) continue;
     out.push({ day, type, label: VOLUNTARY_LABELS[type], paused: Boolean(periodOn(day)) });
   }

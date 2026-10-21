@@ -97,7 +97,18 @@
         }
       ],
       "expo-audio",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-localization",
+        {
+          "supportsRTL": true,
+          "supportedLocales": [
+            "fr",
+            "en",
+            "ar"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

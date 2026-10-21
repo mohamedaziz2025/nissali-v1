@@ -66,9 +66,9 @@ export default function Icon({ name, size, className, title }) {
 
 export function Logo({ size = 24 }) {
   return (
-    <svg viewBox="0 0 1024 1024" width={size} height={size} aria-hidden="true">
-      <path d="M292 772 V512 a220 220 0 0 1 440 0 V772" fill="none" stroke="currentColor" strokeWidth="96" strokeLinecap="round" />
-      <circle cx="512" cy="520" r="64" fill="currentColor" />
+    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
+      <path d="M30 71.5V49a20 20 0 0 1 40 0v22.5" fill="none" stroke="currentColor" strokeWidth="8.5" strokeLinecap="round" />
+      <path d="M50 52V71.5" stroke="currentColor" strokeWidth="8.5" strokeLinecap="round" />
     </svg>
   );
 }

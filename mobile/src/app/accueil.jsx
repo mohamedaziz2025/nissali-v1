@@ -16,6 +16,7 @@ import { ensurePermission } from '../lib/notifications';
 import { readJson, writeJson } from '../lib/storage';
 import { colors, fonts, PRAYER_LABELS } from '../theme';
 
+import { tr } from '../lib/i18n';
 const SAVED = 'nissali.onboarding';
 const ESSENTIALS = ['periodSoon', 'fertileWindow', 'periodEndQuestion', 'fastMakeup', 'fastPlanned', 'ramadan', 'whiteDays', 'messages', 'events', 'dailyReminder'];
 
@@ -132,36 +133,36 @@ export default function Onboarding() {
           <MonthNav month={a.month} onChange={(m) => m <= today.slice(0, 7) && m >= addDays(today, -90).slice(0, 7) && set('month')(m)} />
           <CalendarGrid month={a.month} days={s9 ? [{ day: a.lastPeriod, period: 'reelle' }] : []} width={Math.min(width, 520) - 40 - 28} selected={s9 ? a.lastPeriod : null} maxDay={today} minDay={addDays(today, -90)} onDayPress={(d) => setA((x) => ({ ...x, lastPeriod: d, unknownLast: false }))} />
         </View>
-        {s9 ? <Text style={s.picked}>Premier jour : {longDate(a.lastPeriod)}</Text> : null}
-        <Checkbox checked={a.unknownLast} onChange={(v) => setA((x) => ({ ...x, unknownLast: v, lastPeriod: v ? null : x.lastPeriod }))}>Je ne sais plus</Checkbox>
-        {a.unknownLast ? <T variant="small">Pas de souci : tes prédictions démarreront à tes prochaines règles.</T> : null}
+        {s9 ? <Text style={s.picked}>{tr("Premier jour :")} {longDate(a.lastPeriod)}</Text> : null}
+        <Checkbox checked={a.unknownLast} onChange={(v) => setA((x) => ({ ...x, unknownLast: v, lastPeriod: v ? null : x.lastPeriod }))}>{tr("Je ne sais plus")}</Checkbox>
+        {a.unknownLast ? <T variant="small">{tr("Pas de souci : tes prédictions démarreront à tes prochaines règles.")}</T> : null}
       </>
     ),
     durees: (
       <>
-        <Text style={s.label}>Durée du cycle</Text>
+        <Text style={s.label}>{tr("Durée du cycle")}</Text>
         <NumberWheel min={15} max={60} value={a.cycleLength} onChange={(v) => setA((x) => ({ ...x, cycleLength: v, unknownLengths: false }))} suffix=" jours" />
-        <Text style={s.label}>Durée des règles</Text>
+        <Text style={s.label}>{tr("Durée des règles")}</Text>
         <NumberWheel min={1} max={15} value={a.periodLength} onChange={(v) => setA((x) => ({ ...x, periodLength: v, unknownLengths: false }))} suffix=" jours" />
-        <Checkbox checked={a.unknownLengths} onChange={(v) => setA((x) => ({ ...x, unknownLengths: v, ...(v ? { cycleLength: 28, periodLength: 5 } : {}) }))}>Je ne sais pas</Checkbox>
-        {a.unknownLengths ? <T variant="small">Nous partons de 28 jours de cycle et 5 jours de règles. Tes prédictions s’affineront au fil des cycles.</T> : null}
+        <Checkbox checked={a.unknownLengths} onChange={(v) => setA((x) => ({ ...x, unknownLengths: v, ...(v ? { cycleLength: 28, periodLength: 5 } : {}) }))}>{tr("Je ne sais pas")}</Checkbox>
+        {a.unknownLengths ? <T variant="small">{tr("Nous partons de 28 jours de cycle et 5 jours de règles. Tes prédictions s’affineront au fil des cycles.")}</T> : null}
       </>
     ),
     objectif: (
       <>
-        <ChoiceCard title="Suivre mon cycle" text="Règles, phases, prières et jeûnes" icon="cycle" selected={a.goal === 'suivre'} onPress={() => set('goal')('suivre')} />
-        <ChoiceCard title="Avoir un enfant" text="Fenêtre fertile, glaire et température" icon="heart" selected={a.goal === 'enfant'} onPress={() => set('goal')('enfant')} />
-        <ChoiceCard title="Je suis enceinte" text="Suivi semaine par semaine" icon="baby" selected={a.goal === 'enceinte'} onPress={() => set('goal')('enceinte')} />
+        <ChoiceCard title={tr("Suivre mon cycle")} text={tr("Règles, phases, prières et jeûnes")} icon="cycle" selected={a.goal === 'suivre'} onPress={() => set('goal')('suivre')} />
+        <ChoiceCard title={tr("Avoir un enfant")} text={tr("Fenêtre fertile, glaire et température")} icon="heart" selected={a.goal === 'enfant'} onPress={() => set('goal')('enfant')} />
+        <ChoiceCard title={tr("Je suis enceinte")} text={tr("Suivi semaine par semaine")} icon="baby" selected={a.goal === 'enceinte'} onPress={() => set('goal')('enceinte')} />
       </>
     ),
     praticienne: (
       <>
-        <ChoiceCard title="Oui" text="Diététicienne, naturopathe, hijama, coach, doula…" icon="briefcase" selected={a.pro === 'oui'} onPress={() => set('pro')('oui')} />
-        <ChoiceCard title="Non" icon="user" selected={a.pro === 'non'} onPress={() => set('pro')('non')} />
+        <ChoiceCard title={tr("Oui")} text={tr("Diététicienne, naturopathe, hijama, coach, doula…")} icon="briefcase" selected={a.pro === 'oui'} onPress={() => set('pro')('oui')} />
+        <ChoiceCard title={tr("Non")} icon="user" selected={a.pro === 'non'} onPress={() => set('pro')('non')} />
         {a.pro === 'oui' ? (
           <View style={s.note}>
             <Icon name="lock" size={17} color={colors.orText} />
-            <Text style={s.noteText}>Tes deux espaces restent séparés : aucune donnée personnelle (cycle, notes, prières) n’est visible côté pro.</Text>
+            <Text style={s.noteText}>{tr("Tes deux espaces restent séparés : aucune donnée personnelle (cycle, notes, prières) n’est visible côté pro.")}</Text>
           </View>
         ) : null}
       </>
@@ -169,12 +170,12 @@ export default function Onboarding() {
     notifications: (
       <>
         <View style={s.card}>
-          <Toggle label="Rappels de prière" hint="À l’heure de chaque prière, en pause pendant tes règles" value={a.prayers} onChange={set('prayers')} />
-          <Toggle label="Rappels essentiels" hint="Règles prévues, jeûnes programmés, Ramadan, messages…" value={a.essentials} onChange={set('essentials')} />
+          <Toggle label={tr("Rappels de prière")} hint={tr("À l’heure de chaque prière, en pause pendant tes règles")} value={a.prayers} onChange={set('prayers')} />
+          <Toggle label={tr("Rappels essentiels")} hint={tr("Règles prévues, jeûnes programmés, Ramadan, messages…")} value={a.essentials} onChange={set('essentials')} />
         </View>
         <View style={s.note}>
           <Icon name="sliders" size={17} color={colors.orText} />
-          <Text style={s.noteText}>Niveau Faible : aucun conseil ni actualité, seulement les rappels que tu as choisis. Discrets sur l’écran verrouillé.</Text>
+          <Text style={s.noteText}>{tr("Niveau Faible : aucun conseil ni actualité, seulement les rappels que tu as choisis. Discrets sur l’écran verrouillé.")}</Text>
         </View>
       </>
     ),
@@ -185,32 +186,32 @@ export default function Onboarding() {
         <View style={s.ready}>
           <Icon name="drop" size={20} color={colors.bordeaux} />
           <View style={{ flex: 1 }}>
-            <Text style={s.readyLabel}>Prochaines règles</Text>
+            <Text style={s.readyLabel}>{tr("Prochaines règles")}</Text>
             <Text style={s.readyValue}>
-              {summary.cycle?.kind === 'prochaines' && summary.cycle.nextDate ? `Vers le ${dayMonth(summary.cycle.nextDate)}` : summary.cycle?.kind === 'regles' ? `En cours · jour ${summary.cycle.periodDay}` : summary.cycle?.kind === 'grossesse' ? 'Suivi de grossesse' : 'Dès ta prochaine saisie'}
+              {summary.cycle?.kind === 'prochaines' && summary.cycle.nextDate ? tr("Vers le {0}", [dayMonth(summary.cycle.nextDate)]) : summary.cycle?.kind === 'regles' ? tr("En cours · jour {0}", [summary.cycle.periodDay]) : summary.cycle?.kind === 'grossesse' ? tr("Suivi de grossesse") : tr("Dès ta prochaine saisie")}
             </Text>
           </View>
         </View>
         <View style={s.ready}>
           <Icon name="sun" size={20} color={colors.bordeaux} />
           <View style={{ flex: 1 }}>
-            <Text style={s.readyLabel}>Prochaine prière à {summary.prayers?.city || user?.city?.name}</Text>
-            <Text style={s.readyValue}>{summary.prayers?.next ? `${PRAYER_LABELS[summary.prayers.next.key]} · ${summary.prayers.next.time || summary.prayers.tomorrowFajr || ''}${summary.prayers.next.tomorrow ? ' (demain)' : ''}` : '—'}</Text>
+            <Text style={s.readyLabel}>{tr("Prochaine prière à")} {summary.prayers?.city || user?.city?.name}</Text>
+            <Text style={s.readyValue}>{summary.prayers?.next ? `${PRAYER_LABELS[summary.prayers.next.key]} · ${summary.prayers.next.time || summary.prayers.tomorrowFajr || ''}${(summary.prayers.next.tomorrow ? tr(" (demain)") : '')}` : '—'}</Text>
           </View>
         </View>
         <Pressable onPress={() => router.push('/horaires')} accessibilityRole="link" style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
-          <Text style={s.link}>Choisir ma mosquée (facultatif) →</Text>
+          <Text style={s.link}>{tr("Choisir ma mosquée (facultatif) →")}</Text>
         </Pressable>
       </>
     ),
   }[key];
 
   const titles = {
-    regles: ['Tes dernières règles', 'Touche le premier jour. Les 90 derniers jours sont accessibles.'],
-    durees: ['Tes durées habituelles', 'En moyenne : la durée de ton cycle et de tes règles.'],
-    objectif: ['Ton objectif', 'Tu pourras le changer dans ton profil.'],
-    praticienne: ['Es-tu aussi praticienne ?', 'Tu peux proposer tes services dans Nissali, maintenant ou plus tard.'],
-    notifications: ['Tes notifications', 'Le bouton ci-dessous demande l’autorisation du téléphone.'],
+    regles: [tr("Tes dernières règles"), tr("Touche le premier jour. Les 90 derniers jours sont accessibles.")],
+    durees: [tr("Tes durées habituelles"), tr("En moyenne : la durée de ton cycle et de tes règles.")],
+    objectif: [tr("Ton objectif"), tr("Tu pourras le changer dans ton profil.")],
+    praticienne: [tr("Es-tu aussi praticienne ?"), tr("Tu peux proposer tes services dans Nissali, maintenant ou plus tard.")],
+    notifications: [tr("Tes notifications"), tr("Le bouton ci-dessous demande l’autorisation du téléphone.")],
     pret: [`C’est prêt, ${user?.firstName || ''} !`, 'Voici ce qui t’attend.'],
   }[key];
 
@@ -222,14 +223,14 @@ export default function Onboarding() {
       subtitle={titles[1]}
       onBack={idx > 0 && key !== 'pret' ? back : null}
       onNext={next}
-      nextLabel={key === 'notifications' ? (a.prayers || a.essentials ? 'Activer mes notifications' : 'Continuer') : key === 'pret' ? 'Découvrir Nissali' : key === 'praticienne' && a.pro === 'oui' ? 'Configurer mon profil praticienne' : 'Continuer'}
+      nextLabel={key === 'notifications' ? (a.prayers || a.essentials ? tr("Activer mes notifications") : tr("Continuer")) : key === 'pret' ? tr("Découvrir Nissali") : key === 'praticienne' && a.pro === 'oui' ? tr("Configurer mon profil praticienne") : tr("Continuer")}
       canNext={valid}
       busy={busy}
       error={error}
       secondary={
         key === 'praticienne' && a.pro === 'oui' ? (
           <Pressable onPress={async () => { setBusy(true); try { await submit(); await api.put('/pro-profile/draft', { step: 1, later: true }).catch(() => {}); go(nextKey); } catch (e) { setError(e.message); } finally { setBusy(false); } }} accessibilityRole="button" style={s.later}>
-            <Text style={s.laterText}>Plus tard</Text>
+            <Text style={s.laterText}>{tr("Plus tard")}</Text>
           </Pressable>
         ) : null
       }

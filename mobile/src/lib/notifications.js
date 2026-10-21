@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { api } from './api';
+import { tr } from './i18n';
 import { addDays } from './format';
 import { writeJson } from './storage';
 
@@ -23,7 +24,7 @@ if (Platform.OS !== 'web') {
   });
 }
 
-const DISCREET = { title: 'Nissali', body: 'Petit rappel du jour' };
+const DISCREET = { title: 'Nissali', body: tr("Petit rappel du jour") };
 
 // Adhan joué par le système du téléphone (appli fermée ou téléphone verrouillé) : son de notification intégré
 // à l'appli compilée (EAS). En entier sur Android (un canal par voix, volume Alarme), 30 premières secondes
@@ -58,7 +59,7 @@ async function ensureAdhanChannel(voice) {
   }
   await Notifications.setNotificationChannelAsync(id, {
     name: 'Adhan',
-    description: 'L’adhan de la voix choisie, à l’heure de la prière',
+    description: tr("L’adhan de la voix choisie, à l’heure de la prière"),
     importance: Notifications.AndroidImportance.MAX,
     sound: ADHAN_SOUNDS[voiceOf(voice)].android,
     audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM, contentType: Notifications.AndroidAudioContentType.SONIFICATION },
@@ -72,14 +73,14 @@ const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', i
 export async function ensurePermission() {
   if (Platform.OS === 'web') return false;
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('rappels', { name: 'Rappels', importance: Notifications.AndroidImportance.DEFAULT });
-    await Notifications.setNotificationChannelAsync('prieres', { name: 'Prières', importance: Notifications.AndroidImportance.HIGH });
-    await Notifications.setNotificationChannelAsync('annonces', { name: 'Annonces et messages', importance: Notifications.AndroidImportance.HIGH });
+    await Notifications.setNotificationChannelAsync('rappels', { name: tr("Rappels"), importance: Notifications.AndroidImportance.DEFAULT });
+    await Notifications.setNotificationChannelAsync('prieres', { name: tr("Prières"), importance: Notifications.AndroidImportance.HIGH });
+    await Notifications.setNotificationChannelAsync('annonces', { name: tr("Annonces et messages"), importance: Notifications.AndroidImportance.HIGH });
     if (SYSTEM_ADHAN) {
       // 4.5 · 4.2 — « Adhan court » : les 29 premières secondes, dans la voix par défaut (Android).
       await Notifications.setNotificationChannelAsync(ADHAN_SHORT_CHANNEL, {
-        name: 'Adhan court',
-        description: 'Le début de l’adhan à l’heure de la prière',
+        name: tr("Adhan court"),
+        description: tr("Le début de l’adhan à l’heure de la prière"),
         importance: Notifications.AndroidImportance.MAX,
         sound: 'adhan_short.wav',
         audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM, contentType: Notifications.AndroidAudioContentType.SONIFICATION },
@@ -88,7 +89,7 @@ export async function ensurePermission() {
       });
     }
     // « Silencieux » : la notification s'affiche sans son ni vibration.
-    await Notifications.setNotificationChannelAsync(SILENT_CHANNEL, { name: 'Prières (silencieux)', importance: Notifications.AndroidImportance.LOW, enableVibrate: false });
+    await Notifications.setNotificationChannelAsync(SILENT_CHANNEL, { name: tr("Prières (silencieux)"), importance: Notifications.AndroidImportance.LOW, enableVibrate: false });
   }
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -140,10 +141,10 @@ export async function rescheduleAll(today, user) {
           // « Me prévenir » : à l'heure, 10 ou 15 min avant.
           const offset = [10, 15].includes(prayerPrefs.notifyOffset) ? prayerPrefs.notifyOffset : 0;
           const date = new Date(new Date(instant).getTime() - offset * 60_000);
-          const when = offset ? `dans ${offset} min` : 'maintenant';
+          const when = offset ? tr("dans {0} min", [offset]) : tr("maintenant");
           if (paused) {
             // Pendant les règles : rappels coupés par défaut ; gardés sur demande, sans adhan et avec un texte neutre.
-            if (prayerPrefs.keepRemindersDuringPeriod) await schedule(date, { title: 'Nissali', body: 'Petit rappel' }, SILENT_CHANNEL);
+            if (prayerPrefs.keepRemindersDuringPeriod) await schedule(date, { title: 'Nissali', body: tr("Petit rappel") }, SILENT_CHANNEL);
             else if (range.periodDhikr) await schedule(date, { title: 'Nissali', body: range.periodDhikr }, 'prieres');
             continue;
           }
@@ -154,7 +155,7 @@ export async function rescheduleAll(today, user) {
           const adhan = wantsAdhan && !offset ? range.adhan : null;
           const content = {
             title: `${label} · ${time}`,
-            body: offset ? `${label} ${when}` : adhan ? `C’est l’heure de ${label} · l’adhan retentit` : `C’est l’heure de ${label}`,
+            body: offset ? `${label} ${when}` : adhan ? tr("C’est l’heure de {0} · l’adhan retentit", [label]) : tr("C’est l’heure de {0}", [label]),
             ...(system ? { sound: ADHAN_SOUNDS[voice][Platform.OS === 'ios' ? 'ios' : 'android'], ...URGENT } : sound === 'silencieux' ? { sound: false } : {}),
             data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanVoice: voice, adhanLabel: adhan.label } : {}), ...(system ? { systemAdhan: Platform.OS === 'ios' || sound === 'court' ? 'extrait' : 'complet' } : {}) },
           };
@@ -163,7 +164,7 @@ export async function rescheduleAll(today, user) {
         // Vendredi, mosquée choisie : rappel de la Jumu'a à l'heure publiée par la mosquée.
         if (!paused && t.jumua?.times?.length) {
           for (const [k, time] of t.jumua.times.entries()) {
-            await schedule(new Date(t.jumua.instants[k]), { title: `Jumu’a · ${time}`, body: `${k ? '2ᵉ Jumu’a' : 'Jumu’a'} à ${t.jumua.mosque}` }, 'prieres');
+            await schedule(new Date(t.jumua.instants[k]), { title: `Jumu’a · ${time}`, body: tr("{0} à {1}", [k ? tr("2ᵉ Jumu’a") : tr("Jumu’a"), t.jumua.mosque]) }, 'prieres');
           }
         }
       }
@@ -177,7 +178,7 @@ export async function rescheduleAll(today, user) {
   // 4.5 · 4.2 — « Garder le rappel de dhikr » pendant les règles (oui par défaut).
   const dhikrPaused = today.prayers?.paused && prayerPrefs.keepDhikrDuringPeriod === false;
   if (user.dhikr?.reminder && !dhikrPaused) {
-    for (let i = 0; i < 3; i += 1) await schedule(at(addDays(today.today, i), user.dhikr.reminderTime || '20:30'), { title: 'Nissali', body: 'Un moment pour le dhikr', data: { kind: 'dhikr', link: '/dhikr' } }, 'prieres');
+    for (let i = 0; i < 3; i += 1) await schedule(at(addDays(today.today, i), user.dhikr.reminderTime || '20:30'), { title: 'Nissali', body: tr("Un moment pour le dhikr"), data: { kind: 'dhikr', link: '/dhikr' } }, 'prieres');
   }
 
   // 5.2 bis — rappels des notes (RG-35 : aperçu masqué « Rappel Nissali » si elle le souhaite).
@@ -185,7 +186,7 @@ export async function rescheduleAll(today, user) {
     const notes = await api.get('/notes/reminders');
     const hide = prefs.hideNotePreview;
     for (const n of notes.items || []) {
-      await schedule(at(n.day, n.time), hide ? { title: 'Nissali', body: 'Rappel Nissali', data: { link: '/notes' } } : { title: 'Rappel', body: `${n.text} · ${n.time}`, data: { link: '/notes' } });
+      await schedule(at(n.day, n.time), hide ? { title: 'Nissali', body: tr("Rappel Nissali"), data: { link: '/notes' } } : { title: tr("Rappel"), body: `${n.text} · ${n.time}`, data: { link: '/notes' } });
     }
   } catch {
     // hors connexion : rappels reprogrammés au retour du réseau
@@ -196,7 +197,7 @@ export async function rescheduleAll(today, user) {
   const owed = (pur?.prayers || []).filter((p) => !p.done);
   if (prayerPrefs.purificationReminders !== false && owed.length && today.prayers?.tomorrowFajr) {
     const fajr = at(addDays(today.today, 1), today.prayers.tomorrowFajr);
-    await schedule(new Date(fajr.getTime() - 45 * 60_000), { title: 'Nissali', body: `Pense à accomplir ${owed.map((p) => p.label).join(' et ')} avant Fajr`, data: { link: '/ghusl' } }, 'prieres');
+    await schedule(new Date(fajr.getTime() - 45 * 60_000), { title: 'Nissali', body: tr("Pense à accomplir {0} avant Fajr", [owed.map((p) => p.label).join(' et ')]), data: { link: '/ghusl' } }, 'prieres');
   }
 
   // Rappels discrets
@@ -247,8 +248,8 @@ export async function testAdhan(seconds = 10, voice = 'a9') {
   await ensureAdhanChannel(v);
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Test de l’adhan',
-      body: SYSTEM_ADHAN ? 'Voici l’adhan tel qu’il retentira à l’heure de la prière.' : 'Dans l’appli installée, l’adhan retentit à la place de ce son.',
+      title: tr("Test de l’adhan"),
+      body: SYSTEM_ADHAN ? tr("Voici l’adhan tel qu’il retentira à l’heure de la prière.") : tr("Dans l’appli installée, l’adhan retentit à la place de ce son."),
       sound: SYSTEM_ADHAN ? ADHAN_SOUNDS[v][Platform.OS === 'ios' ? 'ios' : 'android'] : true,
       ...(SYSTEM_ADHAN ? URGENT : {}),
       data: { kind: 'adhanTest' },

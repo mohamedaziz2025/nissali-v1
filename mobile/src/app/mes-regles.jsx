@@ -1,91 +1,129 @@
-// 5.4 — Page « Mes règles » (maquette V3, page 9) : dates de début et de fin modifiables d'un toucher,
-// flux jour par jour, prochaines règles et ovulation avec l'indice de fiabilité, historique des cycles et moyenne,
-// « Ajouter des règles passées ». Toute modification recalcule les prédictions (RG-13 bis).
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { DatePickerSheet } from '../components/Calendar';
-import { DateField } from '../components/forms';
+// Mise à jour Cycle · 6.5 — Modifier mes règles (inspiré de Flo), plein écran : « Annuler » / « Mes règles » /
+// « Enregistrer », phrase d'aide, jours de la semaine fixés en haut ; mois les uns sous les autres (12 mois en
+// arrière), ouvert centré sur aujourd'hui. Sous chaque date un rond : vide = rien ; bordeaux avec coche = règles
+// notées ; pointillés avec coche = règles prévues. Toucher coche ou décoche (jours passés et aujourd'hui) ; les
+// jours futurs ne se cochent pas. « Enregistrer » recalcule toutes les prévisions ; « Annuler » ne change rien.
+import { router, useNavigation } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { monthGrid, PREDICTED } from '../components/Calendar';
 import Icon from '../components/Icon';
-import { usePeriodActions } from '../components/PeriodSheets';
-import { Button, Card, ErrorState, Gap, Loader, Row, Screen, Sheet, T, useToast } from '../components/ui';
-import { api, sendOrQueue } from '../lib/api';
-import { addDays, dayMonth, toDay } from '../lib/format';
+import { ErrorState, Loader, useToast } from '../components/ui';
+import { api } from '../lib/api';
+import { addDays, monthLabel, shiftMonth, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { colors, fonts } from '../theme';
 
-const LEVELS = [
-  { key: 'traces', label: 'Traces', drops: 0 },
-  { key: 'leger', label: 'Léger', drops: 1 },
-  { key: 'moyen', label: 'Moyen', drops: 2 },
-  { key: 'abondant', label: 'Abond.', drops: 3 },
-];
-const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-const short = (day) => `${Number(day.slice(8))} ${MONTHS_SHORT[Number(day.slice(5, 7)) - 1]}`;
-const RELIABILITY = { eleve: 'Fiabilité élevée', moyen: 'Fiabilité moyenne', faible: 'Fiabilité faible' };
+import { tr } from '../lib/i18n';
+const LETTERS = FMT_WEEKDAYS_SHORT;
 
-function DateTile({ label, value, onPress, placeholder }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label} : ${value ? dayMonth(value) : placeholder}. Modifier`} style={s.tile}>
-      <Text style={s.tileLabel}>{label}</Text>
-      <Row justify="space-between">
-        <Text style={s.tileValue}>{value ? short(value) : placeholder}</Text>
-        <Icon name="edit" size={16} color={colors.bordeaux} />
-      </Row>
-    </Pressable>
-  );
+function ask(title, text, okLabel, onOk) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n${text}`)) onOk();
+    return;
+  }
+  Alert.alert(title, text, [{ text: tr("Rester"), style: 'cancel' }, { text: okLabel, style: 'destructive', onPress: onOk }]);
 }
 
-export default function MyPeriods() {
+/** Jours d'une plage (bornes incluses). */
+function daysBetween(a, b) {
+  const out = [];
+  for (let d = a; d <= b; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+export default function EditPeriods() {
   const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { data, loading, error, reload } = useApi('/cycle');
-  const { openStart, openEnd, sheets } = usePeriodActions(reload);
-  const [editing, setEditing] = useState(null); // { field: 'start'|'end', period }
-  const [flowDay, setFlowDay] = useState(null);
-  const [pastOpen, setPastOpen] = useState(false);
-  const [past, setPast] = useState({ start: null, end: null });
+  const [edited, setChecked] = useState(null);
   const [busy, setBusy] = useState(false);
+  const scrollRef = useRef(null);
+  const todayY = useRef(null);
+  const centered = useRef(false);
+  const leaving = useRef(false);
 
-  if (loading && !data) return <Screen back title="Mes règles"><Loader /></Screen>;
-  if (error && !data) return <Screen back title="Mes règles"><ErrorState error={error} onRetry={reload} /></Screen>;
+  const today = data?.today;
+  const fromMonth = today ? shiftMonth(today.slice(0, 7), -12) : null;
+  const from = fromMonth ? `${fromMonth}-01` : null;
 
-  const period = data.periods.find((p) => p.kind !== 'nifas');
-  const flows = new Map((period?.flows || []).map((f) => [f.day, f.level]));
-  const lastDay = period ? period.end || data.today : null;
-  const days = [];
-  if (period) for (let d = period.start; d <= lastDay && days.length < 12; d = addDays(d, 1)) days.push(d);
-
-  const saveDate = async (value) => {
-    const { field, period: p } = editing;
-    setEditing(null);
-    try {
-      await api.patch(`/cycle/periods/${p.id}`, { [field]: value });
-      toast('Dates mises à jour, prédictions recalculées');
-      reload();
-    } catch (e) {
-      toast(e.message, 'error');
+  // Jours de règles notées (hors nifas), et jours verrouillés : nifas et règles commencées avant la fenêtre.
+  const { initial, locked } = useMemo(() => {
+    const init = new Set();
+    const lock = new Set();
+    for (const p of data?.periods || []) {
+      const days = daysBetween(p.start, p.end || today);
+      if (p.kind === 'nifas' || p.start < from) days.forEach((d) => lock.add(d));
+      else days.forEach((d) => init.add(d));
     }
+    return { initial: init, locked: lock };
+  }, [data, today, from]);
+
+  const current = edited || initial;
+
+  // Règles prévues : fin des règles en cours, puis les prochaines prévisions.
+  const predicted = useMemo(() => {
+    const set = new Set();
+    if (!data) return set;
+    if (data.inPeriod) {
+      const end = addDays(data.inPeriod.start, (data.averages?.periodLength || 5) - 1);
+      for (const d of daysBetween(addDays(today, 1), end)) set.add(d);
+    }
+    for (const p of data.predictions || []) for (const d of daysBetween(p.start, p.end)) set.add(d);
+    return set;
+  }, [data, today]);
+
+  const dirty = useMemo(() => {
+    if (!edited) return false;
+    if (edited.size !== initial.size) return true;
+    for (const d of edited) if (!initial.has(d)) return true;
+    return false;
+  }, [edited, initial]);
+
+  // Quitter avec des jours modifiés : confirmation.
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', (e) => {
+        if (!dirty || leaving.current) return;
+        e.preventDefault();
+        ask(tr("Annuler les changements ?"), tr("Les jours que tu as modifiés ne seront pas enregistrés."), 'Annuler', () => {
+          leaving.current = true;
+          navigation.dispatch(e.data.action);
+        });
+      }),
+    [navigation, dirty],
+  );
+
+  if (loading && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><Loader /></View>;
+  if (error && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><ErrorState error={error} onRetry={reload} /></View>;
+
+  // Mois affichés : 12 mois en arrière jusqu'au mois des prochaines règles prévues.
+  const lastPredicted = [...predicted].sort().pop();
+  const lastMonth = lastPredicted && lastPredicted.slice(0, 7) > today.slice(0, 7) ? lastPredicted.slice(0, 7) : shiftMonth(today.slice(0, 7), 1);
+  const months = [];
+  for (let m = fromMonth; m <= lastMonth; m = shiftMonth(m, 1)) months.push(m);
+  const cell = Math.floor((Math.min(width, 640) - 32) / 7);
+
+  const toggle = (d) => {
+    setChecked((prev) => {
+      const next = new Set(prev || initial);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
   };
 
-  const saveFlow = async (level) => {
-    const d = flowDay;
-    setFlowDay(null);
-    try {
-      await sendOrQueue('PUT', '/cycle/flow', { day: d, level });
-      reload();
-    } catch (e) {
-      toast(e.message, 'error');
-    }
-  };
-
-  const addPast = async () => {
+  const cancel = () => (router.canGoBack() ? router.back() : router.replace('/cycle'));
+  const save = async () => {
     setBusy(true);
     try {
-      await api.post('/cycle/periods/past', { periods: [{ start: past.start, end: past.end }] });
-      toast('Règles ajoutées, prédictions recalculées');
-      setPastOpen(false);
-      setPast({ start: null, end: null });
-      reload();
+      await api.put('/cycle/periods/days', { from, days: [...current].filter((d) => d >= from && d <= today && !locked.has(d)) });
+      toast(tr("Règles enregistrées, prévisions recalculées"));
+      leaving.current = true;
+      cancel();
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -93,136 +131,92 @@ export default function MyPeriods() {
     }
   };
 
-  const next = data.next;
-  const cycles = data.history.filter((c) => !c.excluded).slice(0, 8);
-
   return (
-    <Screen back title="Mes règles" subtitle="Touche une date pour la modifier" onRefresh={reload}>
-      {period ? (
-        <Card tone="soft" style={{ gap: 14 }}>
-          <Text style={s.cardTitle}>{data.inPeriod ? 'Règles en cours' : 'Dernières règles'}</Text>
-          <Row gap={10}>
-            <DateTile label="Début" value={period.start} onPress={() => setEditing({ field: 'start', period })} />
-            <DateTile label="Fin" value={period.end} placeholder="En cours" onPress={() => (period.end ? setEditing({ field: 'end', period }) : openEnd(period.id, 'hayd', period.start))} />
-          </Row>
-          <Text style={s.subTitle}>Flux par jour</Text>
-          <View style={s.flowRow}>
-            {days.map((d) => {
-              const level = LEVELS.find((l) => l.key === flows.get(d));
-              return (
-                <Pressable key={d} onPress={() => setFlowDay(d)} accessibilityRole="button" accessibilityLabel={`${dayMonth(d)} : ${level?.label || 'flux non noté'}. Modifier`} style={s.flowDay}>
-                  <Text style={s.flowDate}>{short(d)}</Text>
-                  <Text style={s.drops}>{level ? (level.drops ? '💧'.repeat(level.drops) : '·') : '+'}</Text>
-                  <Text style={[s.flowLevel, !level && { color: colors.muted }]}>{level?.label || 'Noter'}</Text>
-                </Pressable>
-              );
-            })}
+    <View style={[s.screen, { paddingTop: insets.top + 4 }]}>
+      <View style={s.head}>
+        <Pressable onPress={cancel} accessibilityRole="button" hitSlop={10}>
+          <Text style={s.cancel}>{tr("Annuler")}</Text>
+        </Pressable>
+        <Text style={s.title}>{tr("Mes règles")}</Text>
+        <Pressable onPress={save} disabled={busy} accessibilityRole="button" hitSlop={10}>
+          <Text style={[s.save, busy && { opacity: 0.5 }]}>{tr("Enregistrer")}</Text>
+        </Pressable>
+      </View>
+      <Text style={s.help}>{tr("Touche les jours où tu as eu tes règles.")}</Text>
+      <View style={s.letters}>
+        {LETTERS.map((l, i) => (
+          <Text key={i} style={[s.letter, { width: cell }]}>{l}</Text>
+        ))}
+      </View>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 70 }}
+        onContentSizeChange={() => {
+          if (todayY.current != null && !centered.current) {
+            scrollRef.current?.scrollTo({ y: Math.max(0, todayY.current - 160), animated: false });
+            centered.current = true;
+          }
+        }}
+      >
+        {months.map((m) => (
+          <View key={m} onLayout={(e) => { if (m === today.slice(0, 7)) todayY.current = e.nativeEvent.layout.y; }}>
+            <Text style={s.month}>{monthLabel(m).split(' ')[0]}{m.slice(0, 4) !== today.slice(0, 4) ? ` ${m.slice(0, 4)}` : ''}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {monthGrid(m).map((d, i) => {
+                if (!d) return <View key={`e${m}${i}`} style={{ width: cell, height: cell + 18 }} />;
+                const future = d > today;
+                const isLocked = locked.has(d);
+                const on = current.has(d) || isLocked;
+                const pred = future && predicted.has(d);
+                const disabled = future || isLocked || d < from;
+                return (
+                  <Pressable
+                    key={d}
+                    disabled={disabled}
+                    onPress={() => toggle(d)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on, disabled }}
+                    accessibilityLabel={`${Number(d.slice(8))} ${monthLabel(m)}${(pred ? tr(", règles prévues") : '')}`}
+                    style={{ width: cell, height: cell + 18, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6 }}
+                  >
+                    {d === today ? <Text style={s.today}>{tr("AUJ.")}</Text> : null}
+                    <Text style={[s.num, on && { color: colors.bordeaux, fontFamily: fonts.extra }, pred && { color: PREDICTED, fontFamily: fonts.bold }, future && !pred && { color: colors.caseVide }]}>{Number(d.slice(8))}</Text>
+                    <View style={[s.circle, on && s.circleOn, isLocked && { backgroundColor: colors.bordeauxSoft, borderColor: colors.bordeauxSoft }, pred && s.circlePred, future && !pred && { borderColor: colors.line }]}>
+                      {on ? <Icon name="check" size={13} color={colors.white} strokeWidth={3} /> : pred ? <Icon name="check" size={13} color={PREDICTED} strokeWidth={2.6} /> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-          {data.inPeriod ? <Button title="Mes règles sont terminées" small onPress={() => openEnd(period.id, 'hayd', period.start)} /> : null}
-        </Card>
-      ) : (
-        <Card tone="soft" style={{ gap: 10 }}>
-          <T variant="h3">Aucune règle enregistrée</T>
-          <T variant="small">Note tes dernières règles pour démarrer les prédictions.</T>
-          <Button title="Mes règles ont commencé" small onPress={openStart} />
-        </Card>
-      )}
-      <Gap />
-
-      {next && !data.noPrediction ? (
-        <Card style={{ gap: 4 }}>
-          <Row justify="space-between">
-            <Text style={s.cardTitle}>Prochaines règles prévues</Text>
-            <Text style={[s.reliability, data.reliability.key === 'faible' && { color: colors.muted }]}>{RELIABILITY[data.reliability.key] || data.reliability.label}</Text>
-          </Row>
-          <T variant="h2" style={{ fontSize: 24 }}>
-            {next.rangeStart ? `Entre le ${dayMonth(next.rangeStart)} et le ${dayMonth(next.rangeEnd)}` : `Vers le ${dayMonth(next.date)}`}
-          </T>
-          {data.ovulation?.day ? <T variant="small">Ovulation estimée le {dayMonth(data.ovulation.day)} · fenêtre fertile du {dayMonth(data.ovulation.fertileStart)} au {dayMonth(data.ovulation.fertileEnd)}</T> : null}
-          {data.isDefault ? <T variant="small" color={colors.bordeaux}>Tes prédictions s’affineront au fil des cycles.</T> : null}
-        </Card>
-      ) : null}
-      <Gap />
-
-      <Card style={{ gap: 2 }}>
-        <Row justify="space-between" style={{ marginBottom: 6 }}>
-          <Text style={s.cardTitle}>Mes cycles précédents</Text>
-          <Text style={s.reliability}>Moyenne {data.averages.cycleLength} j</Text>
-        </Row>
-        {cycles.length ? (
-          cycles.map((c) => (
-            <Row key={c.start} justify="space-between" style={s.cycleRow}>
-              <T style={{ flex: 1 }}>
-                {short(c.start)} → {short(c.end)}
-              </T>
-              <T variant="small" style={{ marginRight: 14 }}>{c.periodLength ? `règles ${c.periodLength} j` : ''}</T>
-              <Text style={[s.cycleLen, c.aberrant && { color: colors.muted }]}>{c.length} j</Text>
-            </Row>
-          ))
-        ) : (
-          <T variant="small">Tes cycles apparaîtront ici dès deux règles enregistrées. Ajoute tes règles passées pour des prédictions plus précises.</T>
-        )}
-        {data.averages.irregular ? <T variant="small" style={{ marginTop: 8 }}>Cycles irréguliers (écart de {data.averages.spread} jours) : la date est donnée sous forme de période.</T> : null}
-      </Card>
-      <Gap />
-      <Pressable onPress={() => setPastOpen(true)} accessibilityRole="button" style={s.addPast}>
-        <Icon name="plus" size={18} color={colors.bordeaux} />
-        <Text style={s.addPastText}>Ajouter des règles passées</Text>
-      </Pressable>
-      <Gap h={24} />
-
-      {editing ? (
-        <DatePickerSheet
-          visible
-          onClose={() => setEditing(null)}
-          onPick={saveDate}
-          value={editing.period[editing.field]}
-          maxDay={data.today}
-          minDay={editing.field === 'end' ? editing.period.start : undefined}
-          title={editing.field === 'start' ? 'Début des règles' : 'Fin des règles'}
-          width={width - 40}
-        />
-      ) : null}
-
-      <Sheet visible={Boolean(flowDay)} onClose={() => setFlowDay(null)} title={flowDay ? `Flux du ${dayMonth(flowDay)}` : ''}>
-        <Row gap={8} style={{ flexWrap: 'wrap' }}>
-          {LEVELS.map((l) => (
-            <Pressable key={l.key} onPress={() => saveFlow(l.key)} accessibilityRole="button" style={[s.levelBtn, flows.get(flowDay) === l.key && s.levelOn]}>
-              <Text style={{ fontSize: 18 }}>{l.drops ? '💧'.repeat(l.drops) : '·'}</Text>
-              <Text style={[s.levelText, flows.get(flowDay) === l.key && { color: colors.white }]}>{l.key === 'abondant' ? 'Abondant' : l.label}</Text>
-            </Pressable>
-          ))}
-        </Row>
-        <T variant="small">Les traces seules ne marquent pas le début d’un cycle.</T>
-      </Sheet>
-
-      <Sheet visible={pastOpen} onClose={() => setPastOpen(false)} title="Ajouter des règles passées" footer={<Button title="Ajouter" onPress={addPast} loading={busy} disabled={!past.start || !past.end || past.end < past.start} />}>
-        <T variant="small">Ajoute au moins tes 3 derniers cycles pour des prédictions plus précises dès maintenant.</T>
-        <DateField label="Premier jour" value={past.start} onChange={(v) => setPast((p) => ({ ...p, start: v, end: p.end && p.end < v ? null : p.end }))} maxDay={toDay(new Date())} />
-        <DateField label="Dernier jour" value={past.end} onChange={(v) => setPast((p) => ({ ...p, end: v }))} minDay={past.start || undefined} maxDay={toDay(new Date())} />
-      </Sheet>
-      {sheets}
-    </Screen>
+        ))}
+      </ScrollView>
+      <View style={[s.legendBar, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={[s.legendDot, { backgroundColor: colors.bordeaux }]} />
+        <Text style={s.legend}>{tr("Règles notées")}</Text>
+        <View style={[s.legendDot, { borderWidth: 1.5, borderStyle: 'dashed', borderColor: PREDICTED, marginLeft: 14 }]} />
+        <Text style={s.legend}>{tr("Prévues")}</Text>
+      </View>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  cardTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.prune },
-  subTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.prune },
-  tile: { flex: 1, backgroundColor: colors.white, borderRadius: 18, padding: 14, gap: 4 },
-  tileLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.muted },
-  tileValue: { fontFamily: fonts.title, fontSize: 22, color: colors.prune },
-  flowRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  flowDay: { width: 58, alignItems: 'center', gap: 3, paddingVertical: 8, borderRadius: 14, backgroundColor: colors.white },
-  flowDate: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted },
-  drops: { fontSize: 11, minHeight: 16 },
-  flowLevel: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.bordeaux },
-  reliability: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux },
-  cycleRow: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.line },
-  cycleLen: { fontFamily: fonts.title, fontSize: 18, color: colors.prune, minWidth: 40, textAlign: 'right' },
-  addPast: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', minHeight: 52, borderRadius: 999, borderWidth: 1.5, borderColor: colors.bordeaux },
-  addPastText: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.bordeaux },
-  levelBtn: { flex: 1, minWidth: 70, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: 16, backgroundColor: colors.blush },
-  levelOn: { backgroundColor: colors.bordeaux },
-  levelText: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux },
+  screen: { flex: 1, backgroundColor: colors.white },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, minHeight: 44 },
+  cancel: { fontFamily: fonts.semi, fontSize: 15, color: colors.muted },
+  title: { fontFamily: fonts.extra, fontSize: 16, color: colors.prune },
+  save: { fontFamily: fonts.extra, fontSize: 15, color: colors.bordeaux },
+  help: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted, textAlign: 'center', marginTop: 2 },
+  letters: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  letter: { textAlign: 'center', fontFamily: fonts.semi, fontSize: 11.5, color: colors.muted },
+  month: { fontFamily: fonts.extra, fontSize: 16, color: colors.prune, textAlign: 'center', textTransform: 'capitalize', marginTop: 18, marginBottom: 4 },
+  today: { fontFamily: fonts.extra, fontSize: 8.5, color: colors.prune, marginBottom: 1 },
+  num: { fontFamily: fonts.semi, fontSize: 14.5, color: colors.prune, marginBottom: 4 },
+  circle: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: colors.caseVide, alignItems: 'center', justifyContent: 'center' },
+  circleOn: { backgroundColor: colors.bordeaux, borderColor: colors.bordeaux },
+  circlePred: { borderStyle: 'dashed', borderColor: PREDICTED },
+  legendBar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 10, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legend: { fontFamily: fonts.medium, fontSize: 12, color: colors.muted },
 });

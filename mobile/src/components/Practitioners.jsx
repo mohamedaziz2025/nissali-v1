@@ -3,10 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { assetUrl } from '../lib/api';
-import { addDays, toDay } from '../lib/format';
+import { addDays, toDay, DAYS_SHORT as FMT_DAYS_SHORT, MONTHS_SHORT as FMT_MONTHS_SHORT } from '../lib/format';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 
+import { tr } from '../lib/i18n';
 const TONES = [
   ['#F7E8EA', '#7A1F35'],
   ['#F3E6D8', '#7D5326'],
@@ -15,8 +16,8 @@ const TONES = [
   ['#E6EEF5', '#2F5272'],
 ];
 const toneOf = (name = '') => TONES[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % TONES.length];
-const DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const DAYS = FMT_DAYS_SHORT;
+const MONTHS = FMT_MONTHS_SHORT;
 
 export const euros = (n) => `${Number(n).toLocaleString('fr-FR')} €`;
 
@@ -26,8 +27,8 @@ export function nextLabel(next) {
   const today = toDay(new Date());
   const [y, m, d] = next.day.split('-').map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
-  if (next.day === today) return `Aujourd’hui · ${next.time}`;
-  if (next.day === addDays(today, 1)) return `Demain · ${next.time}`;
+  if (next.day === today) return tr("Aujourd’hui · {0}", [next.time]);
+  if (next.day === addDays(today, 1)) return tr("Demain · {0}", [next.time]);
   return `${DAYS[date.getUTCDay()]} ${d} ${MONTHS[m - 1]} · ${next.time}`;
 }
 
@@ -52,7 +53,7 @@ export function PractitionerAvatar({ p, size = 64, radius }) {
 
 export function Stars({ value = 0, size = 14 }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 1 }} accessibilityLabel={`${value} sur 5`}>
+    <View style={{ flexDirection: 'row', gap: 1 }} accessibilityLabel={tr("{0} sur 5", [value])}>
       {[1, 2, 3, 4, 5].map((n) => (
         <Icon key={n} name="star" size={size} color={colors.or} fill={n <= Math.round(value) ? colors.or : 'none'} strokeWidth={1.6} />
       ))}
@@ -66,7 +67,7 @@ function HeartButton({ active, onPress, light }) {
       onPress={onPress}
       hitSlop={10}
       accessibilityRole="button"
-      accessibilityLabel={active ? 'Retirer des favorites' : 'Ajouter aux favorites'}
+      accessibilityLabel={active ? tr("Retirer des favorites") : tr("Ajouter aux favorites")}
       style={[s.heart, light && { backgroundColor: 'rgba(255,255,255,0.92)' }]}
     >
       <Icon name="heart" size={18} color={colors.bordeaux} fill={active ? colors.bordeaux : 'none'} />
@@ -98,7 +99,7 @@ export function FeaturedCard({ p, label, onPress, onFav }) {
           </LinearGradient>
         )}
         <View style={s.featuredBadges}>
-          {p.featured ? <Tag icon="sparkle" label="À la une" tone="or" /> : null}
+          {p.featured ? <Tag icon="sparkle" label={tr("À la une")} tone="or" /> : null}
         </View>
       </View>
       <View style={{ padding: 14, gap: 4 }}>
@@ -120,9 +121,9 @@ export function FeaturedCard({ p, label, onPress, onFav }) {
               <Text style={s.meta}>({p.reviewsCount})</Text>
             </View>
           ) : (
-            <Text style={s.meta}>Nouvelle</Text>
+            <Text style={s.meta}>{tr("Nouvelle")}</Text>
           )}
-          {p.minPrice != null ? <Text style={s.price}>dès {euros(p.minPrice)}</Text> : null}
+          {p.minPrice != null ? <Text style={s.price}>{tr("dès")} {euros(p.minPrice)}</Text> : null}
         </View>
       </View>
     </Pressable>
@@ -136,8 +137,8 @@ export function FeaturedCard({ p, label, onPress, onFav }) {
 /** RG-47 — badge doré « Diplômée » (diplôme fourni et vérifié par l'équipe). */
 export function DiplomaBadge() {
   return (
-    <View style={s.diploma} accessibilityLabel="Diplômée">
-      <Text style={s.diplomaText}>Diplômée</Text>
+    <View style={s.diploma} accessibilityLabel={tr("Diplômée")}>
+      <Text style={s.diplomaText}>{tr("Diplômée")}</Text>
     </View>
   );
 }
@@ -166,18 +167,18 @@ export function PractitionerCard({ p, label, onPress, onFav }) {
               <>
                 <Stars value={p.rating} size={13} />
                 <Text style={s.meta}>
-                  {p.rating.toFixed(1).replace('.', ',')} · {p.reviewsCount} avis
+                  {p.rating.toFixed(1).replace('.', ',')} · {p.reviewsCount} {tr("avis")}
                 </Text>
               </>
             ) : (
-              <Text style={s.meta}>Nouvelle sur Nissali</Text>
+              <Text style={s.meta}>{tr("Nouvelle sur Nissali")}</Text>
             )}
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-            {(p.modes || []).includes('cabinet') ? <Tag icon="pin" label="Cabinet" /> : null}
-            {(p.modes || []).includes('visio') && p.supportsVideo ? <Tag icon="video" label="Visio" /> : null}
-            {p.atHome ? <Tag icon="home" label="Domicile" /> : null}
-            {p.featured ? <Tag icon="sparkle" label="À la une" tone="or" /> : null}
+            {(p.modes || []).includes('cabinet') ? <Tag icon="pin" label={tr("Cabinet")} /> : null}
+            {(p.modes || []).includes('visio') && p.supportsVideo ? <Tag icon="video" label={tr("Visio")} /> : null}
+            {p.atHome ? <Tag icon="home" label={tr("Domicile")} /> : null}
+            {p.featured ? <Tag icon="sparkle" label={tr("À la une")} tone="or" /> : null}
           </View>
         </View>
       </View>
@@ -185,10 +186,10 @@ export function PractitionerCard({ p, label, onPress, onFav }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
           <View style={[s.dot, { backgroundColor: next ? colors.success : colors.line }]} />
           <Text style={[s.meta, next && { color: colors.prune }]} numberOfLines={1}>
-            {next ? `Dispo ${next.toLowerCase()}` : 'Pas de créneau proche'}
+            {next ? tr("Dispo {0}", [next.toLowerCase()]) : tr("Pas de créneau proche")}
           </Text>
         </View>
-        {p.minPrice != null ? <Text style={s.price}>dès {euros(p.minPrice)}</Text> : null}
+        {p.minPrice != null ? <Text style={s.price}>{tr("dès")} {euros(p.minPrice)}</Text> : null}
       </View>
     </Pressable>
       <View style={{ position: 'absolute', top: 12, right: 12 }}>
@@ -207,7 +208,7 @@ export function DayStrip({ days, value, onChange }) {
         const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
         const on = day === value;
         return (
-          <Pressable key={day} onPress={() => onChange(day)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`${DAYS[wd]} ${d} ${MONTHS[m - 1]}, ${slots.length} créneaux`} style={[s.dayPill, on && s.dayPillOn]}>
+          <Pressable key={day} onPress={() => onChange(day)} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={tr("{0} {1} {2}, {3} créneaux", [DAYS[wd], d, MONTHS[m - 1], slots.length])} style={[s.dayPill, on && s.dayPillOn]}>
             <Text style={[s.dayWd, on && { color: colors.rose }]}>{DAYS[wd]}</Text>
             <Text style={[s.dayNum, on && { color: colors.white }]}>{d}</Text>
             <Text style={[s.dayMonth, on && { color: colors.rose }]}>{MONTHS[m - 1]}</Text>

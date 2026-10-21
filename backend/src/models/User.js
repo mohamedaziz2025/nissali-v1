@@ -142,6 +142,13 @@ const userSchema = new Schema(
       achoura: { type: Boolean, default: false },
       chawwal: { type: Boolean, default: false },
       reminderTime: { type: String, default: '21:00' },
+      // Mise à jour Jeûnes — « Programmer un jeûne » : dates précises, « Jusqu'à » (null = toujours),
+      // réveil pour le suhoor (désactivé par défaut, X minutes avant Fajr).
+      dates: { type: [String], default: [] },
+      skip: { type: [String], default: [] },
+      until: { type: String, default: null },
+      suhoor: { type: Boolean, default: false },
+      suhoorMinutes: { type: Number, default: 30 },
     },
     // 5.7 bis — Mes dhikr du jour (clé + objectif), vibration au comptage, rappel quotidien facultatif.
     dhikr: {
@@ -151,6 +158,8 @@ const userSchema = new Schema(
       haptics: { type: Boolean, default: true },
       reminder: { type: Boolean, default: false },
       reminderTime: { type: String, default: '20:30' },
+      // Mise à jour Accueil (page 7) — objectif quotidien global affiché par l'anneau de l'accueil (défaut 250).
+      dailyGoal: { type: Number, default: 250 },
     },
     notificationPrefs: {
       periodSoon: { type: Boolean, default: true },
@@ -217,7 +226,7 @@ userSchema.methods.toPublic = function toPublic() {
     prayerSettings: this.prayerSettings,
     prayerSource: { mode: this.prayerSource?.mode || 'ville', mosque: this.prayerSource?.mosque ? String(this.prayerSource.mosque) : null },
     notificationPrefs: this.notificationPrefs,
-    dhikr: { haptics: this.dhikr?.haptics !== false, reminder: Boolean(this.dhikr?.reminder), reminderTime: this.dhikr?.reminderTime || '20:30' },
+    dhikr: { haptics: this.dhikr?.haptics !== false, reminder: Boolean(this.dhikr?.reminder), reminderTime: this.dhikr?.reminderTime || '20:30', dailyGoal: this.dhikr?.dailyGoal || 250 },
     contraception: this.contraception,
     profileComplete: Boolean(this.firstName && this.birthYear && this.city?.name && this.situation),
     createdAt: this.createdAt,

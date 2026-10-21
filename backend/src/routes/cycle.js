@@ -8,7 +8,7 @@ import { Appointment, Booking, DailyLog, MadeUpFast, Period, Practitioner, Volun
 import { GHUSL_STEPS, HEALTH_ALERTS, PHASES, RELIABILITY_LABELS } from '../content/phases.js';
 import { loadCycleContext, loadFastContext, nowFor } from '../services/context.js';
 import { plannedFast } from '../services/contextCard.js';
-import { VOLUNTARY_LABELS } from '../services/voluntary.js';
+import { nextVoluntary, VOLUNTARY_LABELS } from '../services/voluntary.js';
 import { phaseOf } from '../services/cycleCalc.js';
 import { tipOfTheDay } from '../services/healthTips.js';
 import { isRamadan, toHijri } from '../services/hijri.js';
@@ -99,7 +99,16 @@ router.get('/', async (req, res) => {
   ]);
   const noteMap = new Map();
   for (const n of notes) if (n.showInCalendar) noteMap.set(n.day, [...(noteMap.get(n.day) || []), { id: n.noteId, text: n.text, time: n.time, type: n.type }]);
-  const withNotes = (days) => days.map((d) => (noteMap.has(d.day) ? { ...d, notes: noteMap.get(d.day) } : d));
+  // Mise à jour Jeûnes — jours de jeûne programmés (rattrapages et volontaires) : point or dans le calendrier.
+  const fastCtx = await loadFastContext(req.user, ctx).catch(() => null);
+  const planned = new Set();
+  if (fastCtx) {
+    const horizon = Math.min(400, Math.max(0, diffDays(end, ctx.today)) + 1);
+    const adj = ctx.settings.hijriAdjustment || 0;
+    for (const p of nextVoluntary(req.user.voluntaryPlan || {}, { from: addDays(ctx.today, 1), days: horizon, adj, excl: ctx.settings.excludeDhulHijja13 !== false, periodOn: fastCtx.periodOn, limit: 400 })) if (!p.paused) planned.add(p.day);
+    for (const p of fastCtx.planDays || []) planned.add(p.day);
+  }
+  const withNotes = (days) => days.map((d) => ({ ...d, ...(noteMap.has(d.day) ? { notes: noteMap.get(d.day) } : {}), ...(planned.has(d.day) ? { fast: true } : {}) }));
   const s = ctx.summary;
   const current = s.projections[0];
 
@@ -243,6 +252,60 @@ router.post('/periods/past', validate(z.object({ periods: z.array(z.object({ sta
     created.push((await Period.create({ user: req.user._id, start: p.start, end: p.end, source: 'historique' })).toPlain());
   }
   res.status(201).json({ created });
+});
+
+// Mise à jour Cycle · 6.5 — « Modifier mes règles » (cases à cocher) : la liste des jours cochés entre `from` et
+// aujourd'hui remplace les règles de cette fenêtre. Cocher un jour collé à des règles les prolonge, un jour isolé
+// crée un nouveau cycle, décocher tous les jours d'un cycle le supprime. Les règles commencées avant `from` et le
+// nifas ne sont jamais touchés ; flux, heure de fin et ghusl sont gardés quand les règles existent déjà.
+router.put('/periods/days', validate(z.object({ from: day, days: z.array(day).max(400) })), async (req, res) => {
+  const { today } = nowFor(req.user);
+  const from = req.body.from;
+  if (from > today || diffDays(today, from) > 400) throw badRequest('Période invalide');
+  const all = await Period.find({ user: req.user._id, kind: 'hayd' }).sort({ start: 1 });
+  const locked = all.filter((p) => p.start < from);
+  const lockedUntil = locked.reduce((max, p) => ((p.end || today) > max ? p.end || today : max), '');
+  const editable = all.filter((p) => p.start >= from);
+
+  const picked = [...new Set(req.body.days)].filter((d) => d >= from && d <= today && d > lockedUntil).sort();
+  const runs = [];
+  for (const d of picked) {
+    const run = runs[runs.length - 1];
+    if (run && diffDays(d, run[run.length - 1]) === 1) run.push(d);
+    else runs.push([d]);
+  }
+
+  const used = new Set();
+  const plan = runs.map((run) => {
+    const start = run[0];
+    const last = run[run.length - 1];
+    const overlaps = editable.filter((p) => !used.has(p.id) && p.start <= last && (p.end || today) >= start);
+    const match = overlaps.find((p) => p.start === start) || overlaps[0] || null;
+    if (match) used.add(match.id);
+    return { start, last, match };
+  });
+
+  await Period.deleteMany({ _id: { $in: editable.filter((p) => !used.has(p.id)).map((p) => p._id) } });
+  for (const { start, last, match } of plan) {
+    // Le dernier jour coché est aujourd'hui : règles en cours (la fin se note avec « Mes règles sont terminées »),
+    // sauf si elles étaient déjà terminées aujourd'hui.
+    const end = match?.end === today && last === today ? today : last === today ? undefined : last;
+    if (match) {
+      const changedEnd = match.end !== end;
+      match.start = start;
+      match.end = end;
+      if (changedEnd) {
+        match.endTime = undefined;
+        if (!end) match.after = undefined;
+      }
+      match.flows = (match.flows || []).filter((f) => f.day >= start && f.day <= (end || today));
+      await match.save();
+    } else {
+      await Period.create({ user: req.user._id, start, end, kind: 'hayd', source: 'saisie' });
+    }
+  }
+  const periods = await Period.find({ user: req.user._id }).sort({ start: -1 });
+  res.json({ periods: periods.map((p) => p.toPlain()) });
 });
 
 async function periodCovering(userId, d) {

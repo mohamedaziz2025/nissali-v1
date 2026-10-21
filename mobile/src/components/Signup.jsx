@@ -8,6 +8,7 @@ import { colors, fonts, tnum } from '../theme';
 import Icon from './Icon';
 import { Button } from './ui';
 
+import { tr } from '../lib/i18n';
 export function SignupShell({ section, index, count, title, subtitle, onBack, onNext, nextLabel = 'Continuer', canNext = true, busy, error, children, secondary }) {
   const insets = useSafeAreaInsets();
   return (
@@ -15,7 +16,7 @@ export function SignupShell({ section, index, count, title, subtitle, onBack, on
       <View style={[s.top, { paddingTop: insets.top + 8 }]}>
         <View style={s.topRow}>
           {onBack ? (
-            <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Retour" hitSlop={12} style={s.back}>
+            <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={tr("Retour")} hitSlop={12} style={s.back}>
               <Icon name="chevronLeft" size={24} />
             </Pressable>
           ) : (
@@ -27,7 +28,7 @@ export function SignupShell({ section, index, count, title, subtitle, onBack, on
           </Text>
           <View style={s.back} />
         </View>
-        <View style={s.bars} accessibilityLabel={`${section}, étape ${index} sur ${count}`}>
+        <View style={s.bars} accessibilityLabel={tr("{0}, étape {1} sur {2}", [section, index, count])}>
           {Array.from({ length: count }, (_, i) => (
             <View key={i} style={[s.bar, i < index && { backgroundColor: colors.bordeaux }]} />
           ))}

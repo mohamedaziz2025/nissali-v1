@@ -12,11 +12,12 @@ import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/useApi';
 import { colors, fonts, tnum } from '../theme';
 
+import { tr } from '../lib/i18n';
 const STATUS = {
-  validee: { label: 'En ligne', color: colors.success },
-  en_attente: { label: 'En vérification', color: colors.or },
-  refusee: { label: 'À corriger', color: colors.danger },
-  suspendue: { label: 'Suspendue', color: colors.muted },
+  validee: { label: tr("En ligne"), color: colors.success },
+  en_attente: { label: tr("En vérification"), color: colors.or },
+  refusee: { label: tr("À corriger"), color: colors.danger },
+  suspendue: { label: tr("Suspendue"), color: colors.muted },
 };
 
 export default function PractitionerSpace() {
@@ -26,21 +27,21 @@ export default function PractitionerSpace() {
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  if (loading && !data) return <Screen back title="Mon espace praticienne"><Loader /></Screen>;
+  if (loading && !data) return <Screen back title={tr("Mon espace praticienne")}><Loader /></Screen>;
   if (error && !data) {
     if (error.status === 404) {
       router.replace('/devenir-praticienne');
       return null;
     }
-    return <Screen back title="Mon espace praticienne"><ErrorState error={error} onRetry={reload} /></Screen>;
+    return <Screen back title={tr("Mon espace praticienne")}><ErrorState error={error} onRetry={reload} /></Screen>;
   }
 
-  const st = data.status === 'validee' && !data.visible ? { label: 'En pause', color: colors.muted } : STATUS[data.status] || STATUS.en_attente;
+  const st = data.status === 'validee' && !data.visible ? { label: tr("En pause"), color: colors.muted } : STATUS[data.status] || STATUS.en_attente;
   const setVisible = async (visible) => {
     setData((d) => ({ ...d, visible }));
     try {
       await api.patch('/pro-profile/visibility', { visible });
-      toast(visible ? 'Ton profil est visible dans l’annuaire' : 'Profil en pause : caché de l’annuaire, messages gardés');
+      toast(visible ? tr("Ton profil est visible dans l’annuaire") : tr("Profil en pause : caché de l’annuaire, messages gardés"));
     } catch (e) {
       setData((d) => ({ ...d, visible: !visible }));
       toast(e.message, 'error');
@@ -50,7 +51,7 @@ export default function PractitionerSpace() {
     setBusy(true);
     try {
       await setSession(await api.delete('/pro-profile'));
-      toast('Profil praticienne supprimé. Ton compte personnel est intact.');
+      toast(tr("Profil praticienne supprimé. Ton compte personnel est intact."));
       router.replace('/profil');
     } catch (e) {
       toast(e.message, 'error');
@@ -60,7 +61,7 @@ export default function PractitionerSpace() {
   const exportMessages = async () => {
     try {
       const r = await api.post('/pro-profile/messages/export/email', {});
-      toast(`Tes messages ont été envoyés à ${r.to}`);
+      toast(tr("Tes messages ont été envoyés à {0}", [r.to]));
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -74,7 +75,7 @@ export default function PractitionerSpace() {
   ];
 
   return (
-    <Screen back title="Mon espace praticienne" onRefresh={reload}>
+    <Screen back title={tr("Mon espace praticienne")} onRefresh={reload}>
       <View style={s.hero}>
         <View style={s.avatar}>{data.photoUrl ? <Image source={{ uri: assetUrl(data.photoUrl) }} style={s.avatarImg} /> : <Text style={s.avatarText}>{data.displayName[0]}</Text>}</View>
         <View style={{ flex: 1, gap: 3 }}>
@@ -83,11 +84,11 @@ export default function PractitionerSpace() {
             {data.diplomaVerified ? (
               <View style={s.diploma}>
                 <Icon name="star" size={11} color={colors.white} />
-                <Text style={s.diplomaText}>Diplômée</Text>
+                <Text style={s.diplomaText}>{tr("Diplômée")}</Text>
               </View>
             ) : null}
           </View>
-          <Text style={s.meta}>{data.specialtyLabel}{data.otherPending ? ' (métier en validation)' : ''}</Text>
+          <Text style={s.meta}>{data.specialtyLabel}{data.otherPending ? tr(" (métier en validation)") : ''}</Text>
           <View style={s.status}>
             <View style={[s.statusDot, { backgroundColor: st.color }]} />
             <Text style={s.statusText}>{st.label}</Text>
@@ -96,20 +97,20 @@ export default function PractitionerSpace() {
       </View>
       {data.status === 'refusee' && data.rejectionReason ? (
         <View style={s.alert}>
-          <Text style={s.alertTitle}>À corriger</Text>
+          <Text style={s.alertTitle}>{tr("À corriger")}</Text>
           <T>{data.rejectionReason}</T>
         </View>
       ) : null}
-      {data.status === 'en_attente' ? <T variant="small" style={{ marginTop: 10 }}>Ta pièce d’identité est vérifiée par l’équipe sous 48 h. Tu recevras une notification au résultat.</T> : null}
+      {data.status === 'en_attente' ? <T variant="small" style={{ marginTop: 10 }}>{tr("Ta pièce d’identité est vérifiée par l’équipe sous 48 h. Tu recevras une notification au résultat.")}</T> : null}
       <Gap />
 
       <SettingsCard>
         <View style={s.row}>
           <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>{data.visible ? 'Visible dans l’annuaire' : 'Profil en pause'}</Text>
-            <Text style={s.rowSub}>{data.visible ? 'Les sœurs te trouvent et te contactent' : 'Cachée de l’annuaire, tes messages sont gardés'}</Text>
+            <Text style={s.rowTitle}>{data.visible ? tr("Visible dans l’annuaire") : tr("Profil en pause")}</Text>
+            <Text style={s.rowSub}>{data.visible ? tr("Les sœurs te trouvent et te contactent") : tr("Cachée de l’annuaire, tes messages sont gardés")}</Text>
           </View>
-          <Switch value={data.visible} onValueChange={setVisible} trackColor={{ true: colors.bordeaux, false: colors.line }} thumbColor={colors.white} accessibilityLabel="Visible dans l’annuaire" />
+          <Switch value={data.visible} onValueChange={setVisible} trackColor={{ true: colors.bordeaux, false: colors.line }} thumbColor={colors.white} accessibilityLabel={tr("Visible dans l’annuaire")} />
         </View>
       </SettingsCard>
       <Gap />
@@ -128,7 +129,7 @@ export default function PractitionerSpace() {
       </View>
       <Gap />
 
-      <SettingsCard title="Mon activité">
+      <SettingsCard title={tr("Mon activité")}>
         {activity.map(([icon, title, sub, onPress]) => (
           <Pressable key={title} onPress={onPress} accessibilityRole="button" style={s.row}>
             <Icon name={icon} size={18} color={colors.bordeaux} />
@@ -139,46 +140,46 @@ export default function PractitionerSpace() {
             <Icon name="chevronRight" size={16} color={colors.muted} />
           </Pressable>
         ))}
-        <View style={[s.row, { opacity: 0.45 }]} accessibilityLabel="Rendez-vous, bientôt disponible">
+        <View style={[s.row, { opacity: 0.45 }]} accessibilityLabel={tr("Rendez-vous, bientôt disponible")}>
           <Icon name="calendar" size={18} color={colors.muted} />
           <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>Rendez-vous</Text>
-            <Text style={s.rowSub}>Bientôt disponible</Text>
+            <Text style={s.rowTitle}>{tr("Rendez-vous")}</Text>
+            <Text style={s.rowSub}>{tr("Bientôt disponible")}</Text>
           </View>
         </View>
       </SettingsCard>
       <Gap />
 
-      <SettingsCard title="Ma formule">
-        <Text style={s.rowTitle}>{data.plan?.name || 'Découverte'}</Text>
-        {data.plan?.trial && data.plan.endsAt ? <Text style={s.rowSub}>Essai gratuit jusqu’au {new Date(data.plan.endsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</Text> : null}
+      <SettingsCard title={tr("Ma formule")}>
+        <Text style={s.rowTitle}>{data.plan?.name || tr("Découverte")}</Text>
+        {data.plan?.trial && data.plan.endsAt ? <Text style={s.rowSub}>{tr("Essai gratuit jusqu’au")} {new Date(data.plan.endsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</Text> : null}
         <Pressable onPress={() => router.push('/pro')} accessibilityRole="link" style={{ paddingVertical: 6 }}>
-          <Text style={s.link}>Gérer ma formule →</Text>
+          <Text style={s.link}>{tr("Gérer ma formule →")}</Text>
         </Pressable>
       </SettingsCard>
       <Gap />
 
       <Pressable onPress={() => setDeleting(true)} accessibilityRole="button" style={s.danger}>
         <Icon name="trash" size={18} color={colors.danger} />
-        <Text style={s.dangerText}>Supprimer mon profil praticienne</Text>
+        <Text style={s.dangerText}>{tr("Supprimer mon profil praticienne")}</Text>
       </Pressable>
 
-      <Sheet visible={deleting} onClose={() => setDeleting(false)} title="Supprimer mon profil praticienne ?">
-        <T>Ton compte personnel reste intact : cycle, notes, prières et jeûnes ne sont pas touchés.</T>
-        <T>Tout de suite : tu disparais de l’annuaire et les sœurs ne peuvent plus t’écrire.</T>
-        <T>Sous 30 jours : ton profil, tes avis, tes messages et tes justificatifs sont effacés.</T>
+      <Sheet visible={deleting} onClose={() => setDeleting(false)} title={tr("Supprimer mon profil praticienne ?")}>
+        <T>{tr("Ton compte personnel reste intact : cycle, notes, prières et jeûnes ne sont pas touchés.")}</T>
+        <T>{tr("Tout de suite : tu disparais de l’annuaire et les sœurs ne peuvent plus t’écrire.")}</T>
+        <T>{tr("Sous 30 jours : ton profil, tes avis, tes messages et tes justificatifs sont effacés.")}</T>
         <Pressable onPress={exportMessages} accessibilityRole="link">
-          <Text style={s.exportLink}>Télécharger mes messages avant</Text>
+          <Text style={s.exportLink}>{tr("Télécharger mes messages avant")}</Text>
         </Pressable>
         {data.visible ? (
           <Pressable onPress={() => { setDeleting(false); setVisible(false); }} accessibilityRole="button" style={s.pause}>
-            <Text style={s.pauseText}>Plutôt mettre mon profil en pause</Text>
+            <Text style={s.pauseText}>{tr("Plutôt mettre mon profil en pause")}</Text>
           </Pressable>
         ) : null}
         <Pressable onPress={remove} disabled={busy} accessibilityRole="button" style={[s.dangerBtn, busy && { opacity: 0.5 }]}>
-          <Text style={s.dangerBtnText}>Supprimer mon profil praticienne</Text>
+          <Text style={s.dangerBtnText}>{tr("Supprimer mon profil praticienne")}</Text>
         </Pressable>
-        <T variant="small">Tu pourras recréer un profil plus tard (nouvelle vérification).</T>
+        <T variant="small">{tr("Tu pourras recréer un profil plus tard (nouvelle vérification).")}</T>
       </Sheet>
     </Screen>
   );

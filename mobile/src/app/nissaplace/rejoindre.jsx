@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 function Section({ title, icon, children }) {
   return (
     <View style={s.section}>
@@ -35,7 +36,7 @@ export default function JoinNissaPlace() {
     setBusy(true);
     try {
       await api.post('/nissaplace', f);
-      toast('Merci ! Notre équipe étudie ta demande.');
+      toast(tr("Merci ! Notre équipe étudie ta demande."));
       reload();
     } catch (err) {
       toast(err.message, 'error');
@@ -46,18 +47,18 @@ export default function JoinNissaPlace() {
 
   const missing = [f.shopName.trim().length < 2 && 'le nom de ta boutique'].filter(Boolean);
 
-  if (loadingMine) return <Screen back title="Rejoindre NissaPlace"><Loader /></Screen>;
+  if (loadingMine) return <Screen back title={tr("Rejoindre NissaPlace")}><Loader /></Screen>;
 
   if (latest?.status === 'en_attente' || latest?.status === 'validee') {
     return (
-      <Screen back title="Rejoindre NissaPlace">
+      <Screen back title={tr("Rejoindre NissaPlace")}>
         <Card tone="soft" style={{ gap: 10 }}>
           <Icon name={latest.status === 'validee' ? 'check' : 'briefcase'} size={22} color={colors.bordeaux} />
-          <T variant="h3">{latest.status === 'validee' ? 'Ta boutique est validée' : 'Ta demande est en cours d’examen'}</T>
+          <T variant="h3">{latest.status === 'validee' ? tr("Ta boutique est validée") : tr("Ta demande est en cours d’examen")}</T>
           <T variant="small">
             {latest.status === 'validee'
-              ? `« ${latest.shopName} » est validée. Notre équipe te recontacte pour la mettre en ligne sur nissaplace.fr.`
-              : `Notre équipe étudie ta demande pour « ${latest.shopName} » et te recontacte bientôt.`}
+              ? tr("« {0} » est validée. Notre équipe te recontacte pour la mettre en ligne sur nissaplace.fr.", [latest.shopName])
+              : tr("Notre équipe étudie ta demande pour « {0} » et te recontacte bientôt.", [latest.shopName])}
           </T>
         </Card>
         <Gap h={24} />
@@ -66,32 +67,32 @@ export default function JoinNissaPlace() {
   }
 
   return (
-    <Screen back title="Rejoindre NissaPlace">
-      <T variant="muted" style={{ marginTop: -8, marginBottom: 16 }}>Présente ta boutique : notre équipe étudie chaque demande et te recontacte pour la suite.</T>
+    <Screen back title={tr("Rejoindre NissaPlace")}>
+      <T variant="muted" style={{ marginTop: -8, marginBottom: 16 }}>{tr("Présente ta boutique : notre équipe étudie chaque demande et te recontacte pour la suite.")}</T>
 
       {latest?.status === 'refusee' ? (
         <Card tone="soft" style={{ gap: 6, marginBottom: 14 }}>
-          <T variant="medium">Ta précédente demande n’a pas été retenue.</T>
+          <T variant="medium">{tr("Ta précédente demande n’a pas été retenue.")}</T>
           {latest.moderationNote ? <T variant="small">{latest.moderationNote}</T> : null}
-          <T variant="small">Tu peux proposer une nouvelle demande ci-dessous.</T>
+          <T variant="small">{tr("Tu peux proposer une nouvelle demande ci-dessous.")}</T>
         </Card>
       ) : null}
 
-      <Section title="Ta boutique" icon="briefcase">
-        <Field label="Nom de la boutique" value={f.shopName} onChangeText={set('shopName')} placeholder="Ex. Les Perles de Zaynab" maxLength={80} />
-        <Field label="Ce que tu vends" value={f.activity} onChangeText={set('activity')} placeholder="Ex. abayas, hijabs, cosmétiques…" maxLength={120} />
-        <Field label="Présente ta boutique (facultatif)" value={f.description} onChangeText={set('description')} multiline placeholder="Quelques lignes sur toi et tes produits" />
+      <Section title={tr("Ta boutique")} icon="briefcase">
+        <Field label={tr("Nom de la boutique")} value={f.shopName} onChangeText={set('shopName')} placeholder={tr("Ex. Les Perles de Zaynab")} maxLength={80} />
+        <Field label={tr("Ce que tu vends")} value={f.activity} onChangeText={set('activity')} placeholder={tr("Ex. abayas, hijabs, cosmétiques…")} maxLength={120} />
+        <Field label={tr("Présente ta boutique (facultatif)")} value={f.description} onChangeText={set('description')} multiline placeholder={tr("Quelques lignes sur toi et tes produits")} />
       </Section>
 
-      <Section title="Contact" icon="phone">
-        <Field label="Ville" value={f.city} onChangeText={set('city')} placeholder="Ex. Lyon" icon="pin" />
-        <Field label="Téléphone" value={f.phone} onChangeText={set('phone')} placeholder="06 12 34 56 78" keyboardType="phone-pad" />
-        <Field label="Instagram (facultatif)" value={f.instagramUrl} onChangeText={set('instagramUrl')} placeholder="instagram.com/taboutique" autoCapitalize="none" autoCorrect={false} />
-        <Field label="Site web (facultatif)" value={f.websiteUrl} onChangeText={set('websiteUrl')} placeholder="https://…" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
+      <Section title={tr("Contact")} icon="phone">
+        <Field label={tr("Ville")} value={f.city} onChangeText={set('city')} placeholder={tr("Ex. Lyon")} icon="pin" />
+        <Field label={tr("Téléphone")} value={f.phone} onChangeText={set('phone')} placeholder="06 12 34 56 78" keyboardType="phone-pad" />
+        <Field label={tr("Instagram (facultatif)")} value={f.instagramUrl} onChangeText={set('instagramUrl')} placeholder="instagram.com/taboutique" autoCapitalize="none" autoCorrect={false} />
+        <Field label={tr("Site web (facultatif)")} value={f.websiteUrl} onChangeText={set('websiteUrl')} placeholder="https://…" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
       </Section>
 
-      {missing.length ? <T variant="small" style={{ textAlign: 'center', marginBottom: 10 }}>Il manque : {missing.join(', ')}.</T> : null}
-      <Button title="Envoyer ma demande" icon="check" onPress={submit} loading={busy} disabled={missing.length > 0 || busy} />
+      {missing.length ? <T variant="small" style={{ textAlign: 'center', marginBottom: 10 }}>{tr("Il manque :")} {missing.join(', ')}.</T> : null}
+      <Button title={tr("Envoyer ma demande")} icon="check" onPress={submit} loading={busy} disabled={missing.length > 0 || busy} />
       <Gap h={24} />
     </Screen>
   );

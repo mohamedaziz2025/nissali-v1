@@ -134,5 +134,5 @@ export async function loadFastContext(user, cycleCtx) {
     }));
   }
 
-  return { ctx, autoMissed, manual, madeUp, prior, plan, counter, planDays, periodOn };
+  return { ctx, autoMissed, manual, madeUp, prior, plan, counter, planDays, periodOn, predicted };
 }

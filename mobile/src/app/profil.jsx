@@ -12,20 +12,29 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors, fonts, PRAYERS } from '../theme';
 
+import { preference, tr } from '../lib/i18n';
+
+/** Libellé du choix de langue (le choix lui-même est détaillé dans les réglages). */
+const LANG_LABEL = {
+  system: tr("Langue du système"),
+  fr: 'Français',
+  en: 'English',
+  ar: 'العربية',
+};
 const SPECIAL = [
-  { key: 'aucun', label: 'Aucun' },
-  { key: 'adolescente', label: 'Adolescente' },
-  { key: 'arret_pilule', label: 'Arrêt de la pilule' },
-  { key: 'allaitement', label: 'Allaitement' },
-  { key: 'premenopause', label: 'Préménopause' },
+  { key: 'aucun', label: tr("Aucun") },
+  { key: 'adolescente', label: tr("Adolescente") },
+  { key: 'arret_pilule', label: tr("Arrêt de la pilule") },
+  { key: 'allaitement', label: tr("Allaitement") },
+  { key: 'premenopause', label: tr("Préménopause") },
 ];
 const CONTRACEPTION = [
-  { key: 'aucune', label: 'Aucune' },
-  { key: 'pilule', label: 'Pilule' },
-  { key: 'sterilet', label: 'Stérilet' },
-  { key: 'implant', label: 'Implant' },
-  { key: 'preservatif', label: 'Préservatif' },
-  { key: 'autre', label: 'Autre' },
+  { key: 'aucune', label: tr("Aucune") },
+  { key: 'pilule', label: tr("Pilule") },
+  { key: 'sterilet', label: tr("Stérilet") },
+  { key: 'implant', label: tr("Implant") },
+  { key: 'preservatif', label: tr("Préservatif") },
+  { key: 'autre', label: tr("Autre") },
 ];
 
 export default function Profile() {
@@ -67,7 +76,7 @@ export default function Profile() {
       // Numéro de téléphone : enregistré directement (aucun SMS) ; e-mail : code envoyé par e-mail.
       if (r.saved) {
         await setSession(r);
-        toast('Numéro enregistré');
+        toast(tr("Numéro enregistré"));
         setSheet(null);
         return;
       }
@@ -82,7 +91,7 @@ export default function Profile() {
     setBusy(true);
     try {
       await setSession(await api.post('/me/identifier/verify', { identifier: idValue, code: value }));
-      toast('Identifiant vérifié');
+      toast(tr("Identifiant vérifié"));
       setSheet(null);
       setIdSent(null);
       setCode('');
@@ -93,7 +102,7 @@ export default function Profile() {
     }
   };
 
-  const situationLabel = user.situation === 'mariee' ? 'Mariée' : user.situation === 'celibataire' ? 'Célibataire' : null;
+  const situationLabel = user.situation === 'mariee' ? tr("Mariée") : user.situation === 'celibataire' ? tr("Célibataire") : null;
   const ps = user.prayerSettings || {};
   const np = user.notificationPrefs || {};
   const prayersOn = PRAYERS.filter((k) => ps.notifications !== false && ps.notifyPrayers?.[k] !== false).length;
@@ -104,14 +113,14 @@ export default function Profile() {
       if (window.confirm('Te déconnecter de Nissali ?')) signOut(); // eslint-disable-line no-alert
       return;
     }
-    Alert.alert('Te déconnecter ?', 'Tu pourras te reconnecter à tout moment.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Me déconnecter', style: 'destructive', onPress: signOut },
+    Alert.alert(tr("Te déconnecter ?"), tr("Tu pourras te reconnecter à tout moment."), [
+      { text: tr("Annuler"), style: 'cancel' },
+      { text: tr("Me déconnecter"), style: 'destructive', onPress: signOut },
     ]);
   };
 
   return (
-    <Screen back title="Mon profil">
+    <Screen back title={tr("Mon profil")}>
       {/* Carte bordeaux : initiale, prénom, âge, ville, situation, « Modifier » */}
       <View style={s.hero}>
         <Row gap={14}>
@@ -122,18 +131,18 @@ export default function Profile() {
             <Text style={s.heroName} numberOfLines={1}>{user.firstName}</Text>
             <Text style={s.heroSub} numberOfLines={2}>{[user.age ? `${user.age} ans` : null, user.city?.name, situationLabel].filter(Boolean).join(' · ')}</Text>
           </View>
-          <Pressable onPress={() => open('infos', { firstName: user.firstName, age: String(user.age || ''), city: user.city, situation: user.situation })} accessibilityRole="button" accessibilityLabel="Modifier mes informations" hitSlop={8} style={s.modify}>
-            <Text style={s.modifyText}>Modifier</Text>
+          <Pressable onPress={() => open('infos', { firstName: user.firstName, age: String(user.age || ''), city: user.city, situation: user.situation })} accessibilityRole="button" accessibilityLabel={tr("Modifier mes informations")} hitSlop={8} style={s.modify}>
+            <Text style={s.modifyText}>{tr("Modifier")}</Text>
           </Pressable>
         </Row>
         <View style={s.heroIds}>
           <Pressable onPress={() => { setIdValue(user.email || ''); setIdSent(null); setSheet('identifier'); }} accessibilityRole="button" style={s.heroId}>
             <Icon name="mail" size={15} color={colors.onBordeaux} />
-            <Text style={s.heroIdText} numberOfLines={1}>{user.email || 'Ajouter un e-mail'}</Text>
+            <Text style={s.heroIdText} numberOfLines={1}>{user.email || tr("Ajouter un e-mail")}</Text>
           </Pressable>
           <Pressable onPress={() => { setIdValue(user.phone || ''); setIdSent(null); setSheet('identifier'); }} accessibilityRole="button" style={s.heroId}>
             <Icon name="phone" size={15} color={colors.onBordeaux} />
-            <Text style={s.heroIdText} numberOfLines={1}>{user.phone || 'Ajouter un numéro'}</Text>
+            <Text style={s.heroIdText} numberOfLines={1}>{user.phone || tr("Ajouter un numéro")}</Text>
           </Pressable>
         </View>
       </View>
@@ -145,13 +154,13 @@ export default function Profile() {
           <Icon name="briefcase" size={20} color={colors.orText} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.proTitle}>{practitioner ? 'Mon espace praticienne' : user.proDraft ? 'Termine ton profil praticienne' : 'Devenir praticienne'}</Text>
+          <Text style={s.proTitle}>{practitioner ? tr("Mon espace praticienne") : user.proDraft ? tr("Termine ton profil praticienne") : tr("Devenir praticienne")}</Text>
           <Text style={s.proSub}>
             {practitioner
-              ? `${practitioner.status === 'validee' ? 'En ligne' : 'En vérification'} · ${practitioner.displayName}`
+              ? `${(practitioner.status === 'validee' ? tr("En ligne") : tr("En vérification"))} · ${practitioner.displayName}`
               : user.proDraft
-                ? `Étape ${user.proDraft.step} sur 4`
-                : 'Diététicienne, naturopathe, hijama, doula… Propose tes services dans Nissali.'}
+                ? tr("Étape {0} sur 4", [user.proDraft.step])
+                : tr("Diététicienne, naturopathe, hijama, doula… Propose tes services dans Nissali.")}
           </Text>
         </View>
         <Icon name="chevronRight" size={18} color={colors.orText} />
@@ -159,81 +168,82 @@ export default function Profile() {
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label>Mes rappels</Label>
-        <ListItem icon="bell" title="Prières et adhan" subtitle={prayersOn ? `${prayersOn} rappel${prayersOn > 1 ? 's' : ''} sur 5 · adhan pour ${adhanCount}${ps.notifyOffset ? ` · ${ps.notifyOffset} min avant` : ''}` : 'Rappels coupés'} onPress={() => router.push('/reglages/prieres')} />
-        <ListItem icon="drop" title="Pendant mes règles" subtitle={`${ps.periodHome === 'ligne' ? 'Accueil réduit' : 'Horaires affichés'} · rappels ${ps.keepRemindersDuringPeriod ? 'gardés' : 'coupés'} · dhikr ${ps.keepDhikrDuringPeriod === false ? 'coupé' : 'gardé'}`} onPress={() => router.push('/reglages/prieres?section=regles')} />
-        <ListItem icon="beads" title="Dhikr" subtitle={`Vibration ${user.dhikr?.haptics === false ? 'coupée' : 'activée'} · ${user.dhikr?.reminder ? `rappel à ${user.dhikr.reminderTime}` : 'pas de rappel'}`} onPress={() => setSheet('dhikr')} />
-        <ListItem icon="sliders" title="Notifications" subtitle={`Niveau ${freq?.label?.toLowerCase()} · aperçu ${np.hideNotePreview === false ? 'visible' : 'masqué'}`} onPress={() => router.push('/reglages/notifications')} last />
+        <Label>{tr("Mes rappels")}</Label>
+        <ListItem icon="bell" title={tr("Prières et adhan")} subtitle={prayersOn ? tr("{0} rappel{1} sur 5 · adhan pour {2}{3}", [prayersOn, prayersOn > 1 ? 's' : '', adhanCount, (ps.notifyOffset ? tr(" · {0} min avant", [ps.notifyOffset]) : '')]) : tr("Rappels coupés")} onPress={() => router.push('/reglages/prieres')} />
+        <ListItem icon="drop" title={tr("Pendant mes règles")} subtitle={tr("{0} · rappels {1} · dhikr {2}", [(ps.periodHome === 'ligne' ? tr("Accueil réduit") : tr("Horaires affichés")), (ps.keepRemindersDuringPeriod ? tr("gardés") : tr("coupés")), (ps.keepDhikrDuringPeriod === false ? tr("coupé") : tr("gardé"))])} onPress={() => router.push('/reglages/prieres?section=regles')} />
+        <ListItem icon="beads" title={tr("Dhikr")} subtitle={tr("Vibration {0} · {1}", [(user.dhikr?.haptics === false ? tr("coupée") : tr("activée")), (user.dhikr?.reminder ? tr("rappel à {0}", [user.dhikr.reminderTime]) : tr("pas de rappel"))])} onPress={() => setSheet('dhikr')} />
+        <ListItem icon="sliders" title={tr("Notifications")} subtitle={tr("Niveau {0} · aperçu {1}", [freq?.label?.toLowerCase(), (np.hideNotePreview === false ? 'visible' : tr("masqué"))])} onPress={() => router.push('/reglages/notifications')} last />
       </Card>
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label>Mon suivi</Label>
-        <ListItem icon="heart" title="Objectif" subtitle={{ suivre: 'Suivre mon cycle', enfant: 'Avoir un enfant', enceinte: 'Je suis enceinte' }[user.onboarding?.goal || 'suivre']} onPress={() => open('goal', { goal: user.onboarding?.goal || 'suivre' })} />
-        <ListItem icon="baby" title={user.mode === 'grossesse' ? 'Ma grossesse' : user.mode === 'postpartum' ? 'Post-partum' : 'Mode grossesse'} subtitle={user.mode === 'cycle' ? 'Activer le suivi de grossesse' : 'Voir mon suivi'} onPress={() => router.push('/grossesse')} />
-        <ListItem icon="cycle" title="Profil particulier" subtitle={SPECIAL.find((x) => x.key === user.specialProfile)?.label} onPress={() => open('special', { specialProfile: user.specialProfile })} />
-        <ListItem icon="drop" title="Contraception" subtitle={CONTRACEPTION.find((x) => x.key === user.contraception?.type)?.label} onPress={() => open('contraception', { ...user.contraception })} />
-        <Toggle label="Glaire et température" hint="Dans le Suivi santé (toujours affichées si tu veux un enfant)" value={Boolean(user.fertilitySigns)} onChange={(v) => patch({ fertilitySigns: v })} />
-        <ListItem icon="chart" title="Mes graphiques" subtitle="Cycles, poids, sommeil, humeurs" onPress={() => router.push('/sante')} />
-        <ListItem icon="calendar" title="Mes rendez-vous" onPress={() => router.push('/rendez-vous')} last />
+        <Label>{tr("Mon suivi")}</Label>
+        <ListItem icon="heart" title={tr("Objectif")} subtitle={{ suivre: tr("Suivre mon cycle"), enfant: tr("Avoir un enfant"), enceinte: tr("Je suis enceinte") }[user.onboarding?.goal || 'suivre']} onPress={() => open('goal', { goal: user.onboarding?.goal || 'suivre' })} />
+        <ListItem icon="baby" title={user.mode === 'grossesse' ? tr("Ma grossesse") : user.mode === 'postpartum' ? tr("Post-partum") : tr("Mode grossesse")} subtitle={user.mode === 'cycle' ? tr("Activer le suivi de grossesse") : tr("Voir mon suivi")} onPress={() => router.push('/grossesse')} />
+        <ListItem icon="cycle" title={tr("Profil particulier")} subtitle={SPECIAL.find((x) => x.key === user.specialProfile)?.label} onPress={() => open('special', { specialProfile: user.specialProfile })} />
+        <ListItem icon="drop" title={tr("Contraception")} subtitle={CONTRACEPTION.find((x) => x.key === user.contraception?.type)?.label} onPress={() => open('contraception', { ...user.contraception })} />
+        <Toggle label={tr("Glaire et température")} hint={tr("Dans le Suivi santé (toujours affichées si tu veux un enfant)")} value={Boolean(user.fertilitySigns)} onChange={(v) => patch({ fertilitySigns: v })} />
+        <ListItem icon="chart" title={tr("Mes graphiques")} subtitle={tr("Cycles, poids, sommeil, humeurs")} onPress={() => router.push('/sante')} />
+        <ListItem icon="calendar" title={tr("Mes rendez-vous")} onPress={() => router.push('/rendez-vous')} last />
       </Card>
       <Gap />
 
       <Card style={{ gap: 4 }}>
-        <Label>Compte</Label>
-        <ListItem icon="lock" title="Connexion et sécurité" subtitle={user.hasPassword ? 'Mot de passe' : 'Connexion par code'} onPress={() => router.push('/securite')} />
-        <ListItem icon="info" title="Confidentialité et données" subtitle="Accords, export, suppression du compte" onPress={() => router.push('/reglages/confidentialite')} />
-        <ListItem icon="chat" title="Aide" subtitle="contact@nissali.fr" onPress={() => Linking.openURL('mailto:contact@nissali.fr').catch(() => {})} />
-        <ListItem icon="logout" title="Me déconnecter" onPress={logout} last />
+        <Label>{tr("Compte")}</Label>
+        <ListItem icon="lock" title={tr("Connexion et sécurité")} subtitle={user.hasPassword ? tr("Mot de passe") : tr("Connexion par code")} onPress={() => router.push('/securite')} />
+        <ListItem icon="info" title={tr("Confidentialité et données")} subtitle={tr("Accords, export, suppression du compte")} onPress={() => router.push('/reglages/confidentialite')} />
+        <ListItem icon="globe" title={tr("Langue")} subtitle={LANG_LABEL[preference] || LANG_LABEL.system} onPress={() => router.push('/reglages/langue')} />
+        <ListItem icon="chat" title={tr("Aide")} subtitle="contact@nissali.fr" onPress={() => Linking.openURL('mailto:contact@nissali.fr').catch(() => {})} />
+        <ListItem icon="logout" title={tr("Me déconnecter")} onPress={logout} last />
       </Card>
       <Gap />
-      <T variant="small" style={{ textAlign: 'center' }}>Les règles présentées sont l’avis retenu par notre comité. En cas de doute, rapproche-toi d’une personne de science.</T>
-      <T variant="small" style={{ textAlign: 'center', marginTop: 6 }}>Nissali · 100 % gratuite · contact@nissali.fr</T>
+      <T variant="small" style={{ textAlign: 'center' }}>{tr("Les règles présentées sont l’avis retenu par notre comité. En cas de doute, rapproche-toi d’une personne de science.")}</T>
+      <T variant="small" style={{ textAlign: 'center', marginTop: 6 }}>{tr("Nissali · 100 % gratuite · contact@nissali.fr")}</T>
 
-      <Sheet visible={sheet === 'dhikr'} onClose={() => setSheet(null)} title="Dhikr">
-        <Toggle label="Vibration au comptage" value={user.dhikr?.haptics !== false} onChange={(v) => dhikrSettings({ haptics: v })} />
-        <Toggle label="Rappel de dhikr chaque jour" value={Boolean(user.dhikr?.reminder)} onChange={(v) => dhikrSettings({ reminder: v })} />
-        {user.dhikr?.reminder ? <TimeField label="Heure du rappel" value={user.dhikr.reminderTime || '20:30'} allowUnknown={false} onChange={(t) => t && dhikrSettings({ reminderTime: t })} /> : null}
-        <Button title="Ouvrir mon dhikr" variant="outline" onPress={() => { setSheet(null); router.push('/dhikr'); }} />
+      <Sheet visible={sheet === 'dhikr'} onClose={() => setSheet(null)} title={tr("Dhikr")}>
+        <Toggle label={tr("Vibration au comptage")} value={user.dhikr?.haptics !== false} onChange={(v) => dhikrSettings({ haptics: v })} />
+        <Toggle label={tr("Rappel de dhikr chaque jour")} value={Boolean(user.dhikr?.reminder)} onChange={(v) => dhikrSettings({ reminder: v })} />
+        {user.dhikr?.reminder ? <TimeField label={tr("Heure du rappel")} value={user.dhikr.reminderTime || '20:30'} allowUnknown={false} onChange={(t) => t && dhikrSettings({ reminderTime: t })} /> : null}
+        <Button title={tr("Ouvrir mon dhikr")} variant="outline" onPress={() => { setSheet(null); router.push('/dhikr'); }} />
       </Sheet>
-      <Sheet visible={sheet === 'infos'} onClose={() => setSheet(null)} title="Mes informations" footer={<Button title="Enregistrer" onPress={() => patch({ firstName: draft.firstName, age: Number(draft.age), city: draft.city, situation: draft.situation, ...(draft.city !== user.city && draft.city ? { prayerSettings: { followLocation: draft.city.source === 'gps' } } : {}) }).then(() => setSheet(null))} disabled={!(Number(draft.age) >= 15)} />}>
-        <Field label="Prénom" value={draft.firstName} onChangeText={(v) => setDraft((d) => ({ ...d, firstName: v }))} />
-        <Field label="Âge" value={draft.age} onChangeText={(v) => setDraft((d) => ({ ...d, age: v.replace(/\D/g, '') }))} keyboardType="number-pad" />
+      <Sheet visible={sheet === 'infos'} onClose={() => setSheet(null)} title={tr("Mes informations")} footer={<Button title={tr("Enregistrer")} onPress={() => patch({ firstName: draft.firstName, age: Number(draft.age), city: draft.city, situation: draft.situation, ...(draft.city !== user.city && draft.city ? { prayerSettings: { followLocation: draft.city.source === 'gps' } } : {}) }).then(() => setSheet(null))} disabled={!(Number(draft.age) >= 15)} />}>
+        <Field label={tr("Prénom")} value={draft.firstName} onChangeText={(v) => setDraft((d) => ({ ...d, firstName: v }))} />
+        <Field label={tr("Âge")} value={draft.age} onChangeText={(v) => setDraft((d) => ({ ...d, age: v.replace(/\D/g, '') }))} keyboardType="number-pad" />
         <CityPicker value={draft.city} onChange={(v) => setDraft((d) => ({ ...d, city: v }))} />
-        <T variant="fieldLabel">Situation</T>
-        <Chips items={[{ key: 'celibataire', label: 'Célibataire' }, { key: 'mariee', label: 'Mariée' }]} value={draft.situation} onChange={(v) => setDraft((d) => ({ ...d, situation: v }))} />
+        <T variant="fieldLabel">{tr("Situation")}</T>
+        <Chips items={[{ key: 'celibataire', label: tr("Célibataire") }, { key: 'mariee', label: tr("Mariée") }]} value={draft.situation} onChange={(v) => setDraft((d) => ({ ...d, situation: v }))} />
       </Sheet>
 
-      <Sheet visible={sheet === 'goal'} onClose={() => setSheet(null)} title="Mon objectif" footer={<Button title="Enregistrer" onPress={() => patch({ goal: draft.goal }).then(() => setSheet(null))} />}>
-        <Chips items={[{ key: 'suivre', label: 'Suivre mon cycle' }, { key: 'enfant', label: 'Avoir un enfant' }, { key: 'enceinte', label: 'Je suis enceinte' }]} value={draft.goal} onChange={(v) => setDraft({ goal: v })} />
-        {draft.goal === 'enfant' ? <T variant="small">Tu recevras un rappel le premier jour de ta fenêtre fertile.</T> : null}
+      <Sheet visible={sheet === 'goal'} onClose={() => setSheet(null)} title={tr("Mon objectif")} footer={<Button title={tr("Enregistrer")} onPress={() => patch({ goal: draft.goal }).then(() => setSheet(null))} />}>
+        <Chips items={[{ key: 'suivre', label: tr("Suivre mon cycle") }, { key: 'enfant', label: tr("Avoir un enfant") }, { key: 'enceinte', label: tr("Je suis enceinte") }]} value={draft.goal} onChange={(v) => setDraft({ goal: v })} />
+        {draft.goal === 'enfant' ? <T variant="small">{tr("Tu recevras un rappel le premier jour de ta fenêtre fertile.")}</T> : null}
         {draft.goal === 'enceinte' ? (
-          <Button title="Configurer ma grossesse" variant="outline" onPress={() => { setSheet(null); router.push('/grossesse'); }} />
+          <Button title={tr("Configurer ma grossesse")} variant="outline" onPress={() => { setSheet(null); router.push('/grossesse'); }} />
         ) : null}
       </Sheet>
 
-      <Sheet visible={sheet === 'special'} onClose={() => setSheet(null)} title="Profil particulier" footer={<Button title="Enregistrer" onPress={() => patch({ specialProfile: draft.specialProfile }).then(() => setSheet(null))} />}>
-        <T variant="muted">Dans ces situations, les cycles sont souvent moins prévisibles : Nissali affiche des périodes plutôt que des dates.</T>
+      <Sheet visible={sheet === 'special'} onClose={() => setSheet(null)} title={tr("Profil particulier")} footer={<Button title={tr("Enregistrer")} onPress={() => patch({ specialProfile: draft.specialProfile }).then(() => setSheet(null))} />}>
+        <T variant="muted">{tr("Dans ces situations, les cycles sont souvent moins prévisibles : Nissali affiche des périodes plutôt que des dates.")}</T>
         <Chips items={SPECIAL} value={draft.specialProfile} onChange={(v) => setDraft({ specialProfile: v })} />
       </Sheet>
 
-      <Sheet visible={sheet === 'contraception'} onClose={() => setSheet(null)} title="Contraception" footer={<Button title="Enregistrer" onPress={() => patch({ contraception: { type: draft.type, pillReminder: Boolean(draft.pillReminder), pillTime: draft.pillTime || '21:00' } }).then(() => setSheet(null))} />}>
+      <Sheet visible={sheet === 'contraception'} onClose={() => setSheet(null)} title={tr("Contraception")} footer={<Button title={tr("Enregistrer")} onPress={() => patch({ contraception: { type: draft.type, pillReminder: Boolean(draft.pillReminder), pillTime: draft.pillTime || '21:00' } }).then(() => setSheet(null))} />}>
         <Chips items={CONTRACEPTION} value={draft.type} onChange={(v) => setDraft((d) => ({ ...d, type: v }))} />
         {draft.type === 'pilule' ? (
           <>
-            <Toggle label="Rappel de prise de pilule" value={draft.pillReminder} onChange={(v) => setDraft((d) => ({ ...d, pillReminder: v }))} />
-            <Field label="Heure du rappel" value={draft.pillTime || '21:00'} onChangeText={(v) => setDraft((d) => ({ ...d, pillTime: v }))} maxLength={5} />
+            <Toggle label={tr("Rappel de prise de pilule")} value={draft.pillReminder} onChange={(v) => setDraft((d) => ({ ...d, pillReminder: v }))} />
+            <Field label={tr("Heure du rappel")} value={draft.pillTime || '21:00'} onChangeText={(v) => setDraft((d) => ({ ...d, pillTime: v }))} maxLength={5} />
           </>
         ) : null}
-        <T variant="small">Nissali n’est pas un moyen de contraception.</T>
+        <T variant="small">{tr("Nissali n’est pas un moyen de contraception.")}</T>
       </Sheet>
 
-      <Sheet visible={sheet === 'identifier'} onClose={() => setSheet(null)} title="Mon identifiant" footer={idSent ? <Button title="Vérifier" onPress={() => verifyId()} loading={busy} disabled={code.length !== 6} /> : <Button title={idValue.includes('@') ? 'Recevoir un code par e-mail' : 'Enregistrer'} onPress={sendIdCode} loading={busy} disabled={idValue.length < 4} />}>
+      <Sheet visible={sheet === 'identifier'} onClose={() => setSheet(null)} title={tr("Mon identifiant")} footer={idSent ? <Button title={tr("Vérifier")} onPress={() => verifyId()} loading={busy} disabled={code.length !== 6} /> : <Button title={idValue.includes('@') ? tr("Recevoir un code par e-mail") : tr("Enregistrer")} onPress={sendIdCode} loading={busy} disabled={idValue.length < 4} />}>
         {!idSent ? (
-          <Field label="E-mail ou téléphone" value={idValue} onChangeText={setIdValue} autoCapitalize="none" keyboardType="email-address" hint={idValue.includes('@') ? 'Un code de vérification est envoyé à cette adresse' : 'Ton numéro est enregistré tel quel, sans SMS'} />
+          <Field label={tr("E-mail ou téléphone")} value={idValue} onChangeText={setIdValue} autoCapitalize="none" keyboardType="email-address" hint={idValue.includes('@') ? tr("Un code de vérification est envoyé à cette adresse") : tr("Ton numéro est enregistré tel quel, sans SMS")} />
         ) : (
           <>
-            <T variant="muted">Code envoyé par e-mail à {idSent.target}</T>
+            <T variant="muted">{tr("Code envoyé par e-mail à")} {idSent.target}</T>
             <CodeInput value={code} onChange={(v) => { setCode(v); if (v.length === 6) verifyId(v); }} />
           </>
         )}

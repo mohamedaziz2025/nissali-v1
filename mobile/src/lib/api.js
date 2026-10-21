@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { getToken, readJson, writeJson } from './storage';
 
+import { tr } from './i18n';
 function detectBaseUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   // En développement avec Expo Go : même machine que le serveur Metro, port 4000.
@@ -26,7 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-const OFFLINE_MSG = 'Pas de connexion. Tes données seront synchronisées au retour du réseau.';
+const OFFLINE_MSG = tr("Pas de connexion. Tes données seront synchronisées au retour du réseau.");
 let unauthorizedHandler = null;
 export const onUnauthorized = (fn) => {
   unauthorizedHandler = fn;

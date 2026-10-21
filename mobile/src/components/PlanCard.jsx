@@ -4,6 +4,7 @@ import { price } from '../lib/format';
 import Icon from './Icon';
 import { Card, Label, Row, T } from './ui';
 
+import { tr } from '../lib/i18n';
 /** Carte d'une formule d'abonnement praticienne. */
 export default function PlanCard({ plan, billing, selected, onPress, current }) {
   const amount = billing === 'annuel' ? plan.priceYearly : plan.priceMonthly;
@@ -23,7 +24,7 @@ export default function PlanCard({ plan, billing, selected, onPress, current }) 
           <T color={selected ? colors.white : colors.prune} style={{ flex: 1 }}>{h}</T>
         </Row>
       ))}
-      {current ? <Label color={selected ? colors.rose : colors.or}>Formule actuelle</Label> : null}
+      {current ? <Label color={selected ? colors.rose : colors.or}>{tr("Formule actuelle")}</Label> : null}
     </Card>
   );
 }
@@ -40,11 +41,11 @@ export function TrialCard({ trial, selected = true, onPress, active }) {
           <Icon name="sparkle" size={22} color={on ? colors.white : colors.bordeaux} />
         </View>
         <View style={{ flex: 1 }}>
-          <T variant="h3" color={on ? colors.white : colors.prune}>{active ? 'Tu es en essai gratuit' : trial.name}</T>
-          <T variant="small" color={on ? colors.rose : colors.muted}>{days ? `${days} jours offerts` : 'Offert'} · sans carte bancaire, sans engagement</T>
+          <T variant="h3" color={on ? colors.white : colors.prune}>{active ? tr("Tu es en essai gratuit") : trial.name}</T>
+          <T variant="small" color={on ? colors.rose : colors.muted}>{days ? tr("{0} jours offerts", [days]) : tr("Offert")} {tr("· sans carte bancaire, sans engagement")}</T>
         </View>
       </Row>
-      <T variant="small" color={on ? colors.rose : colors.muted}>Fonctionnalités incluses pendant l’essai :</T>
+      <T variant="small" color={on ? colors.rose : colors.muted}>{tr("Fonctionnalités incluses pendant l’essai :")}</T>
       {(trial.included || []).map((h) => (
         <Row key={h} gap={8} align="flex-start">
           <Icon name="check" size={18} color={on ? colors.rose : colors.success} strokeWidth={2.2} />

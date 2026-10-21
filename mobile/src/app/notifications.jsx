@@ -9,15 +9,16 @@ import { openNotification, routeFor } from '../lib/links';
 import { useApi } from '../lib/useApi';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 const ICONS = { message: 'chat', annonce: 'sparkle', evenement: 'calendar', reservation: 'calendar', pro: 'briefcase', ramadan: 'moon', rattrapage: 'moon', jours_blancs: 'moon' };
 
 function group(items) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const out = [
-    { key: 'today', label: 'Aujourd’hui', items: [] },
-    { key: 'week', label: 'Cette semaine', items: [] },
-    { key: 'older', label: 'Plus ancien', items: [] },
+    { key: 'today', label: tr("Aujourd’hui"), items: [] },
+    { key: 'week', label: tr("Cette semaine"), items: [] },
+    { key: 'older', label: tr("Plus ancien"), items: [] },
   ];
   for (const n of items) {
     const t = new Date(n.createdAt).getTime();
@@ -29,8 +30,8 @@ function group(items) {
 export default function Notifications() {
   const toast = useToast();
   const { data, setData, loading, error, reload } = useApi('/notifications');
-  if (loading && !data) return <Screen back title="Notifications"><Loader /></Screen>;
-  if (error && !data) return <Screen back title="Notifications"><ErrorState error={error} onRetry={reload} /></Screen>;
+  if (loading && !data) return <Screen back title={tr("Notifications")}><Loader /></Screen>;
+  if (error && !data) return <Screen back title={tr("Notifications")}><ErrorState error={error} onRetry={reload} /></Screen>;
 
   const items = data.items.filter((n) => n.type !== 'priere');
   const markAll = async () => {
@@ -47,12 +48,12 @@ export default function Notifications() {
   return (
     <Screen
       back
-      title="Notifications"
+      title={tr("Notifications")}
       onRefresh={reload}
       right={
         unread ? (
           <Pressable onPress={markAll} accessibilityRole="button" hitSlop={8}>
-            <Text style={s.link}>Tout marquer comme lu</Text>
+            <Text style={s.link}>{tr("Tout marquer comme lu")}</Text>
           </Pressable>
         ) : null
       }
@@ -62,12 +63,12 @@ export default function Notifications() {
           <View key={g.key} style={{ marginBottom: 18, gap: 10 }}>
             <Text style={s.group}>{g.label}</Text>
             {g.items.map((n) => (
-              <Pressable key={n.id} onPress={() => open(n)} accessibilityRole="button" accessibilityLabel={`${n.read ? '' : 'Non lue. '}${n.title !== 'Nissali' ? `${n.title}. ` : ''}${n.detail || n.body}`} style={({ pressed }) => [s.card, n.read && s.cardRead, pressed && { opacity: 0.85 }]}>
+              <Pressable key={n.id} onPress={() => open(n)} accessibilityRole="button" accessibilityLabel={`${(n.read ? '' : tr("Non lue. "))}${n.title !== 'Nissali' ? `${n.title}. ` : ''}${n.detail || n.body}`} style={({ pressed }) => [s.card, n.read && s.cardRead, pressed && { opacity: 0.85 }]}>
                 <View style={[s.icon, n.read && { backgroundColor: colors.white }]}>
                   <Icon name={ICONS[n.type] || 'bell'} size={17} color={colors.bordeaux} />
                 </View>
                 <View style={{ flex: 1, gap: 4 }}>
-                  {n.type === 'annonce' ? <Text style={s.from}>De l’équipe Nissali</Text> : null}
+                  {n.type === 'annonce' ? <Text style={s.from}>{tr("De l’équipe Nissali")}</Text> : null}
                   {n.title && n.title !== 'Nissali' && n.title !== 'Nissali Pro' ? <Text style={s.title}>{n.title}</Text> : null}
                   {n.imageUrl ? <Image source={{ uri: assetUrl(n.imageUrl) }} style={s.image} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
                   <Text style={[s.body, !n.read && { fontFamily: fonts.semi }]}>{n.detail || n.body}</Text>
@@ -83,10 +84,10 @@ export default function Notifications() {
           <View style={s.emptyIcon}>
             <Icon name="bell" size={26} color={colors.bordeaux} />
           </View>
-          <Text style={s.emptyText}>Rien de nouveau pour l’instant</Text>
+          <Text style={s.emptyText}>{tr("Rien de nouveau pour l’instant")}</Text>
         </View>
       )}
-      <T variant="small">Historique des 30 derniers jours. Sur l’écran verrouillé, nos notifications restent discrètes.</T>
+      <T variant="small">{tr("Historique des 30 derniers jours. Sur l’écran verrouillé, nos notifications restent discrètes.")}</T>
     </Screen>
   );
 }

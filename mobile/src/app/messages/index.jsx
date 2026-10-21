@@ -8,6 +8,7 @@ import { Button, Card, ErrorState, Field, Gap, Loader, Screen, T } from '../../c
 import { api } from '../../lib/api';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 export function ConversationList({ as = 'user', embedded = false }) {
   const [items, setItems] = useState(null);
   const [error, setError] = useState(null);
@@ -35,14 +36,14 @@ export function ConversationList({ as = 'user', embedded = false }) {
     <View>
       {items.length > 4 ? (
         <>
-          <Field value={q} onChangeText={setQ} placeholder="Rechercher" icon="search" />
+          <Field value={q} onChangeText={setQ} placeholder={tr("Rechercher")} icon="search" />
           <Gap h={10} />
         </>
       ) : null}
       {list.map((c) => {
         const unread = c.unread > 0;
         return (
-          <Pressable key={c.id} onPress={() => router.push(`/messages/${c.id}${as === 'pro' ? '?as=pro' : ''}`)} accessibilityRole="button" accessibilityLabel={`${c.other.name}${unread ? `, ${c.unread} message${c.unread > 1 ? 's' : ''} non lu${c.unread > 1 ? 's' : ''}` : ''}`} style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.blush }]}>
+          <Pressable key={c.id} onPress={() => router.push(`/messages/${c.id}${as === 'pro' ? '?as=pro' : ''}`)} accessibilityRole="button" accessibilityLabel={`${c.other.name}${(unread ? tr(", {0} message{1} non lu{2}", [c.unread, c.unread > 1 ? 's' : '', c.unread > 1 ? 's' : '']) : '')}`} style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.blush }]}>
             <Avatar person={c.other} size={56} />
             <View style={{ flex: 1, gap: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -51,7 +52,7 @@ export function ConversationList({ as = 'user', embedded = false }) {
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={[s.preview, unread && { color: colors.prune, fontFamily: fonts.bold }]} numberOfLines={1}>
-                  {c.blocked ? 'Conversation bloquée' : c.last ? `${c.last.mine ? 'Vous : ' : ''}${c.last.text}` : 'Nouvelle conversation'}
+                  {c.blocked ? tr("Conversation bloquée") : c.last ? `${(c.last.mine ? tr("Vous : ") : '')}${c.last.text}` : tr("Nouvelle conversation")}
                 </Text>
                 {unread ? (
                   <View style={s.badge}>
@@ -67,9 +68,9 @@ export function ConversationList({ as = 'user', embedded = false }) {
       {!items.length ? (
         <Card tone="soft" style={{ alignItems: 'center', gap: 8, paddingVertical: 30, marginTop: embedded ? 0 : 8 }}>
           <Icon name="mail" size={28} color={colors.bordeaux} />
-          <T variant="bold">Aucune conversation</T>
-          <T variant="small" style={{ textAlign: 'center' }}>{as === 'pro' ? 'Les messages de tes clientes apparaîtront ici.' : 'Écris à une praticienne depuis sa fiche, avec le bouton « Message ».'}</T>
-          {as !== 'pro' ? <Button title="Trouver une praticienne" small onPress={() => router.push('/praticiennes')} /> : null}
+          <T variant="bold">{tr("Aucune conversation")}</T>
+          <T variant="small" style={{ textAlign: 'center' }}>{as === 'pro' ? tr("Les messages de tes clientes apparaîtront ici.") : tr("Écris à une praticienne depuis sa fiche, avec le bouton « Message ».")}</T>
+          {as !== 'pro' ? <Button title={tr("Trouver une praticienne")} small onPress={() => router.push('/praticiennes')} /> : null}
         </Card>
       ) : null}
     </View>
@@ -79,7 +80,7 @@ export function ConversationList({ as = 'user', embedded = false }) {
 export default function Messages() {
   const { as } = useLocalSearchParams();
   return (
-    <Screen back title="Messages">
+    <Screen back title={tr("Messages")}>
       <ConversationList as={as === 'pro' ? 'pro' : 'user'} />
     </Screen>
   );

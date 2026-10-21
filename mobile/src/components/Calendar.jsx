@@ -8,6 +8,7 @@ import { colors, fonts } from '../theme';
 import Icon from './Icon';
 import { Button, Row, Sheet, T } from './ui';
 
+import { tr } from '../lib/i18n';
 /** Grille du mois : semaines commençant le lundi. */
 export function monthGrid(month) {
   const first = `${month}-01`;
@@ -21,21 +22,26 @@ export function monthGrid(month) {
   return cells;
 }
 
+// Couleurs des jours (partout, mise à jour Cycle) : règles notées = rond bordeaux plein ; règles prévues = cercle
+// pointillé rose #B9566E ; fertile (estimation) = rond rose #F6D9DF ; ovulation (estimation) = fond crème + contour
+// or ; aujourd'hui = anneau encre ; note ou rappel = petit point or (blanc sur un jour de règles).
+export const PREDICTED = '#B9566E';
+
 function DayCell({ day, info, size, onPress, selected, disabled }) {
   const n = Number(day.slice(8));
   const r = size / 2 - 3;
+  const real = info?.period === 'reelle' || info?.period === 'nifas';
   let fill = 'transparent';
   let stroke = null;
   let dash = null;
-  let strokeWidth = 2.5;
+  let strokeWidth = 1.8;
   let textColor = colors.prune;
   let bold = false;
 
-  if (info?.fertile) fill = colors.rose;
-  if (info?.ovulation) {
-    fill = colors.rose;
+  if (info?.fertile && !real) fill = colors.roseFertile;
+  if (info?.ovulation && !real) {
+    fill = colors.creme;
     stroke = colors.or;
-    strokeWidth = 3.5;
     bold = true;
   }
   if (info?.period === 'reelle') {
@@ -48,9 +54,10 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
     textColor = colors.white;
   }
   if (info?.period === 'prevue') {
-    stroke = colors.bordeaux;
-    dash = '5 5';
-    textColor = colors.bordeaux;
+    fill = info?.fertile ? fill : 'transparent';
+    stroke = PREDICTED;
+    dash = '4 4';
+    textColor = PREDICTED;
     bold = true;
   } else if (info?.inRange && !info?.period) {
     stroke = colors.roseDeep;
@@ -58,31 +65,20 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
   }
   if (info?.appointments?.length && !stroke) {
     stroke = '#E2CBB0';
-    strokeWidth = 3;
-    if (fill === 'transparent') textColor = colors.muted;
-  }
-  // Aujourd'hui : cerclé (maquette « Mon calendrier »), sans masquer les règles notées.
-  // Aujourd'hui en prune (4.7 · 6.1) ; cerclé seulement s'il tombe pendant des règles notées.
-  if (info?.today) {
-    if (info?.period === 'reelle' || info?.period === 'nifas') {
-      stroke = colors.prune;
-      strokeWidth = 2.5;
-    } else {
-      fill = colors.prune;
-      textColor = colors.white;
-      stroke = info?.ovulation ? colors.or : null;
-    }
-    dash = null;
-    bold = true;
+    strokeWidth = 2.5;
   }
   if (selected) {
     fill = colors.bordeaux;
     textColor = colors.white;
+    stroke = null;
     bold = true;
   }
   if (disabled) textColor = '#CDB8BD';
+  // Aujourd'hui : anneau encre autour du jour, sans masquer sa couleur.
+  const ring = info?.today && !disabled;
+  const inner = ring ? r - 3.5 : r;
 
-  const parts = [info?.today && 'aujourd’hui', info?.period === 'reelle' && 'règles', info?.period === 'prevue' && 'règles prévues', info?.ovulation && 'ovulation', info?.fertile && !info?.ovulation && 'fertile', info?.appointments?.length && 'rendez-vous', info?.notes?.length && `${info.notes.length} note${info.notes.length > 1 ? 's' : ''}`].filter(Boolean);
+  const parts = [info?.today && 'aujourd’hui', info?.period === 'reelle' && 'règles', info?.period === 'prevue' && 'règles prévues', info?.ovulation && 'ovulation', info?.fertile && !info?.ovulation && 'fertile', info?.appointments?.length && 'rendez-vous', info?.notes?.length && `${info.notes.length} note${info.notes.length > 1 ? 's' : ''}`, info?.fast && 'jeûne programmé'].filter(Boolean);
 
   return (
     <Pressable
@@ -92,11 +88,11 @@ function DayCell({ day, info, size, onPress, selected, disabled }) {
       style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
     >
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Circle cx={size / 2} cy={size / 2} r={r} fill={fill} stroke={stroke || 'none'} strokeWidth={stroke ? strokeWidth : 0} strokeDasharray={dash || undefined} />
+        {ring ? <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors.prune} strokeWidth={2} /> : null}
+        <Circle cx={size / 2} cy={size / 2} r={inner} fill={fill} stroke={stroke || 'none'} strokeWidth={stroke ? strokeWidth : 0} strokeDasharray={dash || undefined} />
       </Svg>
-      <Text style={{ fontFamily: bold ? fonts.bold : fonts.body, fontSize: 16.5, color: textColor }}>{n}</Text>
-      {/* 5.4 — petit point : une note affichée dans le calendrier ce jour-là */}
-      {info?.notes?.length ? <View style={[s.noteDot, { bottom: Math.max(3, size * 0.12), backgroundColor: textColor === colors.white ? colors.white : colors.or }]} /> : null}
+      <Text style={{ fontFamily: bold || info?.today ? fonts.bold : fonts.body, fontSize: 16, color: textColor }}>{n}</Text>
+      {info?.notes?.length || info?.fast ? <View style={[s.noteDot, { bottom: Math.max(3, size * 0.12), backgroundColor: textColor === colors.white ? colors.white : colors.or }]} /> : null}
     </Pressable>
   );
 }
@@ -138,11 +134,11 @@ export function CalendarGrid({ month, days = [], width, onDayPress, selected, ma
 export function MonthNav({ month, onChange, style }) {
   return (
     <Row justify="space-between" style={style}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Mois précédent" hitSlop={10} onPress={() => onChange(shiftMonth(month, -1))} style={s.navBtn}>
+      <Pressable accessibilityRole="button" accessibilityLabel={tr("Mois précédent")} hitSlop={10} onPress={() => onChange(shiftMonth(month, -1))} style={s.navBtn}>
         <Icon name="chevronLeft" size={22} />
       </Pressable>
       <T variant="bold" style={{ fontSize: 18 }}>{monthLabel(month)}</T>
-      <Pressable accessibilityRole="button" accessibilityLabel="Mois suivant" hitSlop={10} onPress={() => onChange(shiftMonth(month, 1))} style={s.navBtn}>
+      <Pressable accessibilityRole="button" accessibilityLabel={tr("Mois suivant")} hitSlop={10} onPress={() => onChange(shiftMonth(month, 1))} style={s.navBtn}>
         <Icon name="chevronRight" size={22} />
       </Pressable>
     </Row>
@@ -161,15 +157,15 @@ export function Legend() {
       {item(<View style={[s.legendDot, { backgroundColor: colors.bordeaux }]} />, 'Règles notées')}
       {item(
         <Svg width={20} height={20}>
-          <Circle cx={10} cy={10} r={8} stroke={colors.bordeaux} strokeWidth={2.5} strokeDasharray="4 3" fill="none" />
+          <Circle cx={10} cy={10} r={8} stroke={PREDICTED} strokeWidth={1.8} strokeDasharray="3 3" fill="none" />
         </Svg>,
-        'Règles prévues (estimation)',
+        'Règles prévues',
       )}
-      {item(<View style={[s.legendDot, { backgroundColor: colors.rose }]} />, 'Fertile (estimation)')}
-      {item(<View style={[s.legendDot, { backgroundColor: colors.rose, borderWidth: 3, borderColor: colors.or }]} />, 'Ovulation (estimation)')}
-      {item(<View style={[s.legendDot, { backgroundColor: colors.prune }]} />, 'Aujourd’hui')}
+      {item(<View style={[s.legendDot, { backgroundColor: colors.roseFertile }]} />, 'Fertile (estimation)')}
+      {item(<View style={[s.legendDot, { backgroundColor: colors.creme, borderWidth: 1.8, borderColor: colors.or }]} />, 'Ovulation (estimation)')}
+      {item(<View style={[s.legendDot, { borderWidth: 2, borderColor: colors.prune }]} />, 'Aujourd’hui')}
       {item(<View style={[s.legendDot, { borderWidth: 3, borderColor: '#E2CBB0' }]} />, 'Rendez-vous')}
-      {item(<View style={[s.legendDot, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }]}><View style={[s.noteDot, { position: 'relative', backgroundColor: colors.or }]} /></View>, 'Note')}
+      {item(<View style={[s.legendDot, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }]}><View style={[s.noteDot, { position: 'relative', backgroundColor: colors.or }]} /></View>, 'Note ou rappel')}
     </View>
   );
 }
@@ -185,7 +181,7 @@ export function DatePickerSheet({ visible, onClose, onPick, value, maxDay, minDa
       title={title}
       footer={
         <Button
-          title="Valider"
+          title={tr("Valider")}
           disabled={!picked}
           onPress={() => {
             onPick(picked);

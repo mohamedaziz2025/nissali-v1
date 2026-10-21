@@ -14,6 +14,7 @@ import { addDays, toDay } from '../../lib/format';
 import { shrinkImage } from '../../lib/image';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const COMMISSION = 0.15;
 const BILLETWEB = /^https:\/\/(www\.)?billetweb\.fr\/\S+/i;
 
@@ -94,7 +95,7 @@ export default function ProposeEvent() {
         photos: f.photos,
       };
       const e = id ? await api.patch(`/events/${id}`, body) : await api.post('/events', body);
-      toast('Merci ! Notre équipe vérifie ton événement avant publication.');
+      toast(tr("Merci ! Notre équipe vérifie ton événement avant publication."));
       router.replace(`/evenement/${e.id}`);
     } catch (err) {
       toast(err.message, 'error');
@@ -103,7 +104,7 @@ export default function ProposeEvent() {
     }
   };
 
-  if (loading) return <Screen back title="Proposer un événement"><Loader /></Screen>;
+  if (loading) return <Screen back title={tr("Proposer un événement")}><Loader /></Screen>;
   const missing = [
     f.title.trim().length < 3 && 'un titre',
     f.description.trim().length < 10 && 'une description',
@@ -114,51 +115,51 @@ export default function ProposeEvent() {
   ].filter(Boolean);
 
   return (
-    <Screen back title={id ? 'Modifier mon événement' : 'Proposer un événement'}>
-      <T variant="muted" style={{ marginTop: -8, marginBottom: 16 }}>Notre équipe vérifie chaque événement (image et lien compris) avant publication. Tu es prévenue par notification.</T>
+    <Screen back title={id ? tr("Modifier mon événement") : tr("Proposer un événement")}>
+      <T variant="muted" style={{ marginTop: -8, marginBottom: 16 }}>{tr("Notre équipe vérifie chaque événement (image et lien compris) avant publication. Tu es prévenue par notification.")}</T>
 
-      <Pressable onPress={pickImage} accessibilityRole="button" accessibilityLabel={f.imageUrl ? 'Changer l’image' : 'Ajouter une image'} style={s.image} disabled={uploading}>
+      <Pressable onPress={pickImage} accessibilityRole="button" accessibilityLabel={f.imageUrl ? tr("Changer l’image") : tr("Ajouter une image")} style={s.image} disabled={uploading}>
         {f.imageUrl ? <Image source={{ uri: assetUrl(f.imageUrl) }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
         {f.imageUrl ? (
           <View style={s.imageBadge}>
             <Icon name="edit" size={14} color={colors.white} />
-            <Text style={s.imageBadgeText}>{uploading ? 'Envoi…' : 'Changer'}</Text>
+            <Text style={s.imageBadgeText}>{uploading ? tr("Envoi…") : tr("Changer")}</Text>
           </View>
         ) : (
           <View style={{ alignItems: 'center', gap: 6 }}>
             <View style={s.imagePlus}>
               <Icon name="plus" size={22} color={colors.bordeaux} />
             </View>
-            <Text style={s.imageText}>{uploading ? 'Envoi de l’image…' : 'Ajouter l’image de couverture'}</Text>
+            <Text style={s.imageText}>{uploading ? tr("Envoi de l’image…") : tr("Ajouter l’image de couverture")}</Text>
           </View>
         )}
       </Pressable>
-      <T variant="small" style={{ marginTop: 6 }}>Format paysage, 1 Mo maximum (redimensionnée automatiquement), sans visage reconnaissable sans accord.</T>
+      <T variant="small" style={{ marginTop: 6 }}>{tr("Format paysage, 1 Mo maximum (redimensionnée automatiquement), sans visage reconnaissable sans accord.")}</T>
       <Gap />
 
-      <Section title="L’événement" icon="sparkle">
-        <Field label="Titre" value={f.title} onChangeText={set('title')} placeholder="Ex. Brunch entre sœurs" maxLength={120} />
-        <Field label="Description" value={f.description} onChangeText={set('description')} multiline placeholder="Présente ton événement en quelques lignes" />
-        <Field label="Programme (facultatif)" value={f.programme} onChangeText={set('programme')} multiline placeholder="10 h : accueil…" />
+      <Section title={tr("L’événement")} icon="sparkle">
+        <Field label={tr("Titre")} value={f.title} onChangeText={set('title')} placeholder={tr("Ex. Brunch entre sœurs")} maxLength={120} />
+        <Field label={tr("Description")} value={f.description} onChangeText={set('description')} multiline placeholder={tr("Présente ton événement en quelques lignes")} />
+        <Field label={tr("Programme (facultatif)")} value={f.programme} onChangeText={set('programme')} multiline placeholder={tr("10 h : accueil…")} />
       </Section>
 
-      <Section title="Date et lieu" icon="calendar">
-        <DateField label="Date" value={f.day} onChange={set('day')} minDay={toDay(new Date())} maxDay={addDays(toDay(new Date()), 365)} />
-        <TimeField label="Début" value={f.time} onChange={set('time')} allowUnknown={false} />
-        <TimeField label="Fin (facultatif)" value={f.endTime} onChange={set('endTime')} />
-        <Field label="Lieu" value={f.name} onChangeText={set('name')} placeholder="Nom de la salle, du café…" />
-        <Field label="Adresse" value={f.address} onChangeText={set('address')} placeholder="Numéro et rue" />
-        <Field label="Ville" value={f.city} onChangeText={set('city')} placeholder="Ex. Nanterre" icon="pin" />
+      <Section title={tr("Date et lieu")} icon="calendar">
+        <DateField label={tr("Date")} value={f.day} onChange={set('day')} minDay={toDay(new Date())} maxDay={addDays(toDay(new Date()), 365)} />
+        <TimeField label={tr("Début")} value={f.time} onChange={set('time')} allowUnknown={false} />
+        <TimeField label={tr("Fin (facultatif)")} value={f.endTime} onChange={set('endTime')} />
+        <Field label={tr("Lieu")} value={f.name} onChangeText={set('name')} placeholder={tr("Nom de la salle, du café…")} />
+        <Field label={tr("Adresse")} value={f.address} onChangeText={set('address')} placeholder={tr("Numéro et rue")} />
+        <Field label={tr("Ville")} value={f.city} onChangeText={set('city')} placeholder={tr("Ex. Nanterre")} icon="pin" />
       </Section>
 
-      <Section title="Places et participation" icon="users">
-        <Stepper label="Nombre de places" value={f.capacity} onChange={set('capacity')} min={1} max={500} step={1} />
-        <Segmented items={[{ key: 'gratuit', label: 'Gratuit' }, { key: 'payant', label: 'Payant' }]} value={f.paid ? 'payant' : 'gratuit'} onChange={(k) => set('paid')(k === 'payant')} />
+      <Section title={tr("Places et participation")} icon="users">
+        <Stepper label={tr("Nombre de places")} value={f.capacity} onChange={set('capacity')} min={1} max={500} step={1} />
+        <Segmented items={[{ key: 'gratuit', label: tr("Gratuit") }, { key: 'payant', label: tr("Payant") }]} value={f.paid ? 'payant' : 'gratuit'} onChange={(k) => set('paid')(k === 'payant')} />
         {f.paid ? (
           <>
-            <Field label="Prix du billet (€)" value={f.price} onChangeText={(v) => set('price')(v.replace(/[^\d,.]/g, ''))} keyboardType="decimal-pad" hint="Le même prix que sur ta billetterie Billetweb." />
+            <Field label={tr("Prix du billet (€)")} value={f.price} onChangeText={(v) => set('price')(v.replace(/[^\d,.]/g, ''))} keyboardType="decimal-pad" hint={tr("Le même prix que sur ta billetterie Billetweb.")} />
             <Field
-              label="Lien Billetweb"
+              label={tr("Lien Billetweb")}
               value={f.ticketUrl}
               onChangeText={set('ticketUrl')}
               placeholder="https://www.billetweb.fr/…"
@@ -166,30 +167,30 @@ export default function ProposeEvent() {
               keyboardType="url"
               autoCapitalize="none"
               autoCorrect={false}
-              hint="Obligatoire : la vente des billets se fait sur Billetweb, pas dans l’appli."
+              hint={tr("Obligatoire : la vente des billets se fait sur Billetweb, pas dans l’appli.")}
               error={f.ticketUrl.trim() && !ticketOk ? 'Le lien doit commencer par https://www.billetweb.fr/' : undefined}
             />
             <View style={s.commission}>
-              <Text style={s.commissionTitle}>Commission Nissali : 15 %</Text>
+              <Text style={s.commissionTitle}>{tr("Commission Nissali : 15 %")}</Text>
               <T variant="small">
-                Sur un billet à {price.toFixed(2).replace('.', ',')} €, Nissali perçoit {(price * COMMISSION).toFixed(2).replace('.', ',')} €. Après l’événement, tu envoies l’export des ventes Billetweb et Nissali te facture 15 % du montant vendu. Rien sur les événements gratuits.
+                {tr("Sur un billet à")} {price.toFixed(2).replace('.', ',')} {tr("€, Nissali perçoit")} {(price * COMMISSION).toFixed(2).replace('.', ',')} {tr("€. Après l’événement, tu envoies l’export des ventes Billetweb et Nissali te facture 15 % du montant vendu. Rien sur les événements gratuits.")}
               </T>
               <Checkbox checked={f.commission} onChange={set('commission')}>
-                <T variant="medium">J’accepte la commission de 15 % sur chaque billet vendu</T>
+                <T variant="medium">{tr("J’accepte la commission de 15 % sur chaque billet vendu")}</T>
               </Checkbox>
             </View>
           </>
         ) : (
-          <T variant="small">Événement gratuit : les sœurs s’inscrivent dans l’appli, aucun frais.</T>
+          <T variant="small">{tr("Événement gratuit : les sœurs s’inscrivent dans l’appli, aucun frais.")}</T>
         )}
       </Section>
 
-      <Section title="Photos (facultatif)" icon="sparkle">
+      <Section title={tr("Photos (facultatif)")} icon="sparkle">
         <PhotoEditor photos={f.photos} onChange={set('photos')} />
       </Section>
 
-      {missing.length ? <T variant="small" style={{ textAlign: 'center', marginBottom: 10 }}>Il manque : {missing.join(', ')}.</T> : null}
-      <Button title={id ? 'Renvoyer pour validation' : 'Envoyer ma proposition'} icon="check" onPress={submit} loading={busy} disabled={missing.length > 0 || busy || uploading} />
+      {missing.length ? <T variant="small" style={{ textAlign: 'center', marginBottom: 10 }}>{tr("Il manque :")} {missing.join(', ')}.</T> : null}
+      <Button title={id ? tr("Renvoyer pour validation") : tr("Envoyer ma proposition")} icon="check" onPress={submit} loading={busy} disabled={missing.length > 0 || busy || uploading} />
       <Gap h={24} />
     </Screen>
   );

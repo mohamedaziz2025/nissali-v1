@@ -10,6 +10,7 @@ import { colors, fonts } from '../theme';
 import Icon from './Icon';
 import { T, useToast } from './ui';
 
+import { tr } from '../lib/i18n';
 export const MAX_PHOTOS = 12;
 
 /** Grille de photos : 1 photo pleine largeur, sinon la première en grand puis 2 par ligne. */
@@ -22,12 +23,12 @@ export function PhotoGrid({ photos = [], title }) {
   const half = (w - gap) / 2;
   return (
     <View style={{ gap: 10 }}>
-      <T variant="h3">Photos · {photos.length}</T>
+      <T variant="h3">{tr("Photos ·")} {photos.length}</T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
         {photos.map((url, i) => {
           const big = i === 0;
           return (
-            <Pressable key={url + i} onPress={() => setOpen(i)} accessibilityRole="imagebutton" accessibilityLabel={`Photo ${i + 1} sur ${photos.length}${title ? `, ${title}` : ''}`} style={{ width: big ? w : half, height: big ? w * 0.56 : half, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.blush }}>
+            <Pressable key={url + i} onPress={() => setOpen(i)} accessibilityRole="imagebutton" accessibilityLabel={tr("Photo {0} sur {1}{2}", [i + 1, photos.length, title ? `, ${title}` : ''])} style={{ width: big ? w : half, height: big ? w * 0.56 : half, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.blush }}>
               <Image source={{ uri: assetUrl(url) }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
             </Pressable>
           );
@@ -62,7 +63,7 @@ function Viewer({ photos, index, onClose }) {
             </View>
           ))}
         </ScrollView>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" hitSlop={12} style={[s.close, { top: insets.top + 12 }]}>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={tr("Fermer")} hitSlop={12} style={[s.close, { top: insets.top + 12 }]}>
           <Icon name="close" size={22} color={colors.white} />
         </Pressable>
         <Text style={[s.count, { bottom: insets.bottom + 20 }]}>{current + 1} / {photos.length}</Text>
@@ -96,20 +97,20 @@ export function PhotoEditor({ photos, onChange }) {
   };
   return (
     <View style={{ gap: 8 }}>
-      <T variant="fieldLabel">Photos de l’événement ({photos.length}/{MAX_PHOTOS})</T>
+      <T variant="fieldLabel">{tr("Photos de l’événement (")}{photos.length}/{MAX_PHOTOS})</T>
       <View style={s.edit}>
         {photos.map((url, i) => (
           <View key={url + i} style={s.thumb}>
             <Image source={{ uri: assetUrl(url) }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            <Pressable onPress={() => onChange(photos.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Retirer la photo ${i + 1}`} hitSlop={6} style={s.remove}>
+            <Pressable onPress={() => onChange(photos.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={tr("Retirer la photo {0}", [i + 1])} hitSlop={6} style={s.remove}>
               <Icon name="close" size={14} color={colors.white} strokeWidth={2.6} />
             </Pressable>
           </View>
         ))}
         {left > 0 ? (
-          <Pressable onPress={add} disabled={busy || Platform.OS === 'web'} accessibilityRole="button" accessibilityLabel="Ajouter des photos" style={[s.thumb, s.add]}>
+          <Pressable onPress={add} disabled={busy || Platform.OS === 'web'} accessibilityRole="button" accessibilityLabel={tr("Ajouter des photos")} style={[s.thumb, s.add]}>
             <Icon name="plus" size={24} color={colors.bordeaux} />
-            <Text style={s.addText}>{busy ? 'Envoi…' : Platform.OS === 'web' ? 'Sur le téléphone' : 'Ajouter'}</Text>
+            <Text style={s.addText}>{busy ? tr("Envoi…") : Platform.OS === 'web' ? tr("Sur le téléphone") : tr("Ajouter")}</Text>
           </Pressable>
         ) : null}
       </View>

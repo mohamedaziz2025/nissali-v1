@@ -6,6 +6,7 @@ import { Button, Card, Checkbox, Screen, T } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
+import { tr } from '../lib/i18n';
 export default function HealthConsent() {
   const { setSession, signOut, practitioner, switchSpace } = useAuth();
   const [checked, setChecked] = useState(false);
@@ -20,20 +21,20 @@ export default function HealthConsent() {
     }
   };
   return (
-    <Screen title="Tes données de santé">
+    <Screen title={tr("Tes données de santé")}>
       <View style={{ gap: 18 }}>
-        <T>Pour suivre ton cycle, ta grossesse et ta santé, Nissali a besoin de ton accord explicite.</T>
+        <T>{tr("Pour suivre ton cycle, ta grossesse et ta santé, Nissali a besoin de ton accord explicite.")}</T>
         <Card tone="soft" style={{ gap: 10 }}>
-          <T>• Tes données de santé ne sont jamais vendues, jamais partagées, jamais utilisées pour la publicité.</T>
-          <T>• Elles sont chiffrées pendant le transfert et hébergées dans l’Union européenne.</T>
-          <T>• Tu peux les exporter ou les supprimer à tout moment depuis ton profil.</T>
+          <T>{tr("• Tes données de santé ne sont jamais vendues, jamais partagées, jamais utilisées pour la publicité.")}</T>
+          <T>{tr("• Elles sont chiffrées pendant le transfert et hébergées dans l’Union européenne.")}</T>
+          <T>{tr("• Tu peux les exporter ou les supprimer à tout moment depuis ton profil.")}</T>
         </Card>
         <Checkbox checked={checked} onChange={setChecked}>
-          J’accepte que Nissali traite mes données de santé pour mon suivi.
+          {tr("J’accepte que Nissali traite mes données de santé pour mon suivi.")}
         </Checkbox>
-        <Button title="Continuer" onPress={accept} disabled={!checked} loading={busy} />
-        {practitioner ? <Button title="Aller à mon espace pro" variant="outline" onPress={() => switchSpace('pro')} /> : null}
-        <Button title="Me déconnecter" variant="ghost" onPress={signOut} />
+        <Button title={tr("Continuer")} onPress={accept} disabled={!checked} loading={busy} />
+        {practitioner ? <Button title={tr("Aller à mon espace pro")} variant="outline" onPress={() => switchSpace('pro')} /> : null}
+        <Button title={tr("Me déconnecter")} variant="ghost" onPress={signOut} />
       </View>
     </Screen>
   );

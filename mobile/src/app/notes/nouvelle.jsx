@@ -14,6 +14,7 @@ import { addDays, parseDay, toDay } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const EMPTY = { text: '', type: 'medicament', day: null, time: null, repeat: 'once', weekdays: [], until: null, showInCalendar: true, remind: false };
 
 function Line({ icon, label, value, onPress, last }) {
@@ -58,7 +59,7 @@ export default function NewNote() {
     }
   }, [id, existing.data, loaded]);
 
-  if (!loaded) return <Screen back title="Modifier la note"><Loader /></Screen>;
+  if (!loaded) return <Screen back title={tr("Modifier la note")}><Loader /></Screen>;
 
   const weekdays = form.repeat === 'weekly' && !form.weekdays.length ? [parseDay(form.day).getUTCDay()] : form.weekdays;
   const toggleDay = (v) => {
@@ -69,20 +70,20 @@ export default function NewNote() {
     form.repeat === 'weekly'
       ? `chaque ${NOTE_WEEKDAYS.filter((d) => weekdays.includes(d.v)).map((d) => d.name).join(', ')}`
       : form.repeat === 'daily'
-        ? 'chaque jour'
+        ? tr("chaque jour")
         : form.repeat === 'monthly'
-          ? `chaque mois, le ${parseDay(form.day).getUTCDate()}`
+          ? tr("chaque mois, le {0}", [parseDay(form.day).getUTCDate()])
           : noteDate(form.day).toLowerCase();
 
   const save = async () => {
-    if (!form.text.trim()) return toast('Écris ta note', 'error');
-    if (form.remind && !form.time) return toast('Choisis une heure pour le rappel', 'error');
+    if (!form.text.trim()) return toast(tr("Écris ta note"), 'error');
+    if (form.remind && !form.time) return toast(tr("Choisis une heure pour le rappel"), 'error');
     setBusy(true);
     try {
       const body = { ...form, text: form.text.trim(), weekdays: form.repeat === 'weekly' ? weekdays : [], until: form.repeat === 'once' ? null : form.until };
       if (id) await api.patch(`/notes/${id}`, body);
       else await api.post('/notes', body);
-      toast(id ? 'Note modifiée' : 'Note enregistrée');
+      toast(id ? tr("Note modifiée") : tr("Note enregistrée"));
       router.back();
     } catch (e) {
       toast(e.message, 'error');
@@ -94,16 +95,16 @@ export default function NewNote() {
   const upcoming = (list.data?.upcoming || []).filter((n) => !n.paused).slice(0, 5);
 
   return (
-    <Screen back title={id ? 'Modifier la note' : 'Nouvelle note'}>
+    <Screen back title={id ? tr("Modifier la note") : tr("Nouvelle note")}>
       <TextInput
         value={form.text}
         onChangeText={(text) => set({ text })}
-        placeholder="Prendre mon comprimé de fer"
+        placeholder={tr("Prendre mon comprimé de fer")}
         placeholderTextColor="#A88C93"
         multiline
         maxLength={300}
         style={s.input}
-        accessibilityLabel="Texte de la note"
+        accessibilityLabel={tr("Texte de la note")}
         autoFocus={!id}
       />
       <View style={s.chips}>
@@ -113,12 +114,12 @@ export default function NewNote() {
       </View>
 
       <View style={s.card}>
-        <Line icon="calendar" label="Date" value={noteDate(form.day)} onPress={() => setPicker('day')} />
-        <Line icon="clock" label="Heure" value={form.time || 'Aucune'} onPress={() => setPicker('time')} />
+        <Line icon="calendar" label={tr("Date")} value={noteDate(form.day)} onPress={() => setPicker('day')} />
+        <Line icon="clock" label={tr("Heure")} value={form.time || 'Aucune'} onPress={() => setPicker('time')} />
         <View style={{ paddingVertical: 12, gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Icon name="repeat" size={18} color={colors.muted} />
-            <Text style={s.lineLabel}>Répétition</Text>
+            <Text style={s.lineLabel}>{tr("Répétition")}</Text>
           </View>
           <View style={s.chips}>
             {NOTE_REPEATS.map((r) => (
@@ -139,9 +140,9 @@ export default function NewNote() {
           ) : null}
           {form.repeat !== 'once' ? (
             <Pressable onPress={() => setPicker('until')} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={[s.lineLabel, { marginLeft: 0 }]}>Jusqu’au</Text>
+              <Text style={[s.lineLabel, { marginLeft: 0 }]}>{tr("Jusqu’au")}</Text>
               <View style={s.value}>
-                <Text style={s.valueText}>{form.until ? noteDate(form.until) : 'Sans fin'}</Text>
+                <Text style={s.valueText}>{form.until ? noteDate(form.until) : tr("Sans fin")}</Text>
               </View>
             </Pressable>
           ) : null}
@@ -149,19 +150,19 @@ export default function NewNote() {
       </View>
 
       <View style={s.card}>
-        <SwitchLine icon="calendar" label="Afficher dans le calendrier" value={form.showInCalendar} onChange={(v) => set({ showInCalendar: v })} />
-        <SwitchLine icon="bell" label="Me rappeler (notification)" value={form.remind} onChange={(v) => set({ remind: v, time: v && !form.time ? '08:00' : form.time })} last />
-        {form.remind ? <T variant="small" style={{ paddingBottom: 12 }}>Rappel à {form.time}, {repeatText}.</T> : null}
+        <SwitchLine icon="calendar" label={tr("Afficher dans le calendrier")} value={form.showInCalendar} onChange={(v) => set({ showInCalendar: v })} />
+        <SwitchLine icon="bell" label={tr("Me rappeler (notification)")} value={form.remind} onChange={(v) => set({ remind: v, time: v && !form.time ? '08:00' : form.time })} last />
+        {form.remind ? <T variant="small" style={{ paddingBottom: 12 }}>{tr("Rappel à")} {form.time}, {repeatText}.</T> : null}
       </View>
 
-      <Button title={id ? 'Enregistrer les modifications' : 'Enregistrer la note'} icon="check" onPress={save} loading={busy} disabled={busy || !form.text.trim()} />
+      <Button title={id ? tr("Enregistrer les modifications") : tr("Enregistrer la note")} icon="check" onPress={save} loading={busy} disabled={busy || !form.text.trim()} />
 
       {!id && upcoming.length ? (
         <View style={[s.card, { marginTop: 18, paddingTop: 12 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={s.section}>Mes notes à venir</Text>
+            <Text style={s.section}>{tr("Mes notes à venir")}</Text>
             <Pressable onPress={() => router.replace('/notes')} accessibilityRole="link" hitSlop={8}>
-              <Text style={s.link}>Tout voir</Text>
+              <Text style={s.link}>{tr("Tout voir")}</Text>
             </Pressable>
           </View>
           {upcoming.map((n, i) => (
@@ -182,12 +183,12 @@ export default function NewNote() {
           value={picker === 'day' ? form.day : form.until || addDays(form.day, 30)}
           minDay={picker === 'until' ? form.day : addDays(today, -365 * 2)}
           maxDay={addDays(today, 365 * 3)}
-          title={picker === 'day' ? 'Date de la note' : 'Jusqu’au'}
+          title={picker === 'day' ? tr("Date de la note") : tr("Jusqu’au")}
         />
       ) : null}
-      <Sheet visible={picker === 'time'} onClose={() => setPicker(null)} title="Heure" footer={<Button title="Valider" onPress={() => setPicker(null)} />}>
-        <TimeField label="Heure (facultative)" value={form.time} onChange={(t) => set({ time: t, remind: t ? form.remind : false })} allowUnknown />
-        <T variant="small">« Je ne sais pas » : la note n’a pas d’heure (pas de rappel).</T>
+      <Sheet visible={picker === 'time'} onClose={() => setPicker(null)} title={tr("Heure")} footer={<Button title={tr("Valider")} onPress={() => setPicker(null)} />}>
+        <TimeField label={tr("Heure (facultative)")} value={form.time} onChange={(t) => set({ time: t, remind: t ? form.remind : false })} allowUnknown />
+        <T variant="small">{tr("« Je ne sais pas » : la note n’a pas d’heure (pas de rappel).")}</T>
       </Sheet>
     </Screen>
   );

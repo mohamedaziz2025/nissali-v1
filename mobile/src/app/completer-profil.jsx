@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors } from '../theme';
 
+import { tr } from '../lib/i18n';
 export default function CompleteProfile() {
   const { user, setSession } = useAuth();
   const [age, setAge] = useState(user?.age ? String(user.age) : '');
@@ -32,17 +33,17 @@ export default function CompleteProfile() {
   };
 
   return (
-    <Screen title="Ton espace personnel" subtitle={`Salam, ${user?.firstName || ''}`}>
+    <Screen title={tr("Ton espace personnel")} subtitle={tr("Salam, {0}", [user?.firstName || ''])}>
       <View style={{ gap: 18 }}>
-        <T variant="muted">Quelques informations pour activer ton suivi personnel (cycle, prières, jeûnes).</T>
-        <Field label="Âge" value={age} onChangeText={(v) => setAge(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" error={age && n < 15 ? 'Nissali est accessible à partir de 15 ans.' : null} />
+        <T variant="muted">{tr("Quelques informations pour activer ton suivi personnel (cycle, prières, jeûnes).")}</T>
+        <Field label={tr("Âge")} value={age} onChangeText={(v) => setAge(v.replace(/\D/g, '').slice(0, 3))} keyboardType="number-pad" error={age && n < 15 ? 'Nissali est accessible à partir de 15 ans.' : null} />
         <CityPicker value={city} onChange={setCity} />
         <View style={{ gap: 8 }}>
-          <T variant="fieldLabel">Situation</T>
-          <Chips items={[{ key: 'celibataire', label: 'Célibataire' }, { key: 'mariee', label: 'Mariée' }]} value={situation} onChange={setSituation} />
+          <T variant="fieldLabel">{tr("Situation")}</T>
+          <Chips items={[{ key: 'celibataire', label: tr("Célibataire") }, { key: 'mariee', label: tr("Mariée") }]} value={situation} onChange={setSituation} />
         </View>
         {error ? <T color={colors.danger}>{error}</T> : null}
-        <Button title="Continuer" onPress={save} loading={busy} disabled={!(n >= 15 && city && situation)} />
+        <Button title={tr("Continuer")} onPress={save} loading={busy} disabled={!(n >= 15 && city && situation)} />
       </View>
     </Screen>
   );

@@ -12,6 +12,7 @@ import { currentPosition, distanceKm, KAABA } from '../lib/location';
 import { localQibla } from '../lib/prayerLocal';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 const SIZE = 300;
 const ALIGNED = 5;
 
@@ -90,21 +91,21 @@ export default function QiblaScreen() {
 
   const from = pos || user?.city;
   const distance = from?.lat != null ? distanceKm(from, KAABA) : null;
-  const sourceLabel = source === 'aladhan' ? 'API Aladhan · ta position exacte' : source === 'gps' ? 'Calcul sur le téléphone · ta position exacte' : 'Ville enregistrée';
+  const sourceLabel = source === 'aladhan' ? tr("API Aladhan · ta position exacte") : source === 'gps' ? tr("Calcul sur le téléphone · ta position exacte") : tr("Ville enregistrée");
 
   return (
-    <Screen back title="Qibla">
+    <Screen back title={tr("Qibla")}>
       <Card style={{ alignItems: 'center', gap: 10, paddingVertical: 26 }}>
-        <Label color={colors.or}>Direction de la Kaaba</Label>
+        <Label color={colors.or}>{tr("Direction de la Kaaba")}</Label>
         <T variant="hero" color={colors.prune}>{qibla != null ? `${Math.round(qibla)}°` : '—'}</T>
         <T variant="muted" style={{ textAlign: 'center' }}>
-          par rapport au nord · {place || 'position inconnue'}
+          {tr("par rapport au nord ·")} {place || tr("position inconnue")}
         </T>
         <Gap h={6} />
         <View
           style={{ width: SIZE, height: SIZE }}
           accessible
-          accessibilityLabel={delta != null ? (aligned ? 'Tu es face à la qibla' : `Tourne de ${Math.round(Math.abs(delta))} degrés vers la ${delta > 0 ? 'droite' : 'gauche'}`) : `Qibla à ${Math.round(qibla || 0)} degrés du nord`}
+          accessibilityLabel={delta != null ? (aligned ? tr("Tu es face à la qibla") : tr("Tourne de {0} degrés vers la {1}", [Math.round(Math.abs(delta)), delta > 0 ? 'droite' : 'gauche'])) : tr("Qibla à {0} degrés du nord", [Math.round(qibla || 0)])}
         >
           <Svg width={SIZE} height={SIZE}>
             <G transform={`rotate(${rotation} ${SIZE / 2} ${SIZE / 2})`}>
@@ -144,42 +145,42 @@ export default function QiblaScreen() {
         </View>
         {delta != null ? (
           <T variant="h3" style={{ textAlign: 'center' }} color={aligned ? colors.bordeaux : colors.prune}>
-            {aligned ? 'Tu es face à la qibla' : `Tourne de ${Math.round(Math.abs(delta))}° vers la ${delta > 0 ? 'droite' : 'gauche'}`}
+            {aligned ? tr("Tu es face à la qibla") : tr("Tourne de {0}° vers la {1}", [Math.round(Math.abs(delta)), delta > 0 ? 'droite' : 'gauche'])}
           </T>
         ) : (
           <T variant="muted" style={{ textAlign: 'center' }}>
-            {Platform.OS === 'web' ? 'Boussole disponible sur le téléphone. Repère le nord : la Kaaba est à l’angle indiqué.' : 'Tiens ton téléphone à plat. La flèche bordeaux indique la Kaaba.'}
+            {Platform.OS === 'web' ? tr("Boussole disponible sur le téléphone. Repère le nord : la Kaaba est à l’angle indiqué.") : tr("Tiens ton téléphone à plat. La flèche bordeaux indique la Kaaba.")}
           </T>
         )}
-        {accuracy != null && accuracy < 2 ? <T variant="small" style={{ textAlign: 'center' }}>Boussole peu précise : fais un mouvement en 8 avec ton téléphone pour la calibrer.</T> : null}
+        {accuracy != null && accuracy < 2 ? <T variant="small" style={{ textAlign: 'center' }}>{tr("Boussole peu précise : fais un mouvement en 8 avec ton téléphone pour la calibrer.")}</T> : null}
         {error ? (
           <>
             <T variant="small" style={{ textAlign: 'center' }}>{error}</T>
-            <Button title="Utiliser ma position" icon="pin" small variant="soft" onPress={() => setAttempt((n) => n + 1)} />
+            <Button title={tr("Utiliser ma position")} icon="pin" small variant="soft" onPress={() => setAttempt((n) => n + 1)} />
           </>
         ) : null}
       </Card>
       <Gap />
       <Card tone="soft" style={{ gap: 8 }}>
         <Row justify="space-between">
-          <T variant="small">Source</T>
+          <T variant="small">{tr("Source")}</T>
           <T variant="medium" style={{ fontSize: 14 }}>{sourceLabel}</T>
         </Row>
         {distance != null ? (
           <Row justify="space-between">
-            <T variant="small">Distance jusqu’à la Kaaba</T>
+            <T variant="small">{tr("Distance jusqu’à la Kaaba")}</T>
             <T variant="medium" style={{ fontSize: 14 }}>{km(distance)}</T>
           </Row>
         ) : null}
         {pos?.accuracy ? (
           <Row justify="space-between">
-            <T variant="small">Précision de la position</T>
+            <T variant="small">{tr("Précision de la position")}</T>
             <T variant="medium" style={{ fontSize: 14 }}>± {Math.round(pos.accuracy)} m</T>
           </Row>
         ) : null}
       </Card>
       <Gap />
-      <T variant="small">Angle du grand cercle entre ta position et la Kaaba (21,4225° N, 39,8262° E), mesuré depuis le nord vrai. Éloigne-toi des objets métalliques et des appareils électriques pour plus de précision.</T>
+      <T variant="small">{tr("Angle du grand cercle entre ta position et la Kaaba (21,4225° N, 39,8262° E), mesuré depuis le nord vrai. Éloigne-toi des objets métalliques et des appareils électriques pour plus de précision.")}</T>
     </Screen>
   );
 }

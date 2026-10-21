@@ -12,6 +12,7 @@ import { addDays, dayMonth, longDate, toDay } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { colors } from '../theme';
 
+import { tr } from '../lib/i18n';
 function Setup({ onDone }) {
   const toast = useToast();
   const [source, setSource] = useState('lmp');
@@ -32,12 +33,12 @@ function Setup({ onDone }) {
   };
   return (
     <View style={{ gap: 16 }}>
-      <T variant="muted">Choisis la date que tu connais. La date du terme donnée par l’échographie de datation est la plus précise.</T>
+      <T variant="muted">{tr("Choisis la date que tu connais. La date du terme donnée par l’échographie de datation est la plus précise.")}</T>
       <Segmented
         items={[
-          { key: 'lmp', label: 'Règles' },
-          { key: 'conception', label: 'Début' },
-          { key: 'due', label: 'Terme' },
+          { key: 'lmp', label: tr("Règles") },
+          { key: 'conception', label: tr("Début") },
+          { key: 'due', label: tr("Terme") },
         ]}
         value={source}
         onChange={(v) => {
@@ -46,14 +47,14 @@ function Setup({ onDone }) {
         }}
       />
       <DateField
-        label={source === 'lmp' ? 'Premier jour des dernières règles (DDR)' : source === 'conception' ? 'Date de début de grossesse' : 'Date prévue du terme'}
+        label={source === 'lmp' ? tr("Premier jour des dernières règles (DDR)") : source === 'conception' ? tr("Date de début de grossesse") : tr("Date prévue du terme")}
         value={date}
         onChange={setDate}
         maxDay={source === 'due' ? addDays(today, 300) : today}
         minDay={source === 'due' ? today : addDays(today, -300)}
       />
-      {source === 'lmp' ? <Stepper label="Durée habituelle du cycle" value={cycleLength} onChange={setCycleLength} min={20} max={45} suffix=" j" /> : null}
-      <Button title="Activer le mode grossesse" onPress={submit} loading={busy} disabled={!date} />
+      {source === 'lmp' ? <Stepper label={tr("Durée habituelle du cycle")} value={cycleLength} onChange={setCycleLength} min={20} max={45} suffix=" j" /> : null}
+      <Button title={tr("Activer le mode grossesse")} onPress={submit} loading={busy} disabled={!date} />
     </View>
   );
 }
@@ -67,8 +68,8 @@ export default function Pregnancy() {
   const [birth, setBirth] = useState(toDay(new Date()));
   const [message, setMessage] = useState(null);
 
-  if (loading && !data) return <Screen back title="Grossesse"><Loader /></Screen>;
-  if (error && !data) return <Screen back title="Grossesse"><ErrorState error={error} onRetry={reload} /></Screen>;
+  if (loading && !data) return <Screen back title={tr("Grossesse")}><Loader /></Screen>;
+  if (error && !data) return <Screen back title={tr("Grossesse")}><ErrorState error={error} onRetry={reload} /></Screen>;
 
   const end = async (outcome) => {
     try {
@@ -84,7 +85,7 @@ export default function Pregnancy() {
 
   if (!data.active) {
     return (
-      <Screen back title={data.mode === 'postpartum' ? 'Post-partum' : 'Mode grossesse'}>
+      <Screen back title={data.mode === 'postpartum' ? tr("Post-partum") : tr("Mode grossesse")}>
         {message ? (
           <>
             <Card tone="soft" style={{ gap: 8 }}>
@@ -96,14 +97,14 @@ export default function Pregnancy() {
         {data.mode === 'postpartum' ? (
           <View style={{ gap: 14 }}>
             <Card tone="hero" style={{ gap: 6 }}>
-              <Label color={colors.rose}>Post-partum</Label>
-              <T variant="h2" color={colors.white}>Naissance le {data.deliveryDate ? dayMonth(data.deliveryDate) : '—'}</T>
-              <T color={colors.white}>Durée maximale du nifas retenue : {data.maxNifasDays} jours.</T>
+              <Label color={colors.rose}>{tr("Post-partum")}</Label>
+              <T variant="h2" color={colors.white}>{tr("Naissance le")} {data.deliveryDate ? dayMonth(data.deliveryDate) : '—'}</T>
+              <T color={colors.white}>{tr("Durée maximale du nifas retenue :")} {data.maxNifasDays} {tr("jours.")}</T>
             </Card>
-            <Button title="Mes saignements sont terminés" onPress={() => openEnd(null, 'nifas')} />
-            <Notice title="Après le nifas">Fais ton ghusl et reprends la prière. Le retour des règles est imprévisible, surtout si tu allaites : pas de prédiction avant deux cycles enregistrés.</Notice>
+            <Button title={tr("Mes saignements sont terminés")} onPress={() => openEnd(null, 'nifas')} />
+            <Notice title={tr("Après le nifas")}>{tr("Fais ton ghusl et reprends la prière. Le retour des règles est imprévisible, surtout si tu allaites : pas de prédiction avant deux cycles enregistrés.")}</Notice>
             <Button
-              title="Reprendre le suivi du cycle"
+              title={tr("Reprendre le suivi du cycle")}
               variant="outline"
               onPress={async () => {
                 await setSession(await api.post('/pregnancy/resume-cycle'));
@@ -126,43 +127,43 @@ export default function Pregnancy() {
 
   const st = data.status;
   return (
-    <Screen back title="Ma grossesse" onRefresh={reload}>
+    <Screen back title={tr("Ma grossesse")} onRefresh={reload}>
       <Card tone="hero" style={{ gap: 6 }}>
         <Row justify="space-between">
           <View style={{ flex: 1, gap: 4 }}>
-            <Label color={colors.rose}>Semaine de grossesse</Label>
+            <Label color={colors.rose}>{tr("Semaine de grossesse")}</Label>
             <T variant="hero">{st.sa.label}</T>
             <T color={colors.white}>
-              {st.month}e mois · {st.trimester}e trimestre
+              {st.month}{tr("e mois ·")} {st.trimester}{tr("e trimestre")}
             </T>
           </View>
           <Ring progress={st.progress} size={96}>
             <T variant="h3" color={colors.white}>{Math.max(0, st.daysLeft)}</T>
-            <T variant="small" color={colors.rose}>jours</T>
+            <T variant="small" color={colors.rose}>{tr("jours")}</T>
           </Ring>
         </Row>
         <T color={colors.white} style={{ marginTop: 8 }}>
-          Terme prévu le {longDate(st.dueDate, { year: true }).toLowerCase()} (41 SA)
+          {tr("Terme prévu le")} {longDate(st.dueDate, { year: true }).toLowerCase()} {tr("(41 SA)")}
         </T>
         <T variant="small" color={colors.rose}>
-          {st.sg.weeks} semaines de grossesse (SG) · calcul basé sur {st.source === 'echographie' ? 'l’échographie' : st.source === 'ddr' ? 'tes dernières règles' : 'la date de début'}
+          {st.sg.weeks} {tr("semaines de grossesse (SG) · calcul basé sur")} {st.source === 'echographie' ? tr("l’échographie") : st.source === 'ddr' ? tr("tes dernières règles") : tr("la date de début")}
         </T>
       </Card>
       <Gap />
       {data.week ? (
         <Card style={{ gap: 8 }}>
-          <Label>Cette semaine</Label>
-          <T variant="h3">Bébé a la taille d’{data.week.size}</T>
+          <Label>{tr("Cette semaine")}</Label>
+          <T variant="h3">{tr("Bébé a la taille d’")}{data.week.size}</T>
           <T>{data.week.baby}</T>
           <Card tone="soft" style={{ padding: 14 }}>
             <T>{data.week.tip}</T>
           </Card>
-          <T variant="small">Contenu relu par une sage-femme.</T>
+          <T variant="small">{tr("Contenu relu par une sage-femme.")}</T>
         </Card>
       ) : null}
       <Gap />
       <Card style={{ gap: 8 }}>
-        <Label>Mes rendez-vous médicaux</Label>
+        <Label>{tr("Mes rendez-vous médicaux")}</Label>
         {data.appointments.length ? (
           data.appointments.map((a) => (
             <View key={a._id}>
@@ -174,15 +175,15 @@ export default function Pregnancy() {
             </View>
           ))
         ) : (
-          <T variant="muted">Note tes échographies et consultations depuis l’onglet Cycle.</T>
+          <T variant="muted">{tr("Note tes échographies et consultations depuis l’onglet Cycle.")}</T>
         )}
-        <Button title="Ajouter dans l’onglet Cycle" variant="ghost" small onPress={() => router.push('/cycle')} />
+        <Button title={tr("Ajouter dans l’onglet Cycle")} variant="ghost" small onPress={() => router.push('/cycle')} />
       </Card>
       <Gap />
-      <Notice title="Jeûne et grossesse">{data.fastingInfo}</Notice>
+      <Notice title={tr("Jeûne et grossesse")}>{data.fastingInfo}</Notice>
       <Gap />
       <Card tone="soft" style={{ gap: 10 }}>
-        <Label color={colors.or}>Invocations</Label>
+        <Label color={colors.or}>{tr("Invocations")}</Label>
         {data.duas.map((d) => (
           <View key={d.source} style={{ gap: 2 }}>
             <T variant="quote" style={{ fontSize: 17 }}>{d.text}</T>
@@ -191,21 +192,21 @@ export default function Pregnancy() {
         ))}
       </Card>
       <Gap />
-      <Button title="Bébé est né / fin de grossesse" variant="outline" onPress={() => setEndOpen(true)} />
-      <Sheet visible={endOpen} onClose={() => setEndOpen(false)} title="Fin de grossesse">
-        <DateField label="Date" value={birth} onChange={setBirth} />
-        <Button title="Bébé est né" onPress={() => end('naissance')} />
+      <Button title={tr("Bébé est né / fin de grossesse")} variant="outline" onPress={() => setEndOpen(true)} />
+      <Sheet visible={endOpen} onClose={() => setEndOpen(false)} title={tr("Fin de grossesse")}>
+        <DateField label={tr("Date")} value={birth} onChange={setBirth} />
+        <Button title={tr("Bébé est né")} onPress={() => end('naissance')} />
         <Button
-          title="J’ai fait une fausse couche"
+          title={tr("J’ai fait une fausse couche")}
           variant="outline"
           onPress={() =>
-            Alert.alert('Fausse couche', 'Nous pensons fort à toi. Confirmer la fin de la grossesse ?', [
-              { text: 'Annuler', style: 'cancel' },
-              { text: 'Confirmer', onPress: () => end('fausse_couche') },
+            Alert.alert(tr("Fausse couche"), tr("Nous pensons fort à toi. Confirmer la fin de la grossesse ?"), [
+              { text: tr("Annuler"), style: 'cancel' },
+              { text: tr("Confirmer"), onPress: () => end('fausse_couche') },
             ])
           }
         />
-        <Button title="Arrêter le suivi de grossesse" variant="ghost" onPress={() => end('arretee')} />
+        <Button title={tr("Arrêter le suivi de grossesse")} variant="ghost" onPress={() => end('arretee')} />
       </Sheet>
       {sheets}
     </Screen>

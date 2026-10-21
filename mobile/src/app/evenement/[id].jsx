@@ -13,7 +13,8 @@ import { longDate } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const STATUS = { en_attente: 'En attente de validation', modification: 'Modification demandée', refuse: 'Refusé', annule: 'Annulé', publie: 'Publié' };
+import { tr } from '../../lib/i18n';
+const STATUS = { en_attente: tr("En attente de validation"), modification: tr("Modification demandée"), refuse: tr("Refusé"), annule: tr("Annulé"), publie: tr("Publié") };
 
 export default function EventScreen() {
   const { id } = useLocalSearchParams();
@@ -21,8 +22,8 @@ export default function EventScreen() {
   const insets = useSafeAreaInsets();
   const { data: e, setData, loading, error, reload } = useApi(`/events/${id}`);
   const [busy, setBusy] = useState(false);
-  if (loading && !e) return <Screen back title="Événement"><Loader /></Screen>;
-  if (error && !e) return <Screen back title="Événement"><ErrorState error={error} onRetry={reload} /></Screen>;
+  if (loading && !e) return <Screen back title={tr("Événement")}><Loader /></Screen>;
+  if (error && !e) return <Screen back title={tr("Événement")}><ErrorState error={error} onRetry={reload} /></Screen>;
 
   const nissali = e.organizerType === 'nissali';
   const price = e.free ? 'Gratuit' : `${String(e.price).replace('.', ',')} €`;
@@ -33,7 +34,7 @@ export default function EventScreen() {
     setBusy(true);
     try {
       setData(await api.post(`/events/${e.id}/register`, {}));
-      toast(e.free ? 'Inscription confirmée, à bientôt !' : e.ticketUrl ? 'Billet ajouté à tes événements' : 'Ta place est réservée');
+      toast(e.free ? tr("Inscription confirmée, à bientôt !") : e.ticketUrl ? tr("Billet ajouté à tes événements") : tr("Ta place est réservée"));
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -44,51 +45,51 @@ export default function EventScreen() {
     const go = async () => {
       try {
         setData(await api.post(`/events/${e.id}/unregister`, {}));
-        toast('Inscription annulée');
+        toast(tr("Inscription annulée"));
       } catch (err) {
         toast(err.message, 'error');
       }
     };
     if (Platform.OS === 'web') return go();
-    Alert.alert('Annuler ton inscription ?', e.cancellationPolicy, [{ text: 'Garder ma place', style: 'cancel' }, { text: 'Annuler', style: 'destructive', onPress: go }]);
+    Alert.alert(tr("Annuler ton inscription ?"), e.cancellationPolicy, [{ text: tr("Garder ma place"), style: 'cancel' }, { text: tr("Annuler"), style: 'destructive', onPress: go }]);
   };
   const ticketHost = e.ticketUrl ? e.ticketUrl.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0] : null;
   // 17 / 18 — la billetterie externe s'ouvre seulement si le lien est sécurisé (https).
   const secureTicket = /^https:\/\/\S+\.\S+/.test(e.ticketUrl || '');
   const openTicket = () => {
-    if (!secureTicket) return toast('Lien de billetterie indisponible', 'error');
+    if (!secureTicket) return toast(tr("Lien de billetterie indisponible"), 'error');
     (Platform.OS === 'web' ? Linking.openURL(e.ticketUrl) : WebBrowser.openBrowserAsync(e.ticketUrl)).catch(() => Linking.openURL(e.ticketUrl));
   };
   const openMap = () => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
 
   return (
-    <Screen back title="Événement" footer={
+    <Screen back title={tr("Événement")} footer={
       e.status === 'publie' && !isOrganizer ? (
         <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View style={{ flex: 1 }}>
             <T variant="bold" style={{ fontSize: 18 }}>{price}</T>
-            <T variant="small">{e.placesLeft ? `${e.placesLeft} place${e.placesLeft > 1 ? 's' : ''} restante${e.placesLeft > 1 ? 's' : ''}` : 'Complet'}</T>
+            <T variant="small">{e.placesLeft ? tr("{0} place{1} restante{2}", [e.placesLeft, e.placesLeft > 1 ? 's' : '', e.placesLeft > 1 ? 's' : '']) : tr("Complet")}</T>
           </View>
           {!e.free && secureTicket ? (
-            <Button title={/billetweb\.fr/i.test(e.ticketUrl || '') ? 'Réserver sur Billetweb' : 'Réserver ma place'} icon="external" onPress={openTicket} />
+            <Button title={/billetweb\.fr/i.test(e.ticketUrl || '') ? tr("Réserver sur Billetweb") : tr("Réserver ma place")} icon="external" onPress={openTicket} />
           ) : e.registered ? (
-            <Button title="Annuler ma place" variant="outline" small onPress={unregister} />
+            <Button title={tr("Annuler ma place")} variant="outline" small onPress={unregister} />
           ) : !e.free ? (
-            <Button title="Billetterie à venir" small variant="soft" disabled />
+            <Button title={tr("Billetterie à venir")} small variant="soft" disabled />
           ) : (
-            <Button title="Je m’inscris" onPress={register} loading={busy} disabled={!e.placesLeft} />
+            <Button title={tr("Je m’inscris")} onPress={register} loading={busy} disabled={!e.placesLeft} />
           )}
         </View>
       ) : null
     }>
       {e.imageUrl ? <Image source={{ uri: assetUrl(e.imageUrl) }} style={s.cover} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
-      <Text style={[s.tag, { color: nissali ? colors.bordeaux : colors.or }]}>{nissali ? 'ORGANISÉ PAR NISSALI' : `PROPOSÉ PAR ${String(e.organizerName).toUpperCase()}`}</Text>
+      <Text style={[s.tag, { color: nissali ? colors.bordeaux : colors.or }]}>{nissali ? tr("ORGANISÉ PAR NISSALI") : tr("PROPOSÉ PAR {0}", [String(e.organizerName).toUpperCase()])}</Text>
       <T variant="h1" style={{ fontSize: 28, lineHeight: 34 }}>{e.title}</T>
       {e.status !== 'publie' ? (
         <Card tone="soft" style={{ marginTop: 12, gap: 4 }}>
           <Label color={colors.or}>{STATUS[e.status]}</Label>
-          {e.moderationNote ? <T>{e.moderationNote}</T> : <T variant="small">Notre équipe vérifie chaque événement avant publication.</T>}
-          {['en_attente', 'modification'].includes(e.status) ? <Button title="Modifier ma proposition" small variant="soft" onPress={() => router.push(`/evenement/proposer?id=${e.id}`)} style={{ marginTop: 8, alignSelf: 'flex-start' }} /> : null}
+          {e.moderationNote ? <T>{e.moderationNote}</T> : <T variant="small">{tr("Notre équipe vérifie chaque événement avant publication.")}</T>}
+          {['en_attente', 'modification'].includes(e.status) ? <Button title={tr("Modifier ma proposition")} small variant="soft" onPress={() => router.push(`/evenement/proposer?id=${e.id}`)} style={{ marginTop: 8, alignSelf: 'flex-start' }} /> : null}
         </Card>
       ) : null}
       <Gap />
@@ -103,20 +104,20 @@ export default function EventScreen() {
         <Row gap={12} align="flex-start">
           <Icon name="pin" size={20} color={colors.bordeaux} />
           <View style={{ flex: 1 }}>
-            <T>{address || 'Lieu communiqué après inscription'}</T>
-            {e.distanceKm != null ? <T variant="small">à {String(e.distanceKm).replace('.', ',')} km de toi</T> : null}
+            <T>{address || tr("Lieu communiqué après inscription")}</T>
+            {e.distanceKm != null ? <T variant="small">à {String(e.distanceKm).replace('.', ',')} {tr("km de toi")}</T> : null}
           </View>
-          {address ? <Button title="Itinéraire" small variant="soft" onPress={openMap} /> : null}
+          {address ? <Button title={tr("Itinéraire")} small variant="soft" onPress={openMap} /> : null}
         </Row>
         <Row gap={12}>
           <Icon name="users" size={20} color={colors.bordeaux} />
-          <T style={{ flex: 1 }}>{e.placesLeft} place{e.placesLeft > 1 ? 's' : ''} restante{e.placesLeft > 1 ? 's' : ''} sur {e.capacity}</T>
+          <T style={{ flex: 1 }}>{e.placesLeft} {tr("place")}{e.placesLeft > 1 ? 's' : ''} {tr("restante")}{e.placesLeft > 1 ? 's' : ''} {tr("sur")} {e.capacity}</T>
         </Row>
         {e.registered ? (
           <Row gap={12}>
             <Icon name="check" size={20} color={colors.success} />
             <T style={{ flex: 1 }} color={colors.success}>
-              {e.registration?.paymentStatus === 'billetterie' ? 'Billet noté dans tes événements' : e.registration?.paymentStatus === 'a_regler' ? 'Place réservée · le règlement se fait selon les indications de l’organisatrice' : 'Tu es inscrite'}
+              {e.registration?.paymentStatus === 'billetterie' ? tr("Billet noté dans tes événements") : e.registration?.paymentStatus === 'a_regler' ? tr("Place réservée · le règlement se fait selon les indications de l’organisatrice") : tr("Tu es inscrite")}
             </T>
           </Row>
         ) : null}
@@ -128,24 +129,24 @@ export default function EventScreen() {
               <Icon name="external" size={20} color={colors.white} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.ticketLabel}>BILLETTERIE EXTERNE</Text>
+              <Text style={s.ticketLabel}>{tr("BILLETTERIE EXTERNE")}</Text>
               {secureTicket ? (
                 <>
                   <T variant="bold" numberOfLines={1}>{ticketHost}</T>
-                  <T variant="small">Billet à {price}. La réservation et le paiement se font sur ce site sécurisé, en dehors de Nissali.</T>
+                  <T variant="small">{tr("Billet à")} {price}{tr(". La réservation et le paiement se font sur ce site sécurisé, en dehors de Nissali.")}</T>
                 </>
               ) : (
                 <>
-                  <T variant="bold">Billetterie à venir</T>
-                  <T variant="small">L’organisatrice n’a pas encore publié son lien de réservation.</T>
+                  <T variant="bold">{tr("Billetterie à venir")}</T>
+                  <T variant="small">{tr("L’organisatrice n’a pas encore publié son lien de réservation.")}</T>
                 </>
               )}
             </View>
           </Row>
-          {!isOrganizer && secureTicket ? <Button title={/billetweb\.fr/i.test(e.ticketUrl || '') ? 'Réserver sur Billetweb' : 'Réserver ma place'} icon="external" onPress={openTicket} /> : null}
+          {!isOrganizer && secureTicket ? <Button title={/billetweb\.fr/i.test(e.ticketUrl || '') ? tr("Réserver sur Billetweb") : tr("Réserver ma place")} icon="external" onPress={openTicket} /> : null}
           {!isOrganizer && e.registered ? (
             <Pressable onPress={unregister} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center' }}>
-              <T variant="small" color={colors.bordeaux}>Retirer de mes événements</T>
+              <T variant="small" color={colors.bordeaux}>{tr("Retirer de mes événements")}</T>
             </Pressable>
           ) : null}
         </View>
@@ -153,28 +154,28 @@ export default function EventScreen() {
       <Gap />
       <PhotoGrid photos={e.photos} title={e.title} />
       {e.photos?.length ? <Gap /> : null}
-      <Label>Description</Label>
+      <Label>{tr("Description")}</Label>
       <T style={{ marginTop: 6 }}>{e.description}</T>
       {e.programme ? (
         <>
           <Gap />
-          <Label>Programme</Label>
+          <Label>{tr("Programme")}</Label>
           <T style={{ marginTop: 6 }}>{e.programme}</T>
         </>
       ) : null}
       <Gap />
       <Card tone="soft" style={{ gap: 6 }}>
-        <Label>Annulation et remboursement</Label>
+        <Label>{tr("Annulation et remboursement")}</Label>
         <T variant="small">{e.cancellationPolicy}</T>
       </Card>
       {isOrganizer && e.registrationsCount != null ? (
         <>
           <Gap />
           <Card style={{ gap: 6 }}>
-            <Label color={colors.or}>Ton événement</Label>
-            <T>{e.registrationsCount} inscrite{e.registrationsCount > 1 ? 's' : ''}</T>
-            {secureTicket ? <T variant="small">Billetterie externe : {ticketHost}</T> : !e.free ? <T variant="small" color={colors.bordeaux}>Ajoute le lien Billetweb pour que les sœurs puissent réserver leur place.</T> : null}
-            {e.commissionRate ? <T variant="small">Commission Nissali : {Math.round(e.commissionRate * 100)} % du prix de chaque billet vendu via Nissali, réglée après l’événement.</T> : null}
+            <Label color={colors.or}>{tr("Ton événement")}</Label>
+            <T>{e.registrationsCount} {tr("inscrite")}{e.registrationsCount > 1 ? 's' : ''}</T>
+            {secureTicket ? <T variant="small">{tr("Billetterie externe :")} {ticketHost}</T> : !e.free ? <T variant="small" color={colors.bordeaux}>{tr("Ajoute le lien Billetweb pour que les sœurs puissent réserver leur place.")}</T> : null}
+            {e.commissionRate ? <T variant="small">{tr("Commission Nissali :")} {Math.round(e.commissionRate * 100)} {tr("% du prix de chaque billet vendu via Nissali, réglée après l’événement.")}</T> : null}
           </Card>
         </>
       ) : null}

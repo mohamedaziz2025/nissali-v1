@@ -105,6 +105,7 @@ router.get('/', async (req, res) => {
   res.json({
     day,
     total: today?.total || 0,
+    dailyGoal: req.user.dhikr?.dailyGoal || 250,
     reachedCount: list.filter((d) => d.reached).length,
     goalsCount: list.length,
     streak,
@@ -195,7 +196,7 @@ router.delete('/custom/:key', async (req, res) => {
 
 router.patch(
   '/settings',
-  validate(z.object({ haptics: z.boolean().optional(), reminder: z.boolean().optional(), reminderTime: z.string().regex(/^\d{2}:\d{2}$/).optional() })),
+  validate(z.object({ haptics: z.boolean().optional(), reminder: z.boolean().optional(), reminderTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), dailyGoal: z.number().int().min(1).max(100000).optional() })),
   async (req, res) => {
     for (const [k, v] of Object.entries(req.body)) req.user.set(`dhikr.${k}`, v);
     await req.user.save();

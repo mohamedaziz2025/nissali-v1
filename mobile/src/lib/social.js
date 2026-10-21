@@ -2,6 +2,7 @@
 // Expo Go : ils sont chargés à la demande et les boutons ne s'affichent que s'ils sont disponibles.
 import { Platform } from 'react-native';
 
+import { tr } from './i18n';
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
@@ -29,7 +30,7 @@ export async function socialSignIn(provider) {
     const A = load('apple');
     try {
       const c = await A.signInAsync({ requestedScopes: [A.AppleAuthenticationScope.FULL_NAME, A.AppleAuthenticationScope.EMAIL] });
-      if (!c.identityToken) throw new Error('Apple n’a pas renvoyé d’identifiant. Réessaie.');
+      if (!c.identityToken) throw new Error(tr("Apple n’a pas renvoyé d’identifiant. Réessaie."));
       // Le prénom n'est donné qu'à la première connexion : il pré-remplit l'écran Prénom (3.2).
       return { provider, idToken: c.identityToken, firstName: c.fullName?.givenName || null };
     } catch (e) {
@@ -44,11 +45,11 @@ export async function socialSignIn(provider) {
     const r = await G.GoogleSignin.signIn();
     if (!G.isSuccessResponse(r)) return null;
     const idToken = r.data.idToken || (await G.GoogleSignin.getTokens()).idToken;
-    if (!idToken) throw new Error('Google n’a pas renvoyé d’identifiant. Réessaie.');
+    if (!idToken) throw new Error(tr("Google n’a pas renvoyé d’identifiant. Réessaie."));
     return { provider, idToken, firstName: r.data.user?.givenName || null };
   } catch (e) {
     if (G.isErrorWithCode?.(e) && e.code === G.statusCodes.SIGN_IN_CANCELLED) return null;
-    if (G.isErrorWithCode?.(e) && e.code === G.statusCodes.PLAY_SERVICES_NOT_AVAILABLE) throw new Error('Les services Google ne sont pas disponibles sur ce téléphone.');
+    if (G.isErrorWithCode?.(e) && e.code === G.statusCodes.PLAY_SERVICES_NOT_AVAILABLE) throw new Error(tr("Les services Google ne sont pas disponibles sur ce téléphone."));
     throw e;
   }
 }

@@ -10,12 +10,13 @@ import { DateField } from './forms';
 import Icon from './Icon';
 import { Button, Chip, Sheet, T, useToast } from './ui';
 
+import { tr } from '../lib/i18n';
 const plural = (n, word = 'jour') => `${n} ${word}${n > 1 ? 's' : ''}`;
-const newRequestId = () => `prior-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const newRequestId = () => tr("prior-{0}-{1}", [Date.now(), Math.random().toString(36).slice(2, 10)]);
 
 function confirmAsync(title, message) {
   if (Platform.OS === 'web') return Promise.resolve(window.confirm(`${title}\n${message}`));
-  return new Promise((resolve) => Alert.alert(title, message, [{ text: 'Annuler', style: 'cancel', onPress: () => resolve(false) }, { text: 'Confirmer', onPress: () => resolve(true) }]));
+  return new Promise((resolve) => Alert.alert(title, message, [{ text: tr("Annuler"), style: 'cancel', onPress: () => resolve(false) }, { text: tr("Confirmer"), onPress: () => resolve(true) }]));
 }
 
 /**
@@ -76,7 +77,7 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
       const body = { hijriYear: year.hijriYear, mode, ...(mode === 'nombre' ? { count } : {}), dates };
       if (entry) await api.patch(`/fasts/prior/${entry.id}`, body);
       else await api.post('/fasts/prior', { ...body, requestId: requestId.current });
-      toast(entry ? 'Ajout corrigé' : `${plural(n)} ajouté${n > 1 ? 's' : ''} à ton historique`);
+      toast(entry ? tr("Ajout corrigé") : tr("{0} ajouté{1} à ton historique", [plural(n), n > 1 ? 's' : '']));
       onSaved?.();
       onClose();
     } catch (e) {
@@ -93,29 +94,29 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
     <Sheet
       visible={visible}
       onClose={onClose}
-      title="Déjà rattrapés"
+      title={tr("Déjà rattrapés")}
       footer={
         <View style={{ gap: 10 }}>
           {!allDone ? <Button title={`Confirmer ${n > 1 ? `ces ${n} jours` : n === 1 ? 'ce jour' : ''}`.trim()} onPress={submit} loading={busy} disabled={busy || n < 1 || over} /> : null}
-          <Button title="Annuler" variant="outline" onPress={onClose} />
-          <T variant="small" style={{ textAlign: 'center' }}>Ces jours seront ajoutés à ton historique.</T>
+          <Button title={tr("Annuler")} variant="outline" onPress={onClose} />
+          <T variant="small" style={{ textAlign: 'center' }}>{tr("Ces jours seront ajoutés à ton historique.")}</T>
         </View>
       }
     >
-      <T variant="muted" style={{ marginTop: -10 }}>Ajoute les jours jeûnés avant d’utiliser Nissali.</T>
+      <T variant="muted" style={{ marginTop: -10 }}>{tr("Ajoute les jours jeûnés avant d’utiliser Nissali.")}</T>
       {years.length > 1 && !entry ? (
         <View style={s.wrap}>
           {years.map((y) => (
-            <Chip key={y} label={`Ramadan ${y}`} selected={y === year.hijriYear} onPress={() => onYear?.(y)} />
+            <Chip key={y} label={tr("Ramadan {0}", [y])} selected={y === year.hijriYear} onPress={() => onYear?.(y)} />
           ))}
         </View>
       ) : (
-        <T variant="bold">Ramadan {year.hijriYear}</T>
+        <T variant="bold">{tr("Ramadan")} {year.hijriYear}</T>
       )}
       {allDone ? (
         <View style={s.done}>
           <Icon name="check" size={20} color={colors.success} strokeWidth={2.6} />
-          <Text style={s.doneText}>Tous tes jours sont rattrapés</Text>
+          <Text style={s.doneText}>{tr("Tous tes jours sont rattrapés")}</Text>
         </View>
       ) : (
         <>
@@ -133,25 +134,25 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
 
           {mode === 'nombre' ? (
             <>
-              <Text style={s.question}>Jours supplémentaires déjà rattrapés</Text>
+              <Text style={s.question}>{tr("Jours supplémentaires déjà rattrapés")}</Text>
               <View style={s.stepper}>
-                <Pressable onPress={() => { setCount((c) => Math.max(1, c - 1)); setError(null); }} disabled={count <= 1} accessibilityRole="button" accessibilityLabel="Un jour de moins" style={[s.stepBtn, count <= 1 && { opacity: 0.4 }]}>
+                <Pressable onPress={() => { setCount((c) => Math.max(1, c - 1)); setError(null); }} disabled={count <= 1} accessibilityRole="button" accessibilityLabel={tr("Un jour de moins")} style={[s.stepBtn, count <= 1 && { opacity: 0.4 }]}>
                   <Text style={s.stepText}>−</Text>
                 </Pressable>
                 <Text style={s.count}>{plural(count)}</Text>
-                <Pressable onPress={() => { setCount((c) => Math.min(available, c + 1)); setError(null); }} disabled={count >= available} accessibilityRole="button" accessibilityLabel="Un jour de plus" style={[s.stepBtn, count >= available && { opacity: 0.4 }]}>
+                <Pressable onPress={() => { setCount((c) => Math.min(available, c + 1)); setError(null); }} disabled={count >= available} accessibilityRole="button" accessibilityLabel={tr("Un jour de plus")} style={[s.stepBtn, count >= available && { opacity: 0.4 }]}>
                   <Text style={s.stepText}>+</Text>
                 </Pressable>
               </View>
               <Pressable onPress={() => setShowDates((v) => !v)} accessibilityRole="button" style={s.optional}>
                 <Icon name="calendar" size={17} color={colors.muted} />
-                <Text style={s.optionalText}>Dates facultatives{dates.length ? ` · ${dates.length}/${count}` : ''}</Text>
-                <Text style={s.link}>{showDates ? 'Masquer' : 'Ajouter des dates'}</Text>
+                <Text style={s.optionalText}>{tr("Dates facultatives")}{dates.length ? ` · ${dates.length}/${count}` : ''}</Text>
+                <Text style={s.link}>{showDates ? tr("Masquer") : tr("Ajouter des dates")}</Text>
                 <Icon name="chevronRight" size={15} color={colors.bordeaux} />
               </Pressable>
             </>
           ) : (
-            <Text style={s.question}>Choisis les dates déjà jeûnées</Text>
+            <Text style={s.question}>{tr("Choisis les dates déjà jeûnées")}</Text>
           )}
 
           {mode === 'dates' || showDates ? (
@@ -163,28 +164,28 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
                   ))}
                 </View>
               ) : null}
-              {mode === 'dates' || dates.length < count ? <DateField key={dates.length} label={null} value={null} placeholder="Ajouter une date" onChange={addDate} /> : null}
+              {mode === 'dates' || dates.length < count ? <DateField key={dates.length} label={null} value={null} placeholder={tr("Ajouter une date")} onChange={addDate} /> : null}
             </>
           ) : null}
 
           <View style={s.balance}>
             <View style={s.balanceCol}>
-              <T variant="small">Solde actuel</T>
+              <T variant="small">{tr("Solde actuel")}</T>
               <Text style={s.balanceValue}>{plural(available)}</Text>
             </View>
             <View style={s.balanceSep} />
             <View style={s.balanceCol}>
-              <T variant="small" color={colors.bordeaux}>Nouveau solde</T>
+              <T variant="small" color={colors.bordeaux}>{tr("Nouveau solde")}</T>
               <Text style={[s.balanceValue, { color: colors.bordeaux, fontSize: 24 }]}>{over ? '—' : plural(Math.max(0, newBalance))}</Text>
             </View>
           </View>
           <T variant="small" style={{ textAlign: 'center', marginTop: -6 }}>
-            {already} déjà enregistré{already > 1 ? 's' : ''} + {n} ajouté{n > 1 ? 's' : ''} = {already + n} rattrapé{already + n > 1 ? 's' : ''} sur {year.missed}.
+            {already} {tr("déjà enregistré")}{already > 1 ? 's' : ''} + {n} {tr("ajouté")}{n > 1 ? 's' : ''} = {already + n} {tr("rattrapé")}{already + n > 1 ? 's' : ''} {tr("sur")} {year.missed}.
           </T>
         </>
       )}
       {error ? <T variant="small" color={colors.danger}>{error}</T> : null}
-      {entry?.createdAt ? <T variant="small">Ajout du {longDate(entry.createdAt.slice(0, 10))}</T> : null}
+      {entry?.createdAt ? <T variant="small">{tr("Ajout du")} {longDate(entry.createdAt.slice(0, 10))}</T> : null}
     </Sheet>
   );
 }

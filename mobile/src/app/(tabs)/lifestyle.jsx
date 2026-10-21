@@ -12,7 +12,8 @@ import { assetUrl } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const REVIEW = { valide_comite: 'validé par le comité', valide_sante: 'relu par une pro de santé' };
+import { tr } from '../../lib/i18n';
+const REVIEW = { valide_comite: tr("validé par le comité"), valide_sante: tr("relu par une pro de santé") };
 const MONTHS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'];
 
 function ArticleRow({ a }) {
@@ -23,7 +24,7 @@ function ArticleRow({ a }) {
         <Label>{a.categoryLabel}</Label>
         <T variant="bold" style={{ fontSize: 16.5, lineHeight: 22 }}>{a.title}</T>
         <T variant="small">
-          {a.readMinutes} min · {(a.reviewer || REVIEW[a.validation] || '').replace(/^Relu/, 'relu').replace(/^Validé/, 'validé')}
+          {a.readMinutes} {tr("min ·")} {(a.reviewer || REVIEW[a.validation] || '').replace(/^Relu/, 'relu').replace(/^Validé/, 'validé')}
         </T>
       </View>
     </Card>
@@ -40,23 +41,23 @@ function Magazine() {
   }, [q]);
   const cats = useApi('/blog/categories');
   const { data, loading, error, offline, reload } = useApi(`/blog?${new URLSearchParams({ ...(debounced ? { q: debounced } : {}), ...(category ? { category } : {}) })}`);
-  const chips = [{ key: '', label: 'Tout' }, ...(cats.data || []).map((c) => ({ key: c.key, label: c.label }))];
+  const chips = [{ key: '', label: tr("Tout") }, ...(cats.data || []).map((c) => ({ key: c.key, label: c.label }))];
   return (
     <>
       <OfflineBanner visible={offline} />
       <Chips items={chips} value={category} onChange={setCategory} scroll />
       <Gap h={12} />
-      <Field value={q} onChangeText={setQ} placeholder="Rechercher un article" icon="search" returnKeyType="search" />
+      <Field value={q} onChangeText={setQ} placeholder={tr("Rechercher un article")} icon="search" returnKeyType="search" />
       <Gap h={16} />
       {loading && !data ? <Loader /> : null}
       {error && !data ? <ErrorState error={error} onRetry={reload} /> : null}
       {data?.featured ? (
         <Card tone="hero" onPress={() => router.push(`/blog/${data.featured.slug}`)} style={{ gap: 10, paddingTop: data.featured.coverUrl ? 12 : 24, paddingBottom: 24, marginBottom: 14 }}>
           {data.featured.coverUrl ? <ArticleImage article={data.featured} variant="cover" radius={18} style={{ marginBottom: 4 }} /> : null}
-          <Label color={colors.rose}>À la une · {data.featured.categoryLabel}</Label>
+          <Label color={colors.rose}>{tr("À la une ·")} {data.featured.categoryLabel}</Label>
           <T variant="h2" color={colors.white} style={{ fontSize: 26, lineHeight: 32 }}>{data.featured.title}</T>
           <T color={colors.rose}>
-            {data.featured.validation === 'valide_comite' ? 'Le guide pas à pas · validé par le comité' : 'Relu par une professionnelle de santé'} · {data.featured.readMinutes} min
+            {data.featured.validation === 'valide_comite' ? tr("Le guide pas à pas · validé par le comité") : tr("Relu par une professionnelle de santé")} · {data.featured.readMinutes} {tr("min")}
           </T>
         </Card>
       ) : null}
@@ -64,14 +65,14 @@ function Magazine() {
         <Card tone="soft" onPress={() => router.push(`/blog/${data.daily.article.slug}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, marginBottom: 14 }}>
           <ArticleImage article={data.daily.article} size={72} />
           <View style={{ flex: 1, gap: 4 }}>
-            <Label color={colors.or}>Article du jour · pour ta phase</Label>
+            <Label color={colors.or}>{tr("Article du jour · pour ta phase")}</Label>
             <T variant="h3">{data.daily.article.title}</T>
           </View>
         </Card>
       ) : null}
       {data?.items?.map((a) => <ArticleRow key={a.id} a={a} />)}
-      {data && !data.items.length && !data.featured ? <T variant="muted">Aucun article ne correspond à ta recherche.</T> : null}
-      <T variant="small" style={{ marginTop: 6 }}>Chaque article santé est relu par une professionnelle de santé ; chaque article religieux est validé par le comité.</T>
+      {data && !data.items.length && !data.featured ? <T variant="muted">{tr("Aucun article ne correspond à ta recherche.")}</T> : null}
+      <T variant="small" style={{ marginTop: 6 }}>{tr("Chaque article santé est relu par une professionnelle de santé ; chaque article religieux est validé par le comité.")}</T>
     </>
   );
 }
@@ -83,13 +84,13 @@ function BrandCard({ b }) {
     (Platform.OS === 'web' ? Linking.openURL(b.websiteUrl) : WebBrowser.openBrowserAsync(b.websiteUrl)).catch(() => Linking.openURL(b.websiteUrl));
   };
   return (
-    <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${b.shopName}, voir le site`} style={({ pressed }) => [s.brandCard, pressed && { opacity: 0.95 }]}>
+    <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={tr("{0}, voir le site", [b.shopName])} style={({ pressed }) => [s.brandCard, pressed && { opacity: 0.95 }]}>
       <EventImage e={{ imageUrl: b.imageUrl }} />
       <View style={s.brandOverlay} />
       <Text style={s.brandName} numberOfLines={1}>{b.shopName}</Text>
       {b.websiteUrl ? (
         <View style={s.brandBtn}>
-          <Text style={s.brandBtnText}>Voir le site</Text>
+          <Text style={s.brandBtnText}>{tr("Voir le site")}</Text>
           <Icon name="external" size={13} color={colors.bordeaux} />
         </View>
       ) : null}
@@ -109,18 +110,18 @@ function NissaPlace() {
   }, [q]);
   const cats = useApi('/nissaplace/categories');
   const { data, loading, error, offline, reload } = useApi(`/nissaplace/brands?${new URLSearchParams({ ...(debounced ? { q: debounced } : {}), ...(category ? { category } : {}) })}`);
-  const chips = [{ key: '', label: 'Tout' }, ...(cats.data?.items || []).map((c) => ({ key: c.key, label: c.label }))];
+  const chips = [{ key: '', label: tr("Tout") }, ...(cats.data?.items || []).map((c) => ({ key: c.key, label: c.label }))];
   return (
     <>
       <OfflineBanner visible={offline} />
       <Card tone="hero" style={{ marginBottom: 14 }}>
         <Row gap={12} align="center">
           <View style={{ flex: 1, gap: 2 }}>
-            <T variant="h3" color={colors.white}>Tu as une marque ?</T>
-            <T variant="small" color={colors.rose}>Rejoins NissaPlace et fais-la découvrir à des milliers de sœurs.</T>
+            <T variant="h3" color={colors.white}>{tr("Tu as une marque ?")}</T>
+            <T variant="small" color={colors.rose}>{tr("Rejoins NissaPlace et fais-la découvrir à des milliers de sœurs.")}</T>
           </View>
           <Pressable onPress={() => router.push('/nissaplace/rejoindre')} accessibilityRole="button" style={s.joinBtn}>
-            <Text style={s.joinBtnText}>Rejoindre</Text>
+            <Text style={s.joinBtnText}>{tr("Rejoindre")}</Text>
             <Icon name="external" size={13} color={colors.bordeaux} />
           </Pressable>
         </Row>
@@ -130,18 +131,18 @@ function NissaPlace() {
           <Icon name="briefcase" size={18} color={colors.bordeaux} />
         </View>
         <View style={{ flex: 1 }}>
-          <T variant="h3">Le shopping se fait sur nissaplace.fr</T>
-          <T variant="small">Découvre les marques ici, puis touche celle qui te plaît : tu seras redirigée vers le site NissaPlace pour acheter.</T>
+          <T variant="h3">{tr("Le shopping se fait sur nissaplace.fr")}</T>
+          <T variant="small">{tr("Découvre les marques ici, puis touche celle qui te plaît : tu seras redirigée vers le site NissaPlace pour acheter.")}</T>
         </View>
       </Card>
-      <Field value={q} onChangeText={setQ} placeholder="Rechercher une marque" icon="search" returnKeyType="search" />
+      <Field value={q} onChangeText={setQ} placeholder={tr("Rechercher une marque")} icon="search" returnKeyType="search" />
       <Gap h={12} />
       <Chips items={chips} value={category} onChange={setCategory} scroll />
       <Gap h={16} />
       {loading && !data ? <Loader /> : null}
       {error && !data ? <ErrorState error={error} onRetry={reload} /> : null}
       {data?.items?.map((b) => <BrandCard key={b.id} b={b} />)}
-      {data && !data.items.length ? <T variant="muted">Aucune marque pour le moment.</T> : null}
+      {data && !data.items.length ? <T variant="muted">{tr("Aucune marque pour le moment.")}</T> : null}
     </>
   );
 }
@@ -180,7 +181,7 @@ function DateBadge({ day, small }) {
   );
 }
 
-const Tag = ({ e }) => <Text style={[s.tag, { color: e.organizerType === 'nissali' ? colors.bordeaux : colors.or }]}>{e.organizerType === 'nissali' ? 'ORGANISÉ PAR NISSALI' : 'PROPOSÉ PAR UNE SŒUR'}</Text>;
+const Tag = ({ e }) => <Text style={[s.tag, { color: e.organizerType === 'nissali' ? colors.bordeaux : colors.or }]}>{e.organizerType === 'nissali' ? tr("ORGANISÉ PAR NISSALI") : tr("PROPOSÉ PAR UNE SŒUR")}</Text>;
 
 /** Événement mis en avant : grande image, date posée dessus, prix, « Réserver sur Billetweb » (maquette 12). */
 function FeaturedEvent({ e }) {
@@ -199,7 +200,7 @@ function FeaturedEvent({ e }) {
           <DateBadge day={e.day} />
         </View>
         <View style={s.pricePill}>
-          <Text style={s.pricePillText}>{e.free ? 'Gratuit' : euros(e.price)}</Text>
+          <Text style={s.pricePillText}>{e.free ? tr("Gratuit") : euros(e.price)}</Text>
         </View>
       </View>
       <View style={{ padding: 16, paddingBottom: 12, gap: 6 }}>
@@ -209,7 +210,7 @@ function FeaturedEvent({ e }) {
           <Icon name="pin" size={13} color={colors.muted} />
           <T variant="small" numberOfLines={1} style={{ flexShrink: 1 }}>{placeText(e)}</T>
         </Row>
-        {e.registered ? <T variant="small" color={colors.success}>✓ Tu es inscrite</T> : null}
+        {e.registered ? <T variant="small" color={colors.success}>{tr("✓ Tu es inscrite")}</T> : null}
       </View>
       </Pressable>
       <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
@@ -240,21 +241,21 @@ export function EventCard({ e }) {
         <Row justify="space-between" gap={8}>
           <Row gap={4} style={{ flexShrink: 1 }}>
             <Icon name="pin" size={12} color={colors.muted} />
-            <T variant="small" numberOfLines={1} style={{ flexShrink: 1 }}>{e.location?.city || 'En ligne'}{e.distanceKm != null ? ` · ${String(e.distanceKm).replace('.', ',')} km` : ''}</T>
+            <T variant="small" numberOfLines={1} style={{ flexShrink: 1 }}>{e.location?.city || tr("En ligne")}{e.distanceKm != null ? tr(" · {0} km", [String(e.distanceKm).replace('.', ',')]) : ''}</T>
           </Row>
-          <Text style={s.rowPrice}>{e.free ? 'Gratuit' : euros(e.price)}</Text>
+          <Text style={s.rowPrice}>{e.free ? tr("Gratuit") : euros(e.price)}</Text>
         </Row>
-        {e.registered ? <T variant="small" color={colors.success}>✓ Tu es inscrite</T> : e.placesLeft <= 5 ? <T variant="small" color={colors.bordeaux}>{e.placesLeft ? `Plus que ${e.placesLeft} place${e.placesLeft > 1 ? 's' : ''}` : 'Complet'}</T> : null}
+        {e.registered ? <T variant="small" color={colors.success}>{tr("✓ Tu es inscrite")}</T> : e.placesLeft <= 5 ? <T variant="small" color={colors.bordeaux}>{e.placesLeft ? tr("Plus que {0} place{1}", [e.placesLeft, e.placesLeft > 1 ? 's' : '']) : tr("Complet")}</T> : null}
       </View>
     </Pressable>
   );
 }
 
 const FILTERS = [
-  { key: 'proche', label: 'Près de moi' },
-  { key: 'mois', label: 'Ce mois-ci' },
-  { key: 'gratuit', label: 'Gratuit' },
-  { key: 'payant', label: 'Payant' },
+  { key: 'proche', label: tr("Près de moi") },
+  { key: 'mois', label: tr("Ce mois-ci") },
+  { key: 'gratuit', label: tr("Gratuit") },
+  { key: 'payant', label: tr("Payant") },
 ];
 
 function Events() {
@@ -276,8 +277,8 @@ function Events() {
       {data && !data.items.length ? (
         <Card tone="soft" style={{ alignItems: 'center', gap: 6, paddingVertical: 24, marginBottom: 12 }}>
           <Icon name="calendar" size={26} color={colors.bordeaux} />
-          <T variant="bold">Aucun événement pour le moment</T>
-          <T variant="small" style={{ textAlign: 'center' }}>Reviens bientôt, ou propose le tien.</T>
+          <T variant="bold">{tr("Aucun événement pour le moment")}</T>
+          <T variant="small" style={{ textAlign: 'center' }}>{tr("Reviens bientôt, ou propose le tien.")}</T>
         </Card>
       ) : null}
       <Card tone="soft" style={{ gap: 12 }}>
@@ -286,15 +287,15 @@ function Events() {
             <Icon name="plus" size={18} color={colors.bordeaux} />
           </View>
           <View style={{ flex: 1 }}>
-            <T variant="h3">Tu organises un événement ?</T>
-            <T variant="small">Ajoute une image et, s’il est payant, ton lien Billetweb. Notre équipe le vérifie avant publication.</T>
+            <T variant="h3">{tr("Tu organises un événement ?")}</T>
+            <T variant="small">{tr("Ajoute une image et, s’il est payant, ton lien Billetweb. Notre équipe le vérifie avant publication.")}</T>
           </View>
         </Row>
         <Pressable onPress={() => router.push('/evenement/proposer')} accessibilityRole="button" style={s.cta}>
-          <Text style={s.ctaText}>Proposer un événement</Text>
+          <Text style={s.ctaText}>{tr("Proposer un événement")}</Text>
         </Pressable>
         <Pressable onPress={() => router.push('/evenement/mes-evenements')} accessibilityRole="link" style={{ alignSelf: 'center' }} hitSlop={8}>
-          <T variant="medium" color={colors.bordeaux}>Mes inscriptions et propositions →</T>
+          <T variant="medium" color={colors.bordeaux}>{tr("Mes inscriptions et propositions →")}</T>
         </Pressable>
       </Card>
     </>
@@ -310,12 +311,12 @@ export default function Lifestyle() {
     if (LIFESTYLE_TABS.includes(params.tab)) setTab(params.tab);
   }, [params.tab]);
   return (
-    <Screen title="Lifestyle" top={<BrandBar />}>
+    <Screen title={tr("Lifestyle")} top={<BrandBar />}>
       <Segmented
         items={[
-          { key: 'evenements', label: 'Événements' },
-          { key: 'nissaplace', label: 'NissaPlace' },
-          { key: 'magazine', label: 'Magazine' },
+          { key: 'evenements', label: tr("Événements") },
+          { key: 'nissaplace', label: tr("NissaPlace") },
+          { key: 'magazine', label: tr("Magazine") },
         ]}
         value={tab}
         onChange={setTab}

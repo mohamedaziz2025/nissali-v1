@@ -1,21 +1,22 @@
-// Écran de démarrage animé : l'arche du monogramme se dessine, puis le point se pose à l'intérieur.
+// Écran de démarrage animé : l'arche du symbole se dessine, puis la ligne centrale monte depuis le bas.
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-// Monogramme (viewBox 1024) : deux jambages de 260 + demi-cercle de rayon 220.
-const ARCH = 'M292 772 V512 a220 220 0 0 1 440 0 V772';
-const ARCH_LENGTH = 260 * 2 + Math.PI * 220;
+// Symbole (viewBox 100) : deux jambages de 22,5 + demi-cercle de rayon 20, ligne centrale de 19,5.
+const ARCH = 'M30 71.5V49a20 20 0 0 1 40 0v22.5';
+const ARCH_LENGTH = 22.5 * 2 + Math.PI * 20;
+const LINE = 'M50 71.5V52';
+const LINE_LENGTH = 19.5;
 const SIZE = 168;
 
 export default function AnimatedSplash({ onDone }) {
   const draw = useRef(new Animated.Value(0)).current;
-  const drop = useRef(new Animated.Value(0)).current;
-  const dotSize = useRef(new Animated.Value(0)).current;
+  const line = useRef(new Animated.Value(0)).current;
   const text = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(1)).current;
 
@@ -28,8 +29,7 @@ export default function AnimatedSplash({ onDone }) {
         if (cancelled) return;
         if (reduce) {
           draw.setValue(1);
-          drop.setValue(1);
-          dotSize.setValue(1);
+          line.setValue(1);
           text.setValue(1);
           Animated.timing(fade, { toValue: 0, duration: 300, delay: 500, useNativeDriver: true }).start(finish);
           return;
@@ -37,10 +37,9 @@ export default function AnimatedSplash({ onDone }) {
         Animated.sequence([
           // 1. L'arche se dessine
           Animated.timing(draw, { toValue: 1, duration: 1000, easing: Easing.bezier(0.65, 0, 0.35, 1), useNativeDriver: false }),
-          // 2. Le point tombe dans l'arche et rebondit légèrement ; 3. le nom apparaît pendant ce temps
+          // 2. La ligne centrale monte depuis le bas ; 3. le nom apparaît pendant ce temps
           Animated.parallel([
-            Animated.timing(dotSize, { toValue: 1, duration: 160, useNativeDriver: false }),
-            Animated.spring(drop, { toValue: 1, friction: 4.5, tension: 70, restDisplacementThreshold: 0.01, restSpeedThreshold: 0.05, useNativeDriver: false }),
+            Animated.timing(line, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
             Animated.sequence([Animated.delay(220), Animated.timing(text, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true })]),
           ]),
           Animated.delay(380),
@@ -51,31 +50,34 @@ export default function AnimatedSplash({ onDone }) {
     return () => {
       cancelled = true;
     };
-  }, [draw, drop, dotSize, text, fade, onDone]);
+  }, [draw, line, text, fade, onDone]);
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, s.wrap, { opacity: fade }]} accessibilityLabel="Nissali" accessible>
+    <Animated.View style={[StyleSheet.absoluteFill, s.wrap, { opacity: fade }]} accessibilityLabel={tr("Nissali")} accessible>
       <View style={{ width: SIZE, height: SIZE }}>
-        <Svg width={SIZE} height={SIZE} viewBox="0 0 1024 1024">
+        <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
           <AnimatedPath
             d={ARCH}
             fill="none"
             stroke={colors.bordeaux}
-            strokeWidth={96}
+            strokeWidth={8.5}
             strokeLinecap="round"
             strokeDasharray={`${ARCH_LENGTH} ${ARCH_LENGTH}`}
             strokeDashoffset={draw.interpolate({ inputRange: [0, 1], outputRange: [ARCH_LENGTH, 0] })}
           />
-          <AnimatedCircle
-            cx={512}
-            cy={drop.interpolate({ inputRange: [0, 1], outputRange: [180, 520] })}
-            r={dotSize.interpolate({ inputRange: [0, 1], outputRange: [0, 64] })}
-            fill={colors.bordeaux}
+          <AnimatedPath
+            d={LINE}
+            stroke={colors.bordeaux}
+            strokeWidth={8.5}
+            strokeLinecap="round"
+            strokeOpacity={line.interpolate({ inputRange: [0, 0.05, 1], outputRange: [0, 1, 1] })}
+            strokeDasharray={`${LINE_LENGTH} ${LINE_LENGTH}`}
+            strokeDashoffset={line.interpolate({ inputRange: [0, 1], outputRange: [LINE_LENGTH, 0] })}
           />
         </Svg>
       </View>
-      <Animated.Text style={[s.brand, { opacity: text, transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>Nissali</Animated.Text>
-      <Animated.Text style={[s.tagline, { opacity: text }]}>Ton cycle, ta foi, ta santé.</Animated.Text>
+      <Animated.Text style={[s.brand, { opacity: text, transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{tr("nissali")}</Animated.Text>
+      <Animated.Text style={[s.tagline, { opacity: text }]}>{tr("Ton cycle, ta foi, ta santé.")}</Animated.Text>
     </Animated.View>
   );
 }

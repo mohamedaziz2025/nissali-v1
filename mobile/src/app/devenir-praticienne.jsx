@@ -14,10 +14,11 @@ import { api, assetUrl, request, uploadImage } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 const DOCS = [
-  { kind: 'identity', label: 'Pièce d’identité', required: true, hint: 'Carte d’identité, passeport ou titre de séjour' },
-  { kind: 'diploma', label: 'Diplôme ou certificat', hint: 'Facultatif : vérifié, il t’apporte le badge « Diplômée »' },
-  { kind: 'rcPro', label: 'Assurance RC Pro', hint: 'Facultatif' },
+  { kind: 'identity', label: tr("Pièce d’identité"), required: true, hint: tr("Carte d’identité, passeport ou titre de séjour") },
+  { kind: 'diploma', label: tr("Diplôme ou certificat"), hint: tr("Facultatif : vérifié, il t’apporte le badge « Diplômée »") },
+  { kind: 'rcPro', label: tr("Assurance RC Pro"), hint: tr("Facultatif") },
 ];
 
 async function uploadDoc(kind, asset) {
@@ -67,7 +68,7 @@ export default function BecomePractitioner() {
     setBusy(true);
     try {
       await saveDraft(step, true);
-      toast('Brouillon enregistré : tu pourras terminer depuis ton profil');
+      toast(tr("Brouillon enregistré : tu pourras terminer depuis ton profil"));
       leave();
     } catch (e) {
       setError(e.message);
@@ -113,12 +114,12 @@ export default function BecomePractitioner() {
     const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/jpeg', 'image/png'], copyToCacheDirectory: true });
     if (r.canceled) return;
     const a = r.assets[0];
-    if (a.size && a.size > 10 * 1024 * 1024) return toast('10 Mo maximum', 'error');
+    if (a.size && a.size > 10 * 1024 * 1024) return toast(tr("10 Mo maximum"), 'error');
     setUploading(kind);
     try {
       const meta = await uploadDoc(kind, a);
       setDocs((x) => ({ ...x, [kind]: meta }));
-      toast('Document ajouté');
+      toast(tr("Document ajouté"));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -127,7 +128,7 @@ export default function BecomePractitioner() {
   };
   const takePhoto = async (kind) => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return toast('Autorise l’appareil photo dans les réglages', 'error');
+    if (!perm.granted) return toast(tr("Autorise l’appareil photo dans les réglages"), 'error');
     const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, exif: false });
     if (r.canceled) return;
     const a = r.assets[0];
@@ -135,7 +136,7 @@ export default function BecomePractitioner() {
     try {
       const meta = await uploadDoc(kind, { uri: a.uri, name: 'photo.jpg', mimeType: 'image/jpeg' });
       setDocs((x) => ({ ...x, [kind]: meta }));
-      toast('Document ajouté');
+      toast(tr("Document ajouté"));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -155,7 +156,7 @@ export default function BecomePractitioner() {
 
   if (sent) {
     return (
-      <SignupShell section="Profil praticienne" index={4} count={4} title="Dossier envoyé" subtitle="Merci ! L’équipe vérifie ta pièce d’identité sous 48 h." onNext={leave} nextLabel={fromSignup ? 'Continuer mon inscription' : 'Retour à mon profil'}>
+      <SignupShell section="Profil praticienne" index={4} count={4} title={tr("Dossier envoyé")} subtitle={tr("Merci ! L’équipe vérifie ta pièce d’identité sous 48 h.")} onNext={leave} nextLabel={fromSignup ? tr("Continuer mon inscription") : tr("Retour à mon profil")}>
         {[
           ['check', 'Profil rempli', true],
           ['clock', 'Vérification (48 h)', false],
@@ -168,16 +169,16 @@ export default function BecomePractitioner() {
             <Text style={[s.timelineText, i === 1 && { color: colors.bordeaux }]}>{label}</Text>
           </View>
         ))}
-        <T variant="small">Tu recevras une notification et un e-mail au résultat. Ta fiche ne montre jamais tes données personnelles (cycle, notes, prières).</T>
+        <T variant="small">{tr("Tu recevras une notification et un e-mail au résultat. Ta fiche ne montre jamais tes données personnelles (cycle, notes, prières).")}</T>
       </SignupShell>
     );
   }
 
   const titles = {
-    1: ['Ton métier', 'Liste des métiers proposés dans Nissali (aucun métier médical).'],
-    2: ['Ta présentation', 'Ce que les sœurs verront sur ta fiche.'],
-    3: ['Tes justificatifs', 'Chiffrés et vus seulement par l’équipe Nissali.'],
-    4: ['Aperçu', 'Ta fiche telle que les sœurs la verront.'],
+    1: [tr("Ton métier"), tr("Liste des métiers proposés dans Nissali (aucun métier médical).")],
+    2: [tr("Ta présentation"), tr("Ce que les sœurs verront sur ta fiche.")],
+    3: [tr("Tes justificatifs"), tr("Chiffrés et vus seulement par l’équipe Nissali.")],
+    4: [tr("Aperçu"), tr("Ta fiche telle que les sœurs la verront.")],
   }[step];
 
   const content = {
@@ -188,45 +189,45 @@ export default function BecomePractitioner() {
             <Chip key={c.key} label={c.label} selected={d.specialty === c.key} onPress={() => set('specialty')(c.key)} />
           ))}
         </View>
-        {d.specialty === 'autre' ? <Field label="Ton métier" value={d.otherSpecialty} onChangeText={(v) => set('otherSpecialty')(v.slice(0, 40))} placeholder="3 à 40 caractères" hint="Masqué sur ta fiche jusqu’à validation par l’équipe" /> : null}
-        <T variant="fieldLabel">Où reçois-tu ?</T>
+        {d.specialty === 'autre' ? <Field label={tr("Ton métier")} value={d.otherSpecialty} onChangeText={(v) => set('otherSpecialty')(v.slice(0, 40))} placeholder={tr("3 à 40 caractères")} hint={tr("Masqué sur ta fiche jusqu’à validation par l’équipe")} /> : null}
+        <T variant="fieldLabel">{tr("Où reçois-tu ?")}</T>
         <View style={s.chips}>
           {[['visio', 'En visio'], ['domicile', 'À domicile'], ['cabinet', 'En cabinet']].map(([k, l]) => (
             <Chip key={k} label={l} selected={d.places[k]} onPress={() => setD((x) => ({ ...x, places: { ...x.places, [k]: !x.places[k] } }))} />
           ))}
         </View>
-        {d.places.cabinet ? <Field label="Adresse du cabinet" value={d.address} onChangeText={set('address')} placeholder="Jamais affichée : seule la ville l’est" /> : null}
-        <Field label="Ville" value={d.city} onChangeText={set('city')} placeholder="Ta ville d’exercice" />
+        {d.places.cabinet ? <Field label={tr("Adresse du cabinet")} value={d.address} onChangeText={set('address')} placeholder={tr("Jamais affichée : seule la ville l’est")} /> : null}
+        <Field label={tr("Ville")} value={d.city} onChangeText={set('city')} placeholder={tr("Ta ville d’exercice")} />
       </>
     ),
     2: (
       <>
         <View style={s.photoRow}>
-          <Pressable onPress={pickPhoto} accessibilityRole="button" accessibilityLabel="Ajouter une photo ou un logo" style={s.photo}>
+          <Pressable onPress={pickPhoto} accessibilityRole="button" accessibilityLabel={tr("Ajouter une photo ou un logo")} style={s.photo}>
             {d.photoUrl ? <Image source={{ uri: assetUrl(d.photoUrl) }} style={s.photoImg} /> : <Text style={s.photoInitials}>{(info.firstName || '?')[0]}{d.lastName ? d.lastName[0].toUpperCase() : ''}</Text>}
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={s.photoTitle}>Photo ou logo</Text>
-            <T variant="small">Facultatif : sinon tes initiales.</T>
+            <Text style={s.photoTitle}>{tr("Photo ou logo")}</Text>
+            <T variant="small">{tr("Facultatif : sinon tes initiales.")}</T>
           </View>
         </View>
-        <Field label="Ton nom" value={d.lastName} onChangeText={set('lastName')} placeholder="Seule l’initiale est affichée" hint={`Nom affiché : ${name}`} />
+        <Field label={tr("Ton nom")} value={d.lastName} onChangeText={set('lastName')} placeholder={tr("Seule l’initiale est affichée")} hint={tr("Nom affiché : {0}", [name])} />
         <View style={{ gap: 6 }}>
-          <T variant="fieldLabel">Présentation</T>
-          <TextInput value={d.description} onChangeText={(v) => set('description')(v.slice(0, 600))} multiline placeholder="Ton approche, ton parcours, ce que tu proposes…" placeholderTextColor={colors.muted} style={s.area} accessibilityLabel="Présentation" />
-          <Text style={[s.counter, (desc.length < 50 || desc.length > 600) && { color: colors.danger }]}>{desc.length} / 600 · 50 minimum</Text>
+          <T variant="fieldLabel">{tr("Présentation")}</T>
+          <TextInput value={d.description} onChangeText={(v) => set('description')(v.slice(0, 600))} multiline placeholder={tr("Ton approche, ton parcours, ce que tu proposes…")} placeholderTextColor={colors.muted} style={s.area} accessibilityLabel={tr("Présentation")} />
+          <Text style={[s.counter, (desc.length < 50 || desc.length > 600) && { color: colors.danger }]}>{desc.length} {tr("/ 600 · 50 minimum")}</Text>
         </View>
-        <T variant="fieldLabel">Ton premier tarif</T>
-        <Field value={d.service.name} onChangeText={(v) => setD((x) => ({ ...x, service: { ...x.service, name: v } }))} placeholder="Intitulé (ex. Première consultation)" />
+        <T variant="fieldLabel">{tr("Ton premier tarif")}</T>
+        <Field value={d.service.name} onChangeText={(v) => setD((x) => ({ ...x, service: { ...x.service, name: v } }))} placeholder={tr("Intitulé (ex. Première consultation)")} />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field label="Durée (min)" value={String(d.service.durationMinutes || '')} onChangeText={(v) => setD((x) => ({ ...x, service: { ...x.service, durationMinutes: Number(v.replace(/\D/g, '').slice(0, 3)) || 0 } }))} keyboardType="number-pad" />
+            <Field label={tr("Durée (min)")} value={String(d.service.durationMinutes || '')} onChangeText={(v) => setD((x) => ({ ...x, service: { ...x.service, durationMinutes: Number(v.replace(/\D/g, '').slice(0, 3)) || 0 } }))} keyboardType="number-pad" />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Prix (€)" value={String(d.service.price)} onChangeText={(v) => setD((x) => ({ ...x, service: { ...x.service, price: v.replace(/[^\d]/g, '').slice(0, 5) } }))} keyboardType="number-pad" hint={d.service.price !== '' ? `Affiché « dès ${price} € »` : null} />
+            <Field label={tr("Prix (€)")} value={String(d.service.price)} onChangeText={(v) => setD((x) => ({ ...x, service: { ...x.service, price: v.replace(/[^\d]/g, '').slice(0, 5) } }))} keyboardType="number-pad" hint={d.service.price !== '' ? tr("Affiché « dès {0} € »", [price]) : null} />
           </View>
         </View>
-        <Toggle label="Afficher mon téléphone" hint={info.phone ? `${info.phone} · la messagerie reste toujours ouverte` : 'Ajoute un numéro dans ton profil'} value={d.showPhone} onChange={set('showPhone')} />
+        <Toggle label={tr("Afficher mon téléphone")} hint={info.phone ? tr("{0} · la messagerie reste toujours ouverte", [info.phone]) : tr("Ajoute un numéro dans ton profil")} value={d.showPhone} onChange={set('showPhone')} />
       </>
     ),
     3: (
@@ -236,7 +237,7 @@ export default function BecomePractitioner() {
             <View style={{ flex: 1 }}>
               <Text style={s.docTitle}>
                 {doc.label}
-                {doc.required ? <Text style={{ color: colors.bordeaux }}> · obligatoire</Text> : null}
+                {doc.required ? <Text style={{ color: colors.bordeaux }}> {tr("· obligatoire")}</Text> : null}
               </Text>
               <Text style={s.docHint} numberOfLines={2}>{docs[doc.kind] ? `✓ ${docs[doc.kind].name}` : doc.hint}</Text>
             </View>
@@ -245,22 +246,22 @@ export default function BecomePractitioner() {
             ) : (
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {Platform.OS !== 'web' ? (
-                  <Pressable onPress={() => takePhoto(doc.kind)} accessibilityRole="button" accessibilityLabel={`Photographier : ${doc.label}`} style={s.docBtn}>
+                  <Pressable onPress={() => takePhoto(doc.kind)} accessibilityRole="button" accessibilityLabel={tr("Photographier : {0}", [doc.label])} style={s.docBtn}>
                     <Icon name="eye" size={16} color={colors.bordeaux} />
                   </Pressable>
                 ) : null}
-                <Pressable onPress={() => pickDoc(doc.kind)} accessibilityRole="button" accessibilityLabel={`Choisir un fichier : ${doc.label}`} style={s.docBtn}>
+                <Pressable onPress={() => pickDoc(doc.kind)} accessibilityRole="button" accessibilityLabel={tr("Choisir un fichier : {0}", [doc.label])} style={s.docBtn}>
                   <Icon name={docs[doc.kind] ? 'edit' : 'plus'} size={16} color={colors.bordeaux} />
                 </Pressable>
               </View>
             )}
           </View>
         ))}
-        <T variant="small">PDF, JPG ou PNG, 10 Mo maximum.</T>
-        {cat?.requiresRpps ? <Field label="Numéro RPPS" value={d.rpps} onChangeText={(v) => set('rpps')(v.replace(/\D/g, '').slice(0, 11))} keyboardType="number-pad" placeholder="11 chiffres" hint="Obligatoire : diététicienne est un titre protégé" /> : null}
+        <T variant="small">{tr("PDF, JPG ou PNG, 10 Mo maximum.")}</T>
+        {cat?.requiresRpps ? <Field label={tr("Numéro RPPS")} value={d.rpps} onChangeText={(v) => set('rpps')(v.replace(/\D/g, '').slice(0, 11))} keyboardType="number-pad" placeholder={tr("11 chiffres")} hint={tr("Obligatoire : diététicienne est un titre protégé")} /> : null}
         {cat?.requiresSterile ? (
           <Checkbox checked={d.sterile} onChange={set('sterile')}>
-            <T>J’utilise du matériel stérile à usage unique et j’informe sur les contre-indications. <T variant="small">(obligatoire)</T></T>
+            <T>{tr("J’utilise du matériel stérile à usage unique et j’informe sur les contre-indications.")} <T variant="small">{tr("(obligatoire)")}</T></T>
           </Checkbox>
         ) : null}
       </>
@@ -271,17 +272,17 @@ export default function BecomePractitioner() {
           <View style={s.previewPhoto}>{d.photoUrl ? <Image source={{ uri: assetUrl(d.photoUrl) }} style={s.photoImg} /> : <Text style={s.photoInitials}>{(info.firstName || '?')[0]}{d.lastName ? d.lastName[0].toUpperCase() : ''}</Text>}</View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={s.previewName}>{name}</Text>
-            <Text style={s.previewMeta}>{d.specialty === 'autre' ? 'Praticienne' : cat?.label} · {d.city}</Text>
-            <Text style={s.previewMeta}>Nouvelle sur Nissali</Text>
+            <Text style={s.previewMeta}>{d.specialty === 'autre' ? tr("Praticienne") : cat?.label} · {d.city}</Text>
+            <Text style={s.previewMeta}>{tr("Nouvelle sur Nissali")}</Text>
             <View style={s.tags}>
-              {d.places.cabinet ? <Text style={s.tag}>Cabinet</Text> : null}
-              {d.places.visio ? <Text style={s.tag}>Visio</Text> : null}
-              {d.places.domicile ? <Text style={s.tag}>Domicile</Text> : null}
+              {d.places.cabinet ? <Text style={s.tag}>{tr("Cabinet")}</Text> : null}
+              {d.places.visio ? <Text style={s.tag}>{tr("Visio")}</Text> : null}
+              {d.places.domicile ? <Text style={s.tag}>{tr("Domicile")}</Text> : null}
             </View>
           </View>
-          <Text style={s.previewPrice}>dès {price} €</Text>
+          <Text style={s.previewPrice}>{tr("dès")} {price} €</Text>
         </View>
-        {cat?.disclaimer ? <T variant="small">Mention ajoutée sur ta fiche : « {cat.disclaimer} ».</T> : null}
+        {cat?.disclaimer ? <T variant="small">{tr("Mention ajoutée sur ta fiche : «")} {cat.disclaimer} ».</T> : null}
         {[
           [1, 'Métier, lieux et ville', `${d.specialty === 'autre' ? d.otherSpecialty : cat?.label} · ${d.city}`],
           [2, 'Présentation et tarif', `${d.service.name} · ${d.service.durationMinutes} min · ${price} €`],
@@ -292,12 +293,12 @@ export default function BecomePractitioner() {
               <Text style={s.docTitle}>{label}</Text>
               <Text style={s.docHint} numberOfLines={1}>{value}</Text>
             </View>
-            <Text style={s.link}>Modifier</Text>
+            <Text style={s.link}>{tr("Modifier")}</Text>
           </Pressable>
         ))}
         <Checkbox checked={d.charter} onChange={set('charter')}>
           <T>
-            J’accepte la <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=charte')}>charte des praticiennes Nissali</T>.
+            {tr("J’accepte la")} <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=charte')}>{tr("charte des praticiennes Nissali")}</T>.
           </T>
         </Checkbox>
       </>
@@ -313,13 +314,13 @@ export default function BecomePractitioner() {
       subtitle={titles[1]}
       onBack={step > 1 ? () => setStep(step - 1) : () => (router.canGoBack() ? router.back() : leave())}
       onNext={next}
-      nextLabel={step === 4 ? 'Envoyer pour vérification' : 'Continuer'}
+      nextLabel={step === 4 ? tr("Envoyer pour vérification") : tr("Continuer")}
       canNext={valid}
       busy={busy}
       error={error}
       secondary={
         <Pressable onPress={later} disabled={busy} accessibilityRole="button" style={s.later}>
-          <Text style={s.laterText}>Plus tard</Text>
+          <Text style={s.laterText}>{tr("Plus tard")}</Text>
         </Pressable>
       }
     >

@@ -1,4 +1,5 @@
 // Identité visuelle Nissali — fiche technique du design (cahier V4.1, partie 4.11).
+import { language, tr } from './lib/i18n';
 export const colors = {
   bordeaux: '#7A1E35', // boutons, blocs forts, actif, prochaine prière, compteur de dhikr
   prune: '#2A1218', // encre : textes, puces choisies
@@ -27,18 +28,36 @@ export const colors = {
   danger: '#B3261E', // suppression uniquement
 };
 
-// Plus Jakarta Sans partout ; Fraunces seulement pour le mot « Nissali » du logo ; Amiri pour l'arabe.
+// Plus Jakarta Sans partout ; Poppins SemiBold seulement pour le mot « nissali » du logo ; Amiri pour l'arabe.
+// En arabe, l'interface passe en Cairo (la police latine n'a pas de glyphes arabes) : le logo reste en Poppins
+// et les textes religieux en Amiri, dans tous les cas.
+const UI = language === 'ar'
+  ? {
+      display: 'Cairo_800ExtraBold',
+      title: 'Cairo_800ExtraBold',
+      titleSemi: 'Cairo_700Bold',
+      italic: 'Cairo_500Medium',
+      body: 'Cairo_400Regular',
+      medium: 'Cairo_500Medium',
+      semi: 'Cairo_600SemiBold',
+      bold: 'Cairo_700Bold',
+      extra: 'Cairo_800ExtraBold',
+    }
+  : {
+      display: 'PlusJakartaSans_800ExtraBold',
+      title: 'PlusJakartaSans_800ExtraBold',
+      titleSemi: 'PlusJakartaSans_700Bold',
+      italic: 'PlusJakartaSans_500Medium_Italic',
+      body: 'PlusJakartaSans_400Regular',
+      medium: 'PlusJakartaSans_500Medium',
+      semi: 'PlusJakartaSans_600SemiBold',
+      bold: 'PlusJakartaSans_700Bold',
+      extra: 'PlusJakartaSans_800ExtraBold',
+    };
+
 export const fonts = {
-  display: 'PlusJakartaSans_800ExtraBold',
-  title: 'PlusJakartaSans_800ExtraBold',
-  titleSemi: 'PlusJakartaSans_700Bold',
-  italic: 'PlusJakartaSans_500Medium_Italic',
-  body: 'PlusJakartaSans_400Regular',
-  medium: 'PlusJakartaSans_500Medium',
-  semi: 'PlusJakartaSans_600SemiBold',
-  bold: 'PlusJakartaSans_700Bold',
-  extra: 'PlusJakartaSans_800ExtraBold',
-  logo: 'Fraunces_600SemiBold',
+  ...UI,
+  logo: 'Poppins_600SemiBold',
   arabic: 'Amiri_700Bold',
 };
 
@@ -48,44 +67,44 @@ export const tnum = { fontVariant: ['tabular-nums'] };
 export const radius = { hero: 28, card: 24, md: 16, sm: 8, sheet: 32, pill: 999 };
 export const space = { gutter: 18, gap: 16 };
 
-export const PRAYER_LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+export const PRAYER_LABELS = { fajr: tr("Fajr"), dhuhr: tr("Dhuhr"), asr: tr("Asr"), maghrib: tr("Maghrib"), isha: tr("Isha") };
 export const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export const MOODS = [
-  { key: 'sereine', label: 'Sereine' },
-  { key: 'bien', label: 'Bien' },
-  { key: 'fatiguee', label: 'Fatiguée' },
-  { key: 'irritable', label: 'Irritable' },
-  { key: 'triste', label: 'Triste' },
+  { key: 'sereine', label: tr("Sereine") },
+  { key: 'bien', label: tr("Bien") },
+  { key: 'fatiguee', label: tr("Fatiguée") },
+  { key: 'irritable', label: tr("Irritable") },
+  { key: 'triste', label: tr("Triste") },
 ];
 
 export const SYMPTOMS = {
-  crampes: 'Crampes',
-  fatigue: 'Fatigue',
-  migraine: 'Migraine',
-  ballonnements: 'Ballonnements',
-  douleurs_dos: 'Mal de dos',
-  seins_sensibles: 'Seins sensibles',
-  acne: 'Acné',
-  nausees: 'Nausées',
-  fringales: 'Fringales',
-  insomnie: 'Insomnie',
-  caillots: 'Caillots',
-  vertiges: 'Vertiges',
+  crampes: tr("Crampes"),
+  fatigue: tr("Fatigue"),
+  migraine: tr("Migraine"),
+  ballonnements: tr("Ballonnements"),
+  douleurs_dos: tr("Mal de dos"),
+  seins_sensibles: tr("Seins sensibles"),
+  acne: tr("Acné"),
+  nausees: tr("Nausées"),
+  fringales: tr("Fringales"),
+  insomnie: tr("Insomnie"),
+  caillots: tr("Caillots"),
+  vertiges: tr("Vertiges"),
 };
 
 export const FLOWS = [
-  { key: 'traces', label: 'Traces' },
-  { key: 'leger', label: 'Léger' },
-  { key: 'moyen', label: 'Moyen' },
-  { key: 'abondant', label: 'Abondant' },
+  { key: 'traces', label: tr("Traces") },
+  { key: 'leger', label: tr("Léger") },
+  { key: 'moyen', label: tr("Moyen") },
+  { key: 'abondant', label: tr("Abondant") },
 ];
 
 export const BOOKING_STATUS = {
-  en_attente: { label: 'En attente', color: colors.or },
-  confirmee: { label: 'Confirmé', color: colors.success },
-  refusee: { label: 'Refusé', color: colors.muted },
-  annulee: { label: 'Annulé', color: colors.muted },
-  terminee: { label: 'Terminé', color: colors.bordeaux },
-  absente: { label: 'Absente', color: colors.danger },
+  en_attente: { label: tr("En attente"), color: colors.or },
+  confirmee: { label: tr("Confirmé"), color: colors.success },
+  refusee: { label: tr("Refusé"), color: colors.muted },
+  annulee: { label: tr("Annulé"), color: colors.muted },
+  terminee: { label: tr("Terminé"), color: colors.bordeaux },
+  absente: { label: tr("Absente"), color: colors.danger },
 };

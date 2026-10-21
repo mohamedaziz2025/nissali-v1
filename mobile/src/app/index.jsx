@@ -6,12 +6,13 @@ import { Loader } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { colors } from '../theme';
 
+import { tr } from '../lib/i18n';
 export default function Index() {
   const { status, user, practitioner } = useAuth();
   if (status === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: colors.ivoire, justifyContent: 'center' }}>
-        <Loader label="Nissali" />
+        <Loader label={tr("Nissali")} />
       </View>
     );
   }

@@ -1,6 +1,7 @@
 // Tâches planifiées : notifications du 5.12 (discrètes, RG-17), rappels de prière en push,
 // rappels de rendez-vous, clôture des réservations passées, purge RGPD (8.2).
 import cron from 'node-cron';
+import { nextVoluntary } from '../services/voluntary.js';
 import { syncAllJumua } from '../services/mawaqit.js';
 import { broadcastJob } from '../services/broadcasts.js';
 import { Booking, Event, EventRegistration, FastPlan, Plan, Practitioner, PushSubscription, Subscription, User } from '../models/index.js';
@@ -56,6 +57,17 @@ export async function runUserNotifications(user) {
       if (fasts.planDays.some((d) => d.day === addDays(today, 1))) {
         await notify(id, { key: `makeup-${addDays(today, 1)}`, type: 'rattrapage', detail: 'Demain est un jour de rattrapage prévu dans ton plan.', link: '/jeunes' });
       }
+    }
+  }
+  // Mise à jour Jeûnes — jeûne programmé demain sur des règles prévues : jour sauté, message dans la cloche
+  // la veille (le push reste discret, sans mot de santé).
+  const vp = user.voluntaryPlan;
+  if (vp && prefs.fastPlanned !== false && time >= (vp.reminderTime || '21:00')) {
+    const tomorrow = addDays(today, 1);
+    const fasts = await loadFastContext(user, ctx);
+    const [planned] = nextVoluntary(vp, { from: tomorrow, days: 1, adj, excl: settings.excludeDhulHijja13 !== false, periodOn: fasts.periodOn, limit: 1 });
+    if (planned?.paused) {
+      await notify(id, { key: `fast-postponed-${tomorrow}`, type: 'jeune', detail: 'Tes règles sont prévues demain, ton jeûne est reporté.', link: '/jeunes?tab=volontaires' });
     }
   }
   // Pilule

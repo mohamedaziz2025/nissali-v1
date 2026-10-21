@@ -95,7 +95,7 @@ Back-office : mot de passe + code OTP par e-mail, session de 24 h, actions trac�
 
 ## Ce qui est couvert
 
-**App mobile (utilisatrices)** : les 5 onglets du cahier aux couleurs et typographies Nissali (Fraunces, DM Sans),
+**App mobile (utilisatrices)** : les 5 onglets du cahier aux couleurs et typographies Nissali (Poppins, DM Sans),
 profil et réglages, santé détaillée avec graphiques, grossesse et post-partum, qibla, notifications.
 
 - *Aujourd’hui* : prochaines règles avec anneau, prières du jour cochables + qibla, jours blancs, jeûnes à rattraper,

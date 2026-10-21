@@ -4,6 +4,7 @@ import { Animated, Image, StyleSheet, Text } from 'react-native';
 import { useAuth } from '../lib/auth';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 export default function SpaceTransition() {
   const { transition } = useAuth();
   const opacity = useRef(new Animated.Value(0)).current;
@@ -27,8 +28,8 @@ export default function SpaceTransition() {
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, s.wrap, { backgroundColor: pro ? colors.prune : colors.bordeaux, opacity }]} accessibilityLiveRegion="assertive">
       <Animated.View style={{ alignItems: 'center', gap: 14, transform: [{ scale }] }}>
         <Image source={require('../../assets/android-icon-foreground.png')} style={s.logo} />
-        <Text style={s.title}>{pro ? 'Espace pro' : 'Espace personnel'}</Text>
-        <Text style={s.sub}>{pro ? 'Rendez-vous, clientes, prestations' : 'Cycle, prières, jeûnes'}</Text>
+        <Text style={s.title}>{pro ? tr("Espace pro") : tr("Espace personnel")}</Text>
+        <Text style={s.sub}>{pro ? tr("Rendez-vous, clientes, prestations") : tr("Cycle, prières, jeûnes")}</Text>
       </Animated.View>
     </Animated.View>
   );

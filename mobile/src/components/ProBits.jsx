@@ -8,6 +8,7 @@ import AccountButton from './AccountSwitcher';
 import Icon from './Icon';
 import { Button, Card, Label, Row, T } from './ui';
 
+import { tr } from '../lib/i18n';
 /** Bouton de compte de l'espace pro : avatar cerclé d'or, ouvre le sélecteur d'espace. */
 export function SpaceSwitch() {
   return <AccountButton size={44} showPro />;
@@ -21,9 +22,9 @@ export function BookingCard({ b, onAction }) {
     <Card style={{ marginBottom: 12, gap: 6 }}>
       <Row justify="space-between">
         <Label color={st?.color}>{st?.label}</Label>
-        <T variant="small">{b.mode === 'visio' ? 'Visio' : 'Cabinet'} · {price(b.price)}{b.paymentStatus === 'paye' ? ' · payé' : ''}</T>
+        <T variant="small">{b.mode === 'visio' ? tr("Visio") : tr("Cabinet")} · {price(b.price)}{b.paymentStatus === 'paye' ? tr(" · payé") : ''}</T>
       </Row>
-      <T variant="h3">{b.client?.firstName || 'Cliente'}</T>
+      <T variant="h3">{b.client?.firstName || tr("Cliente")}</T>
       <T>{b.serviceName}</T>
       <T variant="muted">
         {longDate(b.day)} · {b.time}–{b.endTime}
@@ -32,26 +33,26 @@ export function BookingCard({ b, onAction }) {
       <Row style={{ flexWrap: 'wrap', marginTop: 4 }} gap={8}>
         {b.status === 'en_attente' ? (
           <>
-            <Button title="Accepter" small onPress={() => onAction(b, 'confirmee')} />
-            <Button title="Refuser" small variant="outline" onPress={() => onAction(b, 'refusee')} />
+            <Button title={tr("Accepter")} small onPress={() => onAction(b, 'confirmee')} />
+            <Button title={tr("Refuser")} small variant="outline" onPress={() => onAction(b, 'refusee')} />
           </>
         ) : null}
         {b.status === 'confirmee' ? (
           <>
-            {b.videoUrl ? <Button title="Visio" icon="video" small onPress={() => WebBrowser.openBrowserAsync(b.videoUrl)} /> : null}
-            {!future ? <Button title="Terminé" small variant="soft" onPress={() => onAction(b, 'terminee')} /> : null}
-            {!future ? <Button title="Absente" small variant="ghost" onPress={() => onAction(b, 'absente')} /> : null}
-            {future ? <Button title="Annuler" small variant="outline" onPress={() => onAction(b, 'annulee')} /> : null}
+            {b.videoUrl ? <Button title={tr("Visio")} icon="video" small onPress={() => WebBrowser.openBrowserAsync(b.videoUrl)} /> : null}
+            {!future ? <Button title={tr("Terminé")} small variant="soft" onPress={() => onAction(b, 'terminee')} /> : null}
+            {!future ? <Button title={tr("Absente")} small variant="ghost" onPress={() => onAction(b, 'absente')} /> : null}
+            {future ? <Button title={tr("Annuler")} small variant="outline" onPress={() => onAction(b, 'annulee')} /> : null}
           </>
         ) : null}
-        {['confirmee', 'terminee'].includes(b.status) && b.paymentStatus !== 'paye' ? <Button title="Marquer payé" small variant="ghost" onPress={() => onAction(b, 'paye')} /> : null}
+        {['confirmee', 'terminee'].includes(b.status) && b.paymentStatus !== 'paye' ? <Button title={tr("Marquer payé")} small variant="ghost" onPress={() => onAction(b, 'paye')} /> : null}
         {b.client?.phone ? (
-          <Pressable onPress={() => Linking.openURL(`tel:${b.client.phone}`)} accessibilityLabel="Appeler" style={{ padding: 10 }}>
+          <Pressable onPress={() => Linking.openURL(`tel:${b.client.phone}`)} accessibilityLabel={tr("Appeler")} style={{ padding: 10 }}>
             <Icon name="phone" size={20} color={colors.bordeaux} />
           </Pressable>
         ) : null}
         {b.client?.email ? (
-          <Pressable onPress={() => Linking.openURL(`mailto:${b.client.email}`)} accessibilityLabel="Écrire un e-mail" style={{ padding: 10 }}>
+          <Pressable onPress={() => Linking.openURL(`mailto:${b.client.email}`)} accessibilityLabel={tr("Écrire un e-mail")} style={{ padding: 10 }}>
             <Icon name="mail" size={20} color={colors.bordeaux} />
           </Pressable>
         ) : null}
@@ -85,11 +86,11 @@ export function StatusBanner({ practitioner, pending }) {
       ) : null}
       {pending ? (
         <Card tone="dashed" style={{ gap: 4 }}>
-          <Label color={colors.or}>Formule en attente</Label>
+          <Label color={colors.or}>{tr("Formule en attente")}</Label>
           <T>
-            « {pending.plan} » · {price(pending.amount)} {pending.billing === 'annuel' ? '/ an' : '/ mois'} · réf. {pending.paymentReference}
+            « {pending.plan} » · {price(pending.amount)} {pending.billing === 'annuel' ? '/ an' : '/ mois'} {tr("· réf.")} {pending.paymentReference}
           </T>
-          <T variant="small">Termine le règlement (en ligne ou avec l’équipe Nissali) pour activer ta formule.</T>
+          <T variant="small">{tr("Termine le règlement (en ligne ou avec l’équipe Nissali) pour activer ta formule.")}</T>
         </Card>
       ) : null}
     </View>
@@ -100,7 +101,7 @@ export async function bookingAction(b, action, toast, reload) {
   try {
     if (action === 'paye') await api.patch(`/pro/bookings/${b.id}/payment`, { paymentStatus: 'paye' });
     else await api.patch(`/pro/bookings/${b.id}`, { status: action });
-    toast({ confirmee: 'Rendez-vous confirmé', refusee: 'Demande refusée', annulee: 'Rendez-vous annulé', terminee: 'Rendez-vous terminé', absente: 'Absence notée', paye: 'Paiement noté' }[action]);
+    toast({ confirmee: tr("Rendez-vous confirmé"), refusee: tr("Demande refusée"), annulee: tr("Rendez-vous annulé"), terminee: tr("Rendez-vous terminé"), absente: tr("Absence notée"), paye: tr("Paiement noté") }[action]);
     reload();
   } catch (e) {
     toast(e.message, 'error');

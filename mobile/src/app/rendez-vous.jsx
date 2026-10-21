@@ -10,8 +10,9 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { BOOKING_STATUS, colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 const MONTHS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'];
-const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const DAYS = [tr("Dimanche"), tr("Lundi"), tr("Mardi"), tr("Mercredi"), tr("Jeudi"), tr("Vendredi"), tr("Samedi")];
 
 function DateBlock({ day, tone }) {
   const [y, m, d] = day.split('-').map(Number);
@@ -54,20 +55,20 @@ function BookingCard({ b, onCancel, onReview }) {
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
             <View style={s.meta}>
               <Icon name={b.mode === 'visio' ? 'video' : 'pin'} size={14} color={colors.muted} />
-              <Text style={s.metaText}>{b.mode === 'visio' ? 'Visio' : b.practitioner?.city || 'Cabinet'}</Text>
+              <Text style={s.metaText}>{b.mode === 'visio' ? tr("Visio") : b.practitioner?.city || tr("Cabinet")}</Text>
             </View>
             <View style={s.meta}>
-              <Text style={s.metaText}>Tarif indicatif {euros(b.price)}</Text>
+              <Text style={s.metaText}>{tr("Tarif indicatif")} {euros(b.price)}</Text>
             </View>
           </View>
         </View>
       </View>
       {b.videoUrl || b.canCancel || b.canReview || past ? (
         <View style={s.actions}>
-          {b.videoUrl ? <Button title="Rejoindre" icon="video" small onPress={() => WebBrowser.openBrowserAsync(b.videoUrl)} style={{ flex: 1 }} /> : null}
-          {b.canReview ? <Button title="Laisser un avis" icon="star" small variant="soft" onPress={() => onReview(b)} style={{ flex: 1 }} /> : null}
-          {b.canCancel ? <Button title="Annuler" small variant="outline" onPress={() => onCancel(b)} style={{ flex: b.videoUrl ? 0.8 : 1 }} /> : null}
-          {past && b.practitioner && !b.canReview ? <Button title="Reprendre RDV" small variant="soft" onPress={() => router.push(`/praticienne/${b.practitioner.id}`)} style={{ flex: 1 }} /> : null}
+          {b.videoUrl ? <Button title={tr("Rejoindre")} icon="video" small onPress={() => WebBrowser.openBrowserAsync(b.videoUrl)} style={{ flex: 1 }} /> : null}
+          {b.canReview ? <Button title={tr("Laisser un avis")} icon="star" small variant="soft" onPress={() => onReview(b)} style={{ flex: 1 }} /> : null}
+          {b.canCancel ? <Button title={tr("Annuler")} small variant="outline" onPress={() => onCancel(b)} style={{ flex: b.videoUrl ? 0.8 : 1 }} /> : null}
+          {past && b.practitioner && !b.canReview ? <Button title={tr("Reprendre RDV")} small variant="soft" onPress={() => router.push(`/praticienne/${b.practitioner.id}`)} style={{ flex: 1 }} /> : null}
         </View>
       ) : null}
     </View>
@@ -82,8 +83,8 @@ export default function MyBookings() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
 
-  if (loading && !data) return <Screen back title="Mes rendez-vous"><Loader /></Screen>;
-  if (error && !data) return <Screen back title="Mes rendez-vous"><ErrorState error={error} onRetry={reload} /></Screen>;
+  if (loading && !data) return <Screen back title={tr("Mes rendez-vous")}><Loader /></Screen>;
+  if (error && !data) return <Screen back title={tr("Mes rendez-vous")}><ErrorState error={error} onRetry={reload} /></Screen>;
 
   const now = new Date();
   const upcoming = data.filter((b) => ['en_attente', 'confirmee'].includes(b.status) && new Date(`${b.day}T${b.endTime}`) >= now).sort((a, b) => (`${a.day}${a.time}` < `${b.day}${b.time}` ? -1 : 1));
@@ -93,7 +94,7 @@ export default function MyBookings() {
   const cancel = async (b) => {
     try {
       await api.post(`/practitioners/bookings/${b.id}/cancel`, {});
-      toast('Rendez-vous annulé');
+      toast(tr("Rendez-vous annulé"));
       reload();
     } catch (e) {
       toast(e.message, 'error');
@@ -102,7 +103,7 @@ export default function MyBookings() {
   const sendReview = async () => {
     try {
       await api.post(`/practitioners/bookings/${review.id}/review`, { rating, comment });
-      toast('Merci pour ton avis !');
+      toast(tr("Merci pour ton avis !"));
       setReview(null);
       setComment('');
       reload();
@@ -112,11 +113,11 @@ export default function MyBookings() {
   };
 
   return (
-    <Screen back title="Mes rendez-vous" onRefresh={reload}>
+    <Screen back title={tr("Mes rendez-vous")} onRefresh={reload}>
       <Segmented
         items={[
-          { key: 'avenir', label: `À venir (${upcoming.length})` },
-          { key: 'passes', label: `Passés (${past.length})` },
+          { key: 'avenir', label: tr("À venir ({0})", [upcoming.length]) },
+          { key: 'passes', label: tr("Passés ({0})", [past.length]) },
         ]}
         value={tab}
         onChange={setTab}
@@ -127,20 +128,20 @@ export default function MyBookings() {
       ) : (
         <Card tone="soft" style={{ alignItems: 'center', gap: 8, paddingVertical: 30 }}>
           <Icon name="calendar" size={28} color={colors.bordeaux} />
-          <T variant="bold">{tab === 'avenir' ? 'Aucun rendez-vous à venir' : 'Aucun rendez-vous passé'}</T>
-          {tab === 'avenir' ? <Button title="Trouver une praticienne" small onPress={() => router.push('/praticiennes')} /> : null}
+          <T variant="bold">{tab === 'avenir' ? tr("Aucun rendez-vous à venir") : tr("Aucun rendez-vous passé")}</T>
+          {tab === 'avenir' ? <Button title={tr("Trouver une praticienne")} small onPress={() => router.push('/praticiennes')} /> : null}
         </Card>
       )}
-      <Sheet visible={Boolean(review)} onClose={() => setReview(null)} title="Ton avis" footer={<Button title="Publier mon avis" onPress={sendReview} />}>
+      <Sheet visible={Boolean(review)} onClose={() => setReview(null)} title={tr("Ton avis")} footer={<Button title={tr("Publier mon avis")} onPress={sendReview} />}>
         <T variant="muted">{review ? `${review.serviceName} avec ${review.practitioner?.displayName}` : ''}</T>
         <Row gap={6} style={{ justifyContent: 'center' }}>
           {[1, 2, 3, 4, 5].map((n) => (
-            <Pressable key={n} onPress={() => setRating(n)} accessibilityRole="button" accessibilityLabel={`${n} étoile${n > 1 ? 's' : ''}`} hitSlop={6}>
+            <Pressable key={n} onPress={() => setRating(n)} accessibilityRole="button" accessibilityLabel={tr("{0} étoile{1}", [n, n > 1 ? 's' : ''])} hitSlop={6}>
               <Icon name="star" size={38} color={colors.or} fill={n <= rating ? colors.or : 'none'} strokeWidth={1.4} />
             </Pressable>
           ))}
         </Row>
-        <Field label="Commentaire (facultatif)" value={comment} onChangeText={setComment} multiline placeholder="Qu’as-tu apprécié ?" />
+        <Field label={tr("Commentaire (facultatif)")} value={comment} onChangeText={setComment} multiline placeholder={tr("Qu’as-tu apprécié ?")} />
       </Sheet>
     </Screen>
   );

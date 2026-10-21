@@ -130,7 +130,7 @@ router.get('/voluntary', async (req, res) => {
     byType,
     byMonth,
     recent: items.slice(0, 120).map((v) => ({ id: String(v._id), day: v.day, type: v.type, label: VOLUNTARY_LABELS[v.type] })),
-    plan: { weekdays: plan.weekdays || [], blancs: Boolean(plan.blancs), arafat: Boolean(plan.arafat), achoura: Boolean(plan.achoura), chawwal: Boolean(plan.chawwal), reminderTime: plan.reminderTime || '21:00' },
+    plan: publicPlan(plan),
     next: nextVoluntary(plan, { from: done.has(today) ? addDays(today, 1) : today, adj, excl, periodOn: f.periodOn, done }),
     reminder: req.user.notificationPrefs?.fastPlanned !== false,
     todayType: suggestType(today, adj, excl),
@@ -170,28 +170,101 @@ router.delete('/voluntary/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-router.put(
-  '/voluntary/plan',
-  validate(
-    z.object({
-      weekdays: z.array(z.number().int().min(0).max(6)).max(7),
-      blancs: z.boolean(),
-      arafat: z.boolean(),
-      achoura: z.boolean(),
-      chawwal: z.boolean(),
-      reminderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('21:00'),
-      reminder: z.boolean().optional(),
-    }),
-  ),
-  async (req, res) => {
-    const { reminder, ...plan } = req.body;
-    req.user.set('voluntaryPlan', { ...plan, weekdays: [...new Set(plan.weekdays)] });
-    if (reminder !== undefined) req.user.set('notificationPrefs.fastPlanned', reminder);
-    await req.user.save();
-    res.json({ ok: true });
-  },
-);
+const voluntaryPlanSchema = z.object({
+  weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+  blancs: z.boolean(),
+  arafat: z.boolean(),
+  achoura: z.boolean(),
+  chawwal: z.boolean(),
+  reminderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('21:00'),
+  // Mise à jour Jeûnes — Programmer un jeûne.
+  dates: z.array(z.string().refine(isDay, 'Date invalide')).max(120),
+  skip: z.array(z.string().refine(isDay, 'Date invalide')).max(200),
+  until: z.string().refine(isDay, 'Date invalide').nullable(),
+  suhoor: z.boolean(),
+  suhoorMinutes: z.number().int().min(10).max(120),
+});
 
+const publicPlan = (plan = {}) => ({
+  weekdays: plan.weekdays || [],
+  blancs: Boolean(plan.blancs),
+  arafat: Boolean(plan.arafat),
+  achoura: Boolean(plan.achoura),
+  chawwal: Boolean(plan.chawwal),
+  reminderTime: plan.reminderTime || '21:00',
+  dates: plan.dates || [],
+  skip: plan.skip || [],
+  until: plan.until || null,
+  suhoor: Boolean(plan.suhoor),
+  suhoorMinutes: plan.suhoorMinutes || 30,
+});
+
+// Les champs absents sont gardés : la cloche d'« À venir » n'envoie que ce qu'elle change.
+router.put('/voluntary/plan', validate(voluntaryPlanSchema.partial().extend({ reminder: z.boolean().optional() })), async (req, res) => {
+  const { reminder, ...patch } = req.body;
+  const current = publicPlan(req.user.voluntaryPlan?.toObject?.() || req.user.voluntaryPlan || {});
+  const { today } = nowFor(req.user);
+  const next = { ...current, ...patch };
+  next.weekdays = [...new Set(next.weekdays)];
+  next.dates = [...new Set(next.dates)].filter((d) => d >= today).sort();
+  next.skip = [...new Set(next.skip)].filter((d) => d >= today).sort();
+  req.user.set('voluntaryPlan', next);
+  if (reminder !== undefined) req.user.set('notificationPrefs.fastPlanned', reminder);
+  await req.user.save();
+  res.json({ ok: true, plan: publicPlan(next) });
+});
+
+// Aperçu « Tes prochains jeûnes », calculé en direct pour un programme en cours de saisie (jours de règles
+// prévues signalés comme sautés).
+router.post('/voluntary/preview', validate(voluntaryPlanSchema.partial()), async (req, res) => {
+  const f = await loadFastContext(req.user);
+  const { today, settings } = f.ctx;
+  const plan = { ...publicPlan(), ...req.body };
+  res.json({ next: nextVoluntary(plan, { from: addDays(today, 1), days: 400, adj: settings.hijriAdjustment || 0, excl: settings.excludeDhulHijja13 !== false, periodOn: f.periodOn, limit: 6 }) });
+});
+
+// Mise à jour Jeûnes — carte « Mes jeûnes » : mois (surérogatoires jeûnés, rattrapages, programmés, règles) et
+// année (barres par mois, hors Ramadan).
+router.get('/overview', async (req, res) => {
+  const f = await loadFastContext(req.user);
+  const { today, settings, periods } = f.ctx;
+  const adj = settings.hijriAdjustment || 0;
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today.slice(0, 7);
+  const year = month.slice(0, 4);
+  const [vol, made] = await Promise.all([
+    VoluntaryFast.find({ user: req.user._id, day: { $gte: `${year}-01-01`, $lte: `${year}-12-31` } }).select('day').lean(),
+    MadeUpFast.find({ user: req.user._id, day: { $gte: `${year}-01-01`, $lte: `${year}-12-31` } }).select('day').lean(),
+  ]);
+  const inMonth = (d) => d.startsWith(month);
+  const byMonth = Array.from({ length: 12 }, () => ({ voluntary: 0, madeUp: 0 }));
+  for (const v of vol) if (!isRamadan(v.day, adj)) byMonth[Number(v.day.slice(5, 7)) - 1].voluntary += 1;
+  for (const m of made) if (!isRamadan(m.day, adj)) byMonth[Number(m.day.slice(5, 7)) - 1].madeUp += 1;
+  const lastDay = new Date(Date.UTC(Number(year), Number(month.slice(5, 7)), 0)).getUTCDate();
+  const first = `${month}-01`;
+  const end = `${month}-${String(lastDay).padStart(2, '0')}`;
+  const done = new Set(vol.map((v) => v.day));
+  const planned = month >= today.slice(0, 7)
+    ? nextVoluntary(req.user.voluntaryPlan || {}, { from: first > today ? first : addDays(today, 1), days: 31, adj, excl: settings.excludeDhulHijja13 !== false, periodOn: f.periodOn, done, limit: 31 })
+        .filter((p) => p.day <= end && !p.paused)
+        .map((p) => p.day)
+    : [];
+  const periodDays = [];
+  for (const p of periods.filter((x) => x.kind !== 'nifas')) {
+    for (let d = p.start < first ? first : p.start; d <= (p.end || today) && d <= end; d = addDays(d, 1)) periodDays.push(d);
+  }
+  for (const [a, b] of f.predicted || []) for (let d = a < first ? first : a; d <= b && d <= end; d = addDays(d, 1)) periodDays.push(d);
+  res.json({
+    today,
+    month,
+    year,
+    voluntary: vol.map((v) => v.day).filter(inMonth),
+    madeUp: made.map((m) => m.day).filter(inMonth),
+    planned,
+    period: [...new Set(periodDays)],
+    byMonth,
+    yearTotal: byMonth.reduce((n, m) => n + m.voluntary + m.madeUp, 0),
+  });
+});
 
 // 08 / 09 / 10 — Jours déjà rattrapés hors application.
 const priorSchema = z

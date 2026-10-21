@@ -8,6 +8,7 @@ import { colors, fonts } from '../theme';
 import Icon from './Icon';
 import { Label, Sheet, T } from './ui';
 
+import { tr } from '../lib/i18n';
 function SpaceRow({ icon, title, subtitle, active, badge, onPress }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [s.space, active && s.spaceActive, pressed && { opacity: 0.8 }]}>
@@ -48,7 +49,7 @@ export function AccountSheet({ visible, onClose }) {
   };
   const choose = (space) => go(() => space !== current && switchSpace(space));
   return (
-    <Sheet visible={visible} onClose={onClose} title="Mon compte">
+    <Sheet visible={visible} onClose={onClose} title={tr("Mon compte")}>
       <View style={s.who}>
         <View style={s.avatarLg}>
           <Text style={s.avatarText}>{(user?.firstName || '?')[0].toUpperCase()}</Text>
@@ -58,24 +59,24 @@ export function AccountSheet({ visible, onClose }) {
           <T variant="small">{user?.email || user?.phone}</T>
         </View>
       </View>
-      <Label>Mes espaces</Label>
-      <SpaceRow icon="heart" title="Espace personnel" subtitle="Cycle, prières, jeûnes, santé" active={current === 'personnel'} onPress={() => choose('personnel')} />
+      <Label>{tr("Mes espaces")}</Label>
+      <SpaceRow icon="heart" title={tr("Espace personnel")} subtitle={tr("Cycle, prières, jeûnes, santé")} active={current === 'personnel'} onPress={() => choose('personnel')} />
       {practitioner ? (
         <SpaceRow
           icon="briefcase"
-          title="Espace pro"
-          subtitle={`${practitioner.displayName} · ${practitioner.status === 'validee' ? `formule ${practitioner.plan?.name || 'Découverte'}` : 'en cours de validation'}`}
+          title={tr("Espace pro")}
+          subtitle={`${practitioner.displayName} · ${(practitioner.status === 'validee' ? `formule ${(practitioner.plan?.name || tr("Découverte"))}` : tr("en cours de validation"))}`}
           active={current === 'pro'}
           badge={practitioner.pendingBookings || null}
           onPress={() => choose('pro')}
         />
       ) : (
-        <SpaceRow icon="briefcase" title="Devenir praticienne" subtitle="Crée ton espace pro avec le même compte" onPress={() => go(() => router.push('/devenir-praticienne'))} />
+        <SpaceRow icon="briefcase" title={tr("Devenir praticienne")} subtitle={tr("Crée ton espace pro avec le même compte")} onPress={() => go(() => router.push('/devenir-praticienne'))} />
       )}
       <View style={{ height: 6 }} />
-      {current === 'personnel' ? <MenuRow icon="settings" label="Profil et réglages" onPress={() => go(() => router.push('/profil'))} /> : <MenuRow icon="user" label="Profil professionnel" onPress={() => go(() => router.push('/pro/profil'))} />}
-      <MenuRow icon="lock" label="Connexion et sécurité" onPress={() => go(() => router.push('/securite'))} />
-      <MenuRow icon="logout" label="Me déconnecter" danger onPress={() => go(signOut)} />
+      {current === 'personnel' ? <MenuRow icon="settings" label={tr("Profil et réglages")} onPress={() => go(() => router.push('/profil'))} /> : <MenuRow icon="user" label={tr("Profil professionnel")} onPress={() => go(() => router.push('/pro/profil'))} />}
+      <MenuRow icon="lock" label={tr("Connexion et sécurité")} onPress={() => go(() => router.push('/securite'))} />
+      <MenuRow icon="logout" label={tr("Me déconnecter")} danger onPress={() => go(signOut)} />
     </Sheet>
   );
 }
@@ -89,7 +90,7 @@ export default function AccountButton({ size = 48, showPro }) {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Mon compte${practitioner ? ', changer d’espace' : ''}${pending ? `, ${pending} demande(s) en attente` : ''}`}
+        accessibilityLabel={tr("Mon compte{0}{1}", [(practitioner ? tr(", changer d’espace") : ''), (pending ? tr(", {0} demande(s) en attente", [pending]) : '')])}
         onPress={() => {
           setOpen(true);
           refresh();
@@ -103,7 +104,7 @@ export default function AccountButton({ size = 48, showPro }) {
           </View>
         ) : practitioner && !showPro ? (
           <View style={s.proTag}>
-            <Text style={s.proTagText}>PRO</Text>
+            <Text style={s.proTagText}>{tr("PRO")}</Text>
           </View>
         ) : null}
       </Pressable>

@@ -3,6 +3,8 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { assetUrl } from '../lib/api';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
+import { DAYS_SHORT as FMT_DAYS_SHORT, MONTHS_SHORT as FMT_MONTHS_SHORT } from '../lib/format';
 const TONES = [
   ['#F7E8EA', '#7A1F35'],
   ['#F3E6D6', '#8A6236'],
@@ -33,8 +35,8 @@ export function Avatar({ person, size = 48, online }) {
   );
 }
 
-const DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const DAYS = FMT_DAYS_SHORT;
+const MONTHS = FMT_MONTHS_SHORT;
 const pad = (n) => String(n).padStart(2, '0');
 export const hhmm = (d) => `${pad(new Date(d).getHours())}:${pad(new Date(d).getMinutes())}`;
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
@@ -54,8 +56,8 @@ export function shortWhen(d) {
 export function dayLabel(d) {
   const date = new Date(d);
   const now = new Date();
-  if (sameDay(date, now)) return 'Aujourd’hui';
-  if (sameDay(date, new Date(now - 86_400_000))) return 'Hier';
+  if (sameDay(date, now)) return tr("Aujourd’hui");
+  if (sameDay(date, new Date(now - 86_400_000))) return tr("Hier");
   return `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}${date.getFullYear() !== now.getFullYear() ? ` ${date.getFullYear()}` : ''}`;
 }
 

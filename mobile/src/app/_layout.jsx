@@ -1,5 +1,12 @@
 import { Amiri_700Bold } from '@expo-google-fonts/amiri';
-import { Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
+import {
+  Cairo_400Regular,
+  Cairo_500Medium,
+  Cairo_600SemiBold,
+  Cairo_700Bold,
+  Cairo_800ExtraBold,
+} from '@expo-google-fonts/cairo';
+import { Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -19,6 +26,7 @@ import AnimatedSplash from '../components/AnimatedSplash';
 import SpaceTransition from '../components/SpaceTransition';
 import { ToastProvider } from '../components/ui';
 import { AuthProvider } from '../lib/auth';
+import { syncDirection } from '../lib/i18n';
 import { colors } from '../theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -31,12 +39,22 @@ export default function RootLayout() {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
-    Fraunces_600SemiBold,
+    Cairo_400Regular,
+    Cairo_500Medium,
+    Cairo_600SemiBold,
+    Cairo_700Bold,
+    Cairo_800ExtraBold,
+    Poppins_600SemiBold,
     Amiri_700Bold,
   });
 
   const [splash, setSplash] = useState(true);
   const endSplash = useCallback(() => setSplash(false), []);
+
+  // Sens de lecture : droite à gauche en arabe (le rechargement est fait par syncDirection).
+  useEffect(() => {
+    syncDirection();
+  }, []);
 
   // L'écran natif (fond ivoire) laisse la place à l'animation du logo dès que les polices sont prêtes.
   useEffect(() => {

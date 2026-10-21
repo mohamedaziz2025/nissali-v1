@@ -15,10 +15,13 @@ export function plannedFast(day, { fastCtx, user, adj, excl }) {
   const wd = weekday(day);
   if (plan?.active && fastCtx.counter.remaining > 0 && (plan.weekdays || []).includes(wd)) return { kind: 'rattrapage', label: 'Rattrapage' };
   const vp = user.voluntaryPlan || {};
+  const active = !vp.until || day <= vp.until;
+  if ((vp.skip || []).includes(day)) return null;
   const cal = calendarFast(day, adj, excl);
   const calKey = { jours_blancs: 'blancs', arafat: 'arafat', achoura: 'achoura', chawwal: 'chawwal' }[cal];
-  if (cal && vp[calKey]) return { kind: 'volontaire', type: cal, label: VOLUNTARY_LABELS[cal] };
-  if ((vp.weekdays || []).includes(wd)) return { kind: 'volontaire', type: [1, 4].includes(wd) ? 'lundi_jeudi' : 'autre', label: WEEKDAY_SUNNA[wd] || 'Jeûne volontaire' };
+  if (active && cal && vp[calKey]) return { kind: 'volontaire', type: cal, label: VOLUNTARY_LABELS[cal] };
+  if (active && (vp.weekdays || []).includes(wd)) return { kind: 'volontaire', type: [1, 4].includes(wd) ? 'lundi_jeudi' : 'autre', label: WEEKDAY_SUNNA[wd] || 'Jeûne volontaire' };
+  if ((vp.dates || []).includes(day)) return { kind: 'volontaire', type: cal || 'autre', label: cal ? VOLUNTARY_LABELS[cal] : 'Jeûne programmé' };
   return null;
 }
 

@@ -18,6 +18,7 @@ import { useAuth } from '../../lib/auth';
 import { plural, saveCount, useDhikrData } from '../../lib/dhikr';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const GOALS = [33, 99, 100];
 
 function BigRing({ progress, size, reached, children }) {
@@ -125,15 +126,15 @@ export default function Counter() {
     setCountFor(curKey, count - 1);
   };
   const reset = () =>
-    Alert.alert('Remettre à zéro ?', `Le compteur de ${current.name} repart de 0 pour aujourd’hui.`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Remettre à zéro', style: 'destructive', onPress: () => { setCountFor(curKey, 0); setBase(0); } },
+    Alert.alert(tr("Remettre à zéro ?"), tr("Le compteur de {0} repart de 0 pour aujourd’hui.", [current.name]), [
+      { text: tr("Annuler"), style: 'cancel' },
+      { text: tr("Remettre à zéro"), style: 'destructive', onPress: () => { setCountFor(curKey, 0); setBase(0); } },
     ]);
   const toggleHaptics = async () => {
     try {
       const r = await api.patch('/dhikr/settings', { haptics: !haptics });
       await setSession({ user: r.user });
-      toast(haptics ? 'Vibration désactivée' : 'Vibration activée');
+      toast(haptics ? tr("Vibration désactivée") : tr("Vibration activée"));
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -160,18 +161,18 @@ export default function Counter() {
   };
 
   const ringSize = Math.min(width - 72, 300);
-  const title = tasbihMode ? `Tasbih après la prière · ${step + 1}/${steps.length}` : current.name;
+  const title = tasbihMode ? tr("Tasbih après la prière · {0}/{1}", [step + 1, steps.length]) : current.name;
 
   return (
     <View style={[s.screen, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 12 }]}>
       {done ? null : (
       <Row justify="space-between" style={s.top}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/dhikr'))} accessibilityRole="button" accessibilityLabel="Retour" hitSlop={12}>
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/dhikr'))} accessibilityRole="button" accessibilityLabel={tr("Retour")} hitSlop={12}>
           <Icon name="chevronLeft" size={26} />
         </Pressable>
         <Text style={s.topTitle} numberOfLines={1}>{done ? current.name : title}</Text>
         {Platform.OS !== 'web' ? (
-          <Pressable onPress={toggleHaptics} accessibilityRole="switch" accessibilityState={{ checked: haptics }} accessibilityLabel="Vibration au comptage" hitSlop={12}>
+          <Pressable onPress={toggleHaptics} accessibilityRole="switch" accessibilityState={{ checked: haptics }} accessibilityLabel={tr("Vibration au comptage")} hitSlop={12}>
             <Icon name="vibrate" size={22} color={haptics ? colors.bordeaux : colors.subtle} />
           </Pressable>
         ) : (
@@ -193,38 +194,38 @@ export default function Counter() {
             <View style={s.doneRing}>
               <Icon name="check" size={56} color={colors.white} strokeWidth={2.4} />
             </View>
-            <Text style={s.doneTitle}>{tasbihMode ? 'Tasbih terminé' : 'Objectif atteint'}</Text>
+            <Text style={s.doneTitle}>{tasbihMode ? tr("Tasbih terminé") : tr("Objectif atteint")}</Text>
             <Text style={s.doneArabic}>بَارَكَ ٱللَّٰهُ فِيكِ</Text>
-            <Text style={s.doneSub}>Barak Allahu fiki</Text>
+            <Text style={s.doneSub}>{tr("Barak Allahu fiki")}</Text>
             <Text style={[s.doneSub, { marginTop: 6 }]}>
-              {tasbihMode ? `${dayTotal} dhikr aujourd’hui` : `${done.count} ${current.name}${done.reached ? ` · ton ${done.reached === 1 ? '1er' : `${done.reached}e`} objectif du jour` : ''}`}
+              {tasbihMode ? tr("{0} dhikr aujourd’hui", [dayTotal]) : `${done.count} ${current.name}${(done.reached ? tr(" · ton {0} objectif du jour", [done.reached === 1 ? '1er' : `${done.reached}e`]) : '')}`}
             </Text>
             {done.streak ? (
               <View style={s.streak}>
                 <Icon name="sparkle" size={13} color={colors.orClair} />
-                <Text style={s.streakText}>{plural(done.streak, 'jour')} d’affilée</Text>
+                <Text style={s.streakText}>{plural(done.streak, 'jour')} {tr("d’affilée")}</Text>
               </View>
             ) : null}
           </View>
           <View style={{ gap: 10 }}>
             {next ? (
               <Pressable onPress={goNext} accessibilityRole="button" style={s.doneMain}>
-                <Text style={s.doneMainText} numberOfLines={1}>Continuer : {next.name}</Text>
+                <Text style={s.doneMainText} numberOfLines={1}>{tr("Continuer :")} {next.name}</Text>
               </Pressable>
             ) : null}
             <Row gap={10}>
               <Pressable onPress={again} accessibilityRole="button" style={s.doneGhost}>
-                <Text style={s.doneGhostText}>{tasbihMode ? 'Encore un tour' : 'Encore 33'}</Text>
+                <Text style={s.doneGhostText}>{tasbihMode ? tr("Encore un tour") : tr("Encore 33")}</Text>
               </Pressable>
               <Pressable onPress={finish} accessibilityRole="button" style={s.doneGhost}>
-                <Text style={s.doneGhostText}>Terminer</Text>
+                <Text style={s.doneGhostText}>{tr("Terminer")}</Text>
               </Pressable>
             </Row>
           </View>
         </View>
       ) : (
         <>
-          <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={`${current.name} : ${inRound} sur ${target}. Touche pour compter`} style={s.tapZone}>
+          <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={tr("{0} : {1} sur {2}. Touche pour compter", [current.name, inRound, target])} style={s.tapZone}>
             <Text style={s.arabic}>{current.arabic}</Text>
             <Text style={s.name}>{current.name}</Text>
             {current.meaning ? <Text style={s.meaning}>{current.meaning}</Text> : null}
@@ -232,12 +233,12 @@ export default function Counter() {
               <BigRing progress={endless ? 0 : inRound / target} reached={!endless && inRound >= target} size={ringSize}>
                 <View style={[s.disc, { width: ringSize - 56, height: ringSize - 56, borderRadius: (ringSize - 56) / 2 }]}>
                   <Text style={s.count} adjustsFontSizeToFit numberOfLines={1}>{inRound}</Text>
-                  {endless ? null : <Text style={s.of}>sur {target}</Text>}
-                  <Text style={s.touch}>TOUCHE POUR COMPTER</Text>
+                  {endless ? null : <Text style={s.of}>{tr("sur")} {target}</Text>}
+                  <Text style={s.touch}>{tr("TOUCHE POUR COMPTER")}</Text>
                 </View>
               </BigRing>
             </View>
-            <Text style={s.left}>{endless ? 'Libre : sans fin' : left ? `Encore ${left}` : 'Objectif atteint'} · touche n’importe où sur l’écran</Text>
+            <Text style={s.left}>{endless ? tr("Libre : sans fin") : left ? tr("Encore {0}", [left]) : tr("Objectif atteint")} {tr("· touche n’importe où sur l’écran")}</Text>
           </Pressable>
           {!tasbihMode ? (
             <Row gap={8} style={{ justifyContent: 'center' }}>
@@ -247,19 +248,19 @@ export default function Counter() {
                 </Pressable>
               ))}
               <Pressable onPress={() => setGoal(Infinity)} accessibilityRole="radio" accessibilityState={{ selected: endless }} style={[s.goal, endless && s.goalOn]}>
-                <Text style={[s.goalText, endless && { color: colors.white }]}>Libre</Text>
+                <Text style={[s.goalText, endless && { color: colors.white }]}>{tr("Libre")}</Text>
               </Pressable>
             </Row>
           ) : null}
           <View style={s.totals}>
             <View style={{ flex: 1 }}>
-              <T variant="small">Aujourd’hui</T>
-              <Text style={s.totalText}>{dayTotal} dhikr au total</Text>
+              <T variant="small">{tr("Aujourd’hui")}</T>
+              <Text style={s.totalText}>{dayTotal} {tr("dhikr au total")}</Text>
             </View>
-            <Pressable onPress={undo} accessibilityRole="button" accessibilityLabel="Annuler le dernier" hitSlop={6} style={s.roundBtn}>
+            <Pressable onPress={undo} accessibilityRole="button" accessibilityLabel={tr("Annuler le dernier")} hitSlop={6} style={s.roundBtn}>
               <Icon name="undo" size={18} color={colors.bordeaux} />
             </Pressable>
-            <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel="Remettre à zéro" hitSlop={6} style={s.roundBtn}>
+            <Pressable onPress={reset} accessibilityRole="button" accessibilityLabel={tr("Remettre à zéro")} hitSlop={6} style={s.roundBtn}>
               <Icon name="reset" size={18} color={colors.bordeaux} />
             </Pressable>
           </View>

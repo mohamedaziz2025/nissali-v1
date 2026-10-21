@@ -21,6 +21,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { colors, fonts, radius, space } from '../theme';
 import Icon from './Icon';
 
+import { tr } from '../lib/i18n';
 export { default as Icon } from './Icon';
 
 // --- Typographie --------------------------------------------------------------
@@ -47,7 +48,7 @@ export function Screen({ children, title, right, subtitle, onRefresh, refreshing
   const header = (title || back) && (
     <View style={styles.header}>
       {back ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.back}>
+        <Pressable accessibilityRole="button" accessibilityLabel={tr("Retour")} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.back}>
           <Icon name="chevronLeft" size={26} />
         </Pressable>
       ) : null}
@@ -207,7 +208,7 @@ export function CodeInput({ value, onChange, autoFocus = true }) {
   const ref = useRef(null);
   const digits = (value || '').padEnd(6, ' ').split('');
   return (
-    <Pressable onPress={() => ref.current?.focus()} accessibilityLabel="Code à 6 chiffres">
+    <Pressable onPress={() => ref.current?.focus()} accessibilityLabel={tr("Code à 6 chiffres")}>
       <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
         {digits.map((d, i) => (
           <View key={i} style={[styles.codeBox, i === (value || '').length && styles.codeBoxActive]}>
@@ -256,13 +257,13 @@ export function Stepper({ value, onChange, min = 0, max = 99, step = 1, suffix =
     <View style={styles.toggleRow}>
       {label ? <T variant="medium" style={{ flex: 1 }}>{label}</T> : null}
       <Row gap={14}>
-        <IconButton name="chevronLeft" size={38} label="Diminuer" onPress={() => onChange(Math.max(min, Number((value - step).toFixed(2))))} />
+        <IconButton name="chevronLeft" size={38} label={tr("Diminuer")} onPress={() => onChange(Math.max(min, Number((value - step).toFixed(2))))} />
         <T variant="number" style={{ minWidth: 56, textAlign: 'center' }}>
           {value > 0 && suffix === ' min' ? '+' : ''}
           {value}
           {suffix}
         </T>
-        <IconButton name="chevronRight" size={38} label="Augmenter" onPress={() => onChange(Math.min(max, Number((value + step).toFixed(2))))} />
+        <IconButton name="chevronRight" size={38} label={tr("Augmenter")} onPress={() => onChange(Math.min(max, Number((value + step).toFixed(2))))} />
       </Row>
     </View>
   );
@@ -332,9 +333,9 @@ export function Loader({ label = 'Chargement…' }) {
 export function ErrorState({ error, onRetry }) {
   return (
     <Card tone="soft" style={{ alignItems: 'center', gap: 12 }}>
-      <T variant="h3" style={{ textAlign: 'center' }}>Oups</T>
-      <T style={{ textAlign: 'center' }}>{error?.message || 'Une erreur est survenue.'}</T>
-      {onRetry ? <Button title="Réessayer" variant="outline" small onPress={onRetry} /> : null}
+      <T variant="h3" style={{ textAlign: 'center' }}>{tr("Oups")}</T>
+      <T style={{ textAlign: 'center' }}>{error?.message || tr("Une erreur est survenue.")}</T>
+      {onRetry ? <Button title={tr("Réessayer")} variant="outline" small onPress={onRetry} /> : null}
     </Card>
   );
 }
@@ -345,7 +346,7 @@ export function OfflineBanner({ visible }) {
     <View style={styles.offline} accessibilityLiveRegion="polite">
       <Icon name="info" size={18} color={colors.prune} />
       <T variant="small" color={colors.prune} style={{ flex: 1 }}>
-        Hors connexion : affichage des dernières données. Tes saisies seront synchronisées.
+        {tr("Hors connexion : affichage des dernières données. Tes saisies seront synchronisées.")}
       </T>
     </View>
   );
@@ -392,13 +393,13 @@ export function Sheet({ visible, onClose, title, children, footer }) {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Fermer" />
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={tr("Fermer")} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrap} pointerEvents="box-none">
         <View style={[styles.sheet, { paddingBottom: Math.max(20, insets.bottom + 8) }]}>
           <View style={styles.grabber} />
           <Row justify="space-between" style={{ marginBottom: 12 }}>
             <T variant="h2" style={{ flex: 1 }}>{title}</T>
-            <IconButton name="close" label="Fermer" onPress={onClose} size={38} />
+            <IconButton name="close" label={tr("Fermer")} onPress={onClose} size={38} />
           </Row>
           <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 560 }} contentContainerStyle={{ gap: 14, paddingBottom: 8 }}>
             {children}

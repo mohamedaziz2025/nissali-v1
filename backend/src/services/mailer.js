@@ -15,10 +15,10 @@ if (env.smtp.host) {
 // Logo joint à l'e-mail (image intégrée « cid ») : affiché même quand les images distantes sont bloquées.
 const LOGO = { filename: 'nissali.png', path: fileURLToPath(new URL('../content/mail-logo.png', import.meta.url)), cid: 'logo@nissali' };
 const FONT = `'DM Sans',Helvetica,Arial,sans-serif`;
-const SERIF = `Fraunces,Georgia,'Times New Roman',serif`;
+const SERIF = `'Poppins',Helvetica,Arial,sans-serif`;
 const escape = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-// Même identité que l'appli et l'espace pro : fond ivoire, carte blanche arrondie, titres Fraunces, bordeaux.
+// Même identité que l'appli et l'espace pro : fond ivoire, carte blanche arrondie, titres Poppins SemiBold, bordeaux.
 const layout = (title, body, preheader = '') => {
   const site = env.appUrl.startsWith('https://') ? env.appUrl.replace(/\/$/, '') : '';
   const links = site
@@ -27,7 +27,7 @@ const layout = (title, body, preheader = '') => {
   return `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">
 <title>${escape(title)}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Poppins:wght@600&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background:#FCF8F6;-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#FCF8F6">${escape(preheader)}</div>
@@ -35,7 +35,7 @@ const layout = (title, body, preheader = '') => {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px">
 <tr><td style="padding:0 6px 22px"><img src="cid:${LOGO.cid}" width="157" height="48" alt="Nissali" style="display:block;border:0;outline:none"></td></tr>
 <tr><td style="background:#FFFFFF;border:1px solid #EFE3E5;border-radius:24px;padding:32px 28px;font-family:${FONT};font-size:15px;line-height:1.6;color:#2F1219">
-<h1 style="font-family:${SERIF};font-weight:500;font-size:25px;line-height:1.25;color:#3E1220;margin:0 0 14px">${escape(title)}</h1>
+<h1 style="font-family:${SERIF};font-weight:600;font-size:25px;line-height:1.25;color:#3E1220;margin:0 0 14px">${escape(title)}</h1>
 ${body}
 </td></tr>
 <tr><td style="padding:24px 6px 0;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#9C8288">

@@ -284,7 +284,8 @@ export function cycleSummary({ periods = [], logs = [], declared = {}, settings 
     cycleLength: averages.cycleLength,
     periodLength: averages.periodLength,
     lutealLength,
-    count: 4,
+    // Mise à jour Cycle · 6.2 — le calendrier montre 12 mois de prévisions.
+    count: Math.max(4, Math.ceil(372 / Math.max(15, averages.cycleLength || 28)) + 1),
   });
 
   if (ongoing && !last.end) {

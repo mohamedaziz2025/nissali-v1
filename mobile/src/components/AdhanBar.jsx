@@ -11,6 +11,7 @@ import { openNotification } from '../lib/links';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 
+import { tr } from '../lib/i18n';
 const FRESH_MS = 15 * 60_000;
 const handled = new Set(); // notifications déjà ouvertes au démarrage // une notification touchée plus de 15 min après l'heure ne relance pas l'adhan
 
@@ -99,12 +100,12 @@ export default function AdhanBar() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.title} numberOfLines={1}>
-            {adhan.prayer ? `Adhan · ${adhan.prayer}${adhan.time ? ` ${adhan.time}` : ''}` : 'Adhan'}
+            {adhan.prayer ? tr("Adhan · {0}{1}", [adhan.prayer, adhan.time ? ` ${adhan.time}` : '']) : tr("Adhan")}
           </Text>
           <Text style={s.sub} numberOfLines={1}>{adhan.label}</Text>
         </View>
-        <Pressable onPress={stopAdhan} accessibilityRole="button" accessibilityLabel="Arrêter l’adhan" style={s.stop} hitSlop={8}>
-          <Text style={s.stopText}>Arrêter</Text>
+        <Pressable onPress={stopAdhan} accessibilityRole="button" accessibilityLabel={tr("Arrêter l’adhan")} style={s.stop} hitSlop={8}>
+          <Text style={s.stopText}>{tr("Arrêter")}</Text>
         </Pressable>
       </View>
     </View>

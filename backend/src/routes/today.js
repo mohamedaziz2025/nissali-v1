@@ -192,7 +192,7 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
       remindersDuringPeriod: Boolean(user.prayerSettings?.keepRemindersDuringPeriod),
     },
     purification,
-    whiteDays: { daysUntil: white.daysUntil, inProgress: white.inProgress, days: white.days, monthName: white.monthName },
+    whiteDays: { daysUntil: white.daysUntil, inProgress: white.inProgress, days: white.days, monthName: white.monthName, fastedToday: Boolean(fastedMade || fastedVol) },
     fasts: {
       remaining: fastCtx.counter.remaining,
       missed: fastCtx.counter.missed,
@@ -202,6 +202,8 @@ router.get('/', requireAuth, requireHealthConsent, async (req, res) => {
       reminderTime: fastCtx.plan?.reminderTime || '21:00',
       planNext: fastCtx.planDays.slice(0, 3).map((p) => p.day),
       voluntaryReminderTime: user.voluntaryPlan?.reminderTime || '21:00',
+      // Réveil pour le suhoor (minutes avant Fajr) les jours de jeûne programmés, sinon null.
+      voluntarySuhoor: user.voluntaryPlan?.suhoor ? user.voluntaryPlan.suhoorMinutes || 30 : null,
       voluntaryNext: nextVoluntary(user.voluntaryPlan, {
         from: addDays(today, 1),
         days: 14,

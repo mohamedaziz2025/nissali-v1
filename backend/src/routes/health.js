@@ -85,6 +85,19 @@ router.delete('/weights/:day', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Mise à jour Cycle (6.9/6.10/6.11) — entrées brutes des derniers jours : sommeil, humeur, symptômes (liste +
+// modification depuis les pages détail). Weight.jsx garde son propre endpoint /weights (historique complet).
+router.get('/entries', async (req, res) => {
+  const days = Math.min(400, Math.max(1, Number(req.query.days) || 7));
+  const { today } = nowFor(req.user);
+  const from = addDays(today, -(days - 1));
+  const list = await DailyLog.find({ user: req.user._id, day: { $gte: from, $lte: today } })
+    .sort({ day: 1 })
+    .select('day mood energy symptoms sleepHours weight')
+    .lean();
+  res.json({ from, to: today, items: list.map((l) => ({ day: l.day, mood: l.mood || null, energy: l.energy ?? null, symptoms: l.symptoms || [], sleepHours: l.sleepHours ?? null, weight: l.weight ?? null })) });
+});
+
 // Graphiques d'évolution : séries quotidiennes + moyennes par cycle.
 router.get('/stats', async (req, res) => {
   const days = Math.min(365, Math.max(30, Number(req.query.days) || 180));

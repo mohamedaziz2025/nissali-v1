@@ -12,13 +12,14 @@ import { useAuth } from '../../lib/auth';
 import { cancelAll } from '../../lib/notifications';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const confirm = (title, text, action, label) => {
   if (Platform.OS === 'web') {
     if (window.confirm(`${title}\n\n${text}`)) action(); // eslint-disable-line no-alert
     return;
   }
   Alert.alert(title, text, [
-    { text: 'Annuler', style: 'cancel' },
+    { text: tr("Annuler"), style: 'cancel' },
     { text: label, style: 'destructive', onPress: action },
   ]);
 };
@@ -42,13 +43,13 @@ export default function Privacy() {
   };
   const toggleHealth = (v) => {
     if (v) return consent('health', true);
-    confirm('Couper le suivi de santé ?', 'Les fonctions du cycle (règles, prévisions, suivi santé) se mettent en pause. Rien n’est supprimé : tu pourras réactiver le suivi à tout moment.', () => consent('health', false), 'Couper');
+    confirm(tr("Couper le suivi de santé ?"), tr("Les fonctions du cycle (règles, prévisions, suivi santé) se mettent en pause. Rien n’est supprimé : tu pourras réactiver le suivi à tout moment."), () => consent('health', false), 'Couper');
   };
   const exportByMail = async () => {
     setBusy(true);
     try {
       const r = await api.post('/me/export/email', {});
-      toast(`Fichier envoyé à ${r.to}`);
+      toast(tr("Fichier envoyé à {0}", [r.to]));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -68,33 +69,33 @@ export default function Privacy() {
   };
 
   return (
-    <Screen back title="Confidentialité">
-      <SettingsCard title="Mes accords">
-        <Toggle label="Suivi de santé" hint="Nécessaire pour le cycle, la grossesse et le suivi santé" value={c.health?.accepted} onChange={toggleHealth} />
-        <Toggle label="Actualités par e-mail" value={c.marketingEmail?.accepted} onChange={(v) => consent('marketingEmail', v)} />
-        <Toggle label="Actualités par SMS" value={c.marketingSms?.accepted} onChange={(v) => consent('marketingSms', v)} />
-        <Toggle label="Actualités par WhatsApp" value={c.marketingWhatsapp?.accepted} onChange={(v) => consent('marketingWhatsapp', v)} />
-        <T variant="small">Tes données de santé sont chiffrées, jamais vendues, jamais utilisées pour la publicité.</T>
+    <Screen back title={tr("Confidentialité")}>
+      <SettingsCard title={tr("Mes accords")}>
+        <Toggle label={tr("Suivi de santé")} hint={tr("Nécessaire pour le cycle, la grossesse et le suivi santé")} value={c.health?.accepted} onChange={toggleHealth} />
+        <Toggle label={tr("Actualités par e-mail")} value={c.marketingEmail?.accepted} onChange={(v) => consent('marketingEmail', v)} />
+        <Toggle label={tr("Actualités par SMS")} value={c.marketingSms?.accepted} onChange={(v) => consent('marketingSms', v)} />
+        <Toggle label={tr("Actualités par WhatsApp")} value={c.marketingWhatsapp?.accepted} onChange={(v) => consent('marketingWhatsapp', v)} />
+        <T variant="small">{tr("Tes données de santé sont chiffrées, jamais vendues, jamais utilisées pour la publicité.")}</T>
       </SettingsCard>
       <Gap />
 
-      <SettingsCard title="Mes données">
+      <SettingsCard title={tr("Mes données")}>
         <Pressable onPress={exportByMail} disabled={busy} accessibilityRole="button" style={s.row}>
           <Icon name="mail" size={18} color={colors.bordeaux} />
           <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>Télécharger mes données</Text>
-            <Text style={s.rowSub}>{user.email ? `Fichier envoyé à ${user.email}` : 'Ajoute une adresse e-mail dans ton profil'}</Text>
+            <Text style={s.rowTitle}>{tr("Télécharger mes données")}</Text>
+            <Text style={s.rowSub}>{user.email ? tr("Fichier envoyé à {0}", [user.email]) : tr("Ajoute une adresse e-mail dans ton profil")}</Text>
           </View>
           <Icon name="chevronRight" size={16} color={colors.muted} />
         </Pressable>
         <Pressable onPress={() => router.push('/legal?doc=confidentialite')} accessibilityRole="link" style={s.row}>
           <Icon name="lock" size={18} color={colors.bordeaux} />
-          <Text style={[s.rowTitle, { flex: 1 }]}>Politique de confidentialité</Text>
+          <Text style={[s.rowTitle, { flex: 1 }]}>{tr("Politique de confidentialité")}</Text>
           <Icon name="chevronRight" size={16} color={colors.muted} />
         </Pressable>
         <Pressable onPress={() => router.push('/legal?doc=cgu')} accessibilityRole="link" style={s.row}>
           <Icon name="info" size={18} color={colors.bordeaux} />
-          <Text style={[s.rowTitle, { flex: 1 }]}>Conditions d’utilisation</Text>
+          <Text style={[s.rowTitle, { flex: 1 }]}>{tr("Conditions d’utilisation")}</Text>
           <Icon name="chevronRight" size={16} color={colors.muted} />
         </Pressable>
       </SettingsCard>
@@ -103,25 +104,25 @@ export default function Privacy() {
       <Pressable onPress={() => setStep(1)} accessibilityRole="button" style={s.danger}>
         <Icon name="trash" size={18} color={colors.danger} />
         <View style={{ flex: 1 }}>
-          <Text style={[s.rowTitle, { color: colors.danger }]}>Supprimer mon compte</Text>
-          <Text style={s.rowSub}>Toutes tes données sont effacées, au plus tard sous 30 jours</Text>
+          <Text style={[s.rowTitle, { color: colors.danger }]}>{tr("Supprimer mon compte")}</Text>
+          <Text style={s.rowSub}>{tr("Toutes tes données sont effacées, au plus tard sous 30 jours")}</Text>
         </View>
       </Pressable>
 
-      <Sheet visible={step === 1} onClose={() => setStep(0)} title="Supprimer mon compte ?">
-        <T>Ton compte et toutes tes données (cycle, santé, jeûnes, notes, dhikr, rendez-vous) seront définitivement effacés. Cette action ne peut pas être annulée.</T>
+      <Sheet visible={step === 1} onClose={() => setStep(0)} title={tr("Supprimer mon compte ?")}>
+        <T>{tr("Ton compte et toutes tes données (cycle, santé, jeûnes, notes, dhikr, rendez-vous) seront définitivement effacés. Cette action ne peut pas être annulée.")}</T>
         <Pressable onPress={() => { setTyped(''); setStep(2); }} accessibilityRole="button" style={s.dangerBtn}>
-          <Text style={s.dangerBtnText}>Continuer</Text>
+          <Text style={s.dangerBtnText}>{tr("Continuer")}</Text>
         </Pressable>
         <Pressable onPress={() => setStep(0)} accessibilityRole="button" style={s.cancel}>
-          <Text style={s.cancelText}>Garder mon compte</Text>
+          <Text style={s.cancelText}>{tr("Garder mon compte")}</Text>
         </Pressable>
       </Sheet>
-      <Sheet visible={step === 2} onClose={() => setStep(0)} title="Dernière confirmation">
-        <T>Écris SUPPRIMER pour confirmer.</T>
-        <TextInput value={typed} onChangeText={setTyped} autoCapitalize="characters" autoCorrect={false} placeholder="SUPPRIMER" placeholderTextColor={colors.caseVide} style={s.input} accessibilityLabel="Écris SUPPRIMER pour confirmer" />
+      <Sheet visible={step === 2} onClose={() => setStep(0)} title={tr("Dernière confirmation")}>
+        <T>{tr("Écris SUPPRIMER pour confirmer.")}</T>
+        <TextInput value={typed} onChangeText={setTyped} autoCapitalize="characters" autoCorrect={false} placeholder={tr("SUPPRIMER")} placeholderTextColor={colors.caseVide} style={s.input} accessibilityLabel={tr("Écris SUPPRIMER pour confirmer")} />
         <Pressable onPress={deleteAccount} disabled={busy || typed.trim().toUpperCase() !== 'SUPPRIMER'} accessibilityRole="button" style={[s.dangerBtn, (busy || typed.trim().toUpperCase() !== 'SUPPRIMER') && { opacity: 0.4 }]}>
-          <Text style={s.dangerBtnText}>Supprimer définitivement</Text>
+          <Text style={s.dangerBtnText}>{tr("Supprimer définitivement")}</Text>
         </Pressable>
       </Sheet>
     </Screen>

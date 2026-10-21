@@ -17,48 +17,49 @@ import { getPendingSocial, setPendingSocial } from '../lib/social';
 import { readJson, writeJson } from '../lib/storage';
 import { colors, fonts } from '../theme';
 
+import { tr } from '../lib/i18n';
 const BASE_STEPS = ['prenom', 'age', 'ville', 'situation', 'compte', 'telephone', 'accords', 'code'];
 const SAVED = 'nissali.signup';
 
 // Tous les indicatifs téléphoniques courants ; France sélectionnée par défaut.
 const COUNTRY_CODES = [
-  { code: '+33', label: 'France', flag: '🇫🇷' },
-  { code: '+32', label: 'Belgique', flag: '🇧🇪' },
-  { code: '+41', label: 'Suisse', flag: '🇨🇭' },
-  { code: '+352', label: 'Luxembourg', flag: '🇱🇺' },
-  { code: '+212', label: 'Maroc', flag: '🇲🇦' },
-  { code: '+213', label: 'Algérie', flag: '🇩🇿' },
-  { code: '+216', label: 'Tunisie', flag: '🇹🇳' },
-  { code: '+221', label: 'Sénégal', flag: '🇸🇳' },
-  { code: '+223', label: 'Mali', flag: '🇲🇱' },
-  { code: '+225', label: "Côte d'Ivoire", flag: '🇨🇮' },
-  { code: '+226', label: 'Burkina Faso', flag: '🇧🇫' },
-  { code: '+227', label: 'Niger', flag: '🇳🇪' },
-  { code: '+228', label: 'Togo', flag: '🇹🇬' },
-  { code: '+229', label: 'Bénin', flag: '🇧🇯' },
-  { code: '+230', label: 'Maurice', flag: '🇲🇺' },
-  { code: '+237', label: 'Cameroun', flag: '🇨🇲' },
-  { code: '+243', label: 'RD Congo', flag: '🇨🇩' },
-  { code: '+961', label: 'Liban', flag: '🇱🇧' },
-  { code: '+962', label: 'Jordanie', flag: '🇯🇴' },
-  { code: '+971', label: 'Émirats arabes unis', flag: '🇦🇪' },
-  { code: '+966', label: 'Arabie saoudite', flag: '🇸🇦' },
-  { code: '+974', label: 'Qatar', flag: '🇶🇦' },
-  { code: '+20', label: 'Égypte', flag: '🇪🇬' },
-  { code: '+218', label: 'Libye', flag: '🇱🇾' },
-  { code: '+249', label: 'Soudan', flag: '🇸🇩' },
-  { code: '+44', label: 'Royaume-Uni', flag: '🇬🇧' },
-  { code: '+1', label: 'États-Unis / Canada', flag: '🇺🇸' },
-  { code: '+34', label: 'Espagne', flag: '🇪🇸' },
-  { code: '+39', label: 'Italie', flag: '🇮🇹' },
-  { code: '+49', label: 'Allemagne', flag: '🇩🇪' },
-  { code: '+31', label: 'Pays-Bas', flag: '🇳🇱' },
-  { code: '+351', label: 'Portugal', flag: '🇵🇹' },
-  { code: '+90', label: 'Turquie', flag: '🇹🇷' },
-  { code: '+92', label: 'Pakistan', flag: '🇵🇰' },
-  { code: '+880', label: 'Bangladesh', flag: '🇧🇩' },
-  { code: '+62', label: 'Indonésie', flag: '🇮🇩' },
-  { code: '+60', label: 'Malaisie', flag: '🇲🇾' },
+  { code: '+33', label: tr("France"), flag: '🇫🇷' },
+  { code: '+32', label: tr("Belgique"), flag: '🇧🇪' },
+  { code: '+41', label: tr("Suisse"), flag: '🇨🇭' },
+  { code: '+352', label: tr("Luxembourg"), flag: '🇱🇺' },
+  { code: '+212', label: tr("Maroc"), flag: '🇲🇦' },
+  { code: '+213', label: tr("Algérie"), flag: '🇩🇿' },
+  { code: '+216', label: tr("Tunisie"), flag: '🇹🇳' },
+  { code: '+221', label: tr("Sénégal"), flag: '🇸🇳' },
+  { code: '+223', label: tr("Mali"), flag: '🇲🇱' },
+  { code: '+225', label: tr("Côte d'Ivoire"), flag: '🇨🇮' },
+  { code: '+226', label: tr("Burkina Faso"), flag: '🇧🇫' },
+  { code: '+227', label: tr("Niger"), flag: '🇳🇪' },
+  { code: '+228', label: tr("Togo"), flag: '🇹🇬' },
+  { code: '+229', label: tr("Bénin"), flag: '🇧🇯' },
+  { code: '+230', label: tr("Maurice"), flag: '🇲🇺' },
+  { code: '+237', label: tr("Cameroun"), flag: '🇨🇲' },
+  { code: '+243', label: tr("RD Congo"), flag: '🇨🇩' },
+  { code: '+961', label: tr("Liban"), flag: '🇱🇧' },
+  { code: '+962', label: tr("Jordanie"), flag: '🇯🇴' },
+  { code: '+971', label: tr("Émirats arabes unis"), flag: '🇦🇪' },
+  { code: '+966', label: tr("Arabie saoudite"), flag: '🇸🇦' },
+  { code: '+974', label: tr("Qatar"), flag: '🇶🇦' },
+  { code: '+20', label: tr("Égypte"), flag: '🇪🇬' },
+  { code: '+218', label: tr("Libye"), flag: '🇱🇾' },
+  { code: '+249', label: tr("Soudan"), flag: '🇸🇩' },
+  { code: '+44', label: tr("Royaume-Uni"), flag: '🇬🇧' },
+  { code: '+1', label: tr("États-Unis / Canada"), flag: '🇺🇸' },
+  { code: '+34', label: tr("Espagne"), flag: '🇪🇸' },
+  { code: '+39', label: tr("Italie"), flag: '🇮🇹' },
+  { code: '+49', label: tr("Allemagne"), flag: '🇩🇪' },
+  { code: '+31', label: tr("Pays-Bas"), flag: '🇳🇱' },
+  { code: '+351', label: tr("Portugal"), flag: '🇵🇹' },
+  { code: '+90', label: tr("Turquie"), flag: '🇹🇷' },
+  { code: '+92', label: tr("Pakistan"), flag: '🇵🇰' },
+  { code: '+880', label: tr("Bangladesh"), flag: '🇧🇩' },
+  { code: '+62', label: tr("Indonésie"), flag: '🇮🇩' },
+  { code: '+60', label: tr("Malaisie"), flag: '🇲🇾' },
 ];
 
 const capitalize = (v) => v.replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
@@ -200,57 +201,57 @@ export default function Register() {
   const privacySteps = STEPS.filter((x) => ['accords', 'code'].includes(x));
   const pos = accountSteps.includes(k) ? { index: accountSteps.indexOf(k) + 1, count: accountSteps.length } : { index: privacySteps.indexOf(k) + 1, count: privacySteps.length };
   const meta = {
-    prenom: { section: 'Ton compte', ...pos, title: 'Comment t’appelles-tu ?', subtitle: 'Ton prénom, pour que l’appli te parle à toi.' },
-    age: { section: 'Ton compte', ...pos, title: 'Quel âge as-tu ?', subtitle: 'Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.' },
-    ville: { section: 'Ton compte', ...pos, title: 'Où vis-tu ?', subtitle: 'Ta ville sert à tes horaires de prière et à la qibla.' },
-    situation: { section: 'Ton compte', ...pos, title: 'Ta situation', subtitle: 'Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.' },
-    compte: { section: 'Ton compte', ...pos, title: 'Ton e-mail et ton mot de passe' },
-    contact: { section: 'Ton compte', ...pos, title: 'Ton e-mail de contact', subtitle: 'Apple a masqué ton adresse. Indique celle où l’on peut t’écrire (sauvegarde, nouveautés si tu l’acceptes).' },
-    telephone: { section: 'Ton compte', ...pos, title: 'Ton numéro de téléphone', subtitle: 'Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.' },
-    accords: { section: 'Ta confidentialité', ...pos, title: 'Tes accords', subtitle: 'Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.' },
-    code: { section: 'Ta confidentialité', ...pos, title: 'Vérifie ton e-mail' },
+    prenom: { section: 'Ton compte', ...pos, title: tr("Comment t’appelles-tu ?"), subtitle: tr("Ton prénom, pour que l’appli te parle à toi.") },
+    age: { section: 'Ton compte', ...pos, title: tr("Quel âge as-tu ?"), subtitle: tr("Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.") },
+    ville: { section: 'Ton compte', ...pos, title: tr("Où vis-tu ?"), subtitle: tr("Ta ville sert à tes horaires de prière et à la qibla.") },
+    situation: { section: 'Ton compte', ...pos, title: tr("Ta situation"), subtitle: tr("Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.") },
+    compte: { section: 'Ton compte', ...pos, title: tr("Ton e-mail et ton mot de passe") },
+    contact: { section: 'Ton compte', ...pos, title: tr("Ton e-mail de contact"), subtitle: tr("Apple a masqué ton adresse. Indique celle où l’on peut t’écrire (sauvegarde, nouveautés si tu l’acceptes).") },
+    telephone: { section: 'Ton compte', ...pos, title: tr("Ton numéro de téléphone"), subtitle: tr("Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.") },
+    accords: { section: 'Ta confidentialité', ...pos, title: tr("Tes accords"), subtitle: tr("Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.") },
+    code: { section: 'Ta confidentialité', ...pos, title: tr("Vérifie ton e-mail") },
   }[k];
 
   const content = {
-    prenom: <Field value={form.firstName} onChangeText={(v) => set('firstName')(capitalize(v.slice(0, 30)))} placeholder="Ton prénom" autoFocus autoCapitalize="words" autoComplete="given-name" textContentType="givenName" returnKeyType="next" onSubmitEditing={() => valid && next()} hint={name.length === 1 ? 'Au moins 2 lettres' : null} />,
+    prenom: <Field value={form.firstName} onChangeText={(v) => set('firstName')(capitalize(v.slice(0, 30)))} placeholder={tr("Ton prénom")} autoFocus autoCapitalize="words" autoComplete="given-name" textContentType="givenName" returnKeyType="next" onSubmitEditing={() => valid && next()} hint={name.length === 1 ? tr("Au moins 2 lettres") : null} />,
     age: <NumberWheel min={15} max={60} value={form.age} onChange={set('age')} suffix=" ans" />,
     ville: <CityPicker value={form.city} onChange={set('city')} />,
     situation: (
       <>
-        <ChoiceCard title="Mariée" text="Objectifs fertilité et grossesse proposés" icon="heart" selected={form.situation === 'mariee'} onPress={() => set('situation')('mariee')} />
-        <ChoiceCard title="Célibataire" text="Suivi du cycle, prières, jeûnes" icon="user" selected={form.situation === 'celibataire'} onPress={() => set('situation')('celibataire')} />
+        <ChoiceCard title={tr("Mariée")} text={tr("Objectifs fertilité et grossesse proposés")} icon="heart" selected={form.situation === 'mariee'} onPress={() => set('situation')('mariee')} />
+        <ChoiceCard title={tr("Célibataire")} text={tr("Suivi du cycle, prières, jeûnes")} icon="user" selected={form.situation === 'celibataire'} onPress={() => set('situation')('celibataire')} />
       </>
     ),
     compte: (
       <>
-        <Field label="Adresse e-mail" value={form.email} onChangeText={(v) => { setExists(false); set('email')(v); }} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" error={form.email && !emailValid ? 'Vérifie le format de ton adresse' : null} />
+        <Field label={tr("Adresse e-mail")} value={form.email} onChangeText={(v) => { setExists(false); set('email')(v); }} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" error={form.email && !emailValid ? 'Vérifie le format de ton adresse' : null} />
         {exists ? (
           <Pressable onPress={() => router.replace('/connexion')} accessibilityRole="link" style={s.exists}>
             <Icon name="info" size={17} color={colors.bordeaux} />
-            <Text style={s.existsText}>Ce compte existe déjà, te connecter ?</Text>
+            <Text style={s.existsText}>{tr("Ce compte existe déjà, te connecter ?")}</Text>
             <Icon name="chevronRight" size={15} color={colors.bordeaux} />
           </Pressable>
         ) : null}
         <View style={{ gap: 6 }}>
-          <T variant="fieldLabel">Mot de passe</T>
+          <T variant="fieldLabel">{tr("Mot de passe")}</T>
           <View style={s.pwd}>
             <Icon name="lock" size={18} color={colors.muted} />
-            <TextInput value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="8 caractères minimum" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" style={s.pwdInput} accessibilityLabel="Mot de passe" />
-            <Pressable onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} hitSlop={10}>
+            <TextInput value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder={tr("8 caractères minimum")} placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" style={s.pwdInput} accessibilityLabel={tr("Mot de passe")} />
+            <Pressable onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? tr("Masquer le mot de passe") : tr("Afficher le mot de passe")} hitSlop={10}>
               <Icon name={showPassword ? 'eyeOff' : 'eye'} size={20} color={colors.muted} />
             </Pressable>
           </View>
-          <Text style={[s.hint, password && password.length < 8 && { color: colors.danger }]}>{password.length >= 8 ? '✓ Mot de passe valide' : `8 caractères minimum${password ? ` (${password.length}/8)` : ''}`}</Text>
+          <Text style={[s.hint, password && password.length < 8 && { color: colors.danger }]}>{password.length >= 8 ? tr("✓ Mot de passe valide") : tr("8 caractères minimum{0}", [password ? ` (${password.length}/8)` : ''])}</Text>
         </View>
       </>
     ),
     contact: (
       <>
-        <Field label="Adresse e-mail" value={form.email} onChangeText={(v) => { setExists(false); set('email')(v); }} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" autoFocus error={form.email && !emailValid ? 'Vérifie le format de ton adresse' : null} />
+        <Field label={tr("Adresse e-mail")} value={form.email} onChangeText={(v) => { setExists(false); set('email')(v); }} placeholder="amina@exemple.fr" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" icon="mail" autoFocus error={form.email && !emailValid ? 'Vérifie le format de ton adresse' : null} />
         {exists ? (
           <Pressable onPress={() => router.replace('/connexion')} accessibilityRole="link" style={s.exists}>
             <Icon name="info" size={17} color={colors.bordeaux} />
-            <Text style={s.existsText}>Ce compte existe déjà, te connecter ?</Text>
+            <Text style={s.existsText}>{tr("Ce compte existe déjà, te connecter ?")}</Text>
             <Icon name="chevronRight" size={15} color={colors.bordeaux} />
           </Pressable>
         ) : null}
@@ -259,7 +260,7 @@ export default function Register() {
     telephone: (
       <>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable onPress={() => setShowCountryPicker(true)} accessibilityRole="button" accessibilityLabel={`Indicatif téléphonique, actuellement ${form.phoneCountry}`} style={s.country}>
+          <Pressable onPress={() => setShowCountryPicker(true)} accessibilityRole="button" accessibilityLabel={tr("Indicatif téléphonique, actuellement {0}", [form.phoneCountry])} style={s.country}>
             <T>{COUNTRY_CODES.find((c) => c.code === form.phoneCountry)?.flag || '🇫🇷'}</T>
             <T variant="medium">{form.phoneCountry}</T>
             <Icon name="chevronDown" size={16} color={colors.muted} />
@@ -272,7 +273,7 @@ export default function Register() {
           <Pressable style={s.modalBg} onPress={() => setShowCountryPicker(false)}>
             <View style={s.modal}>
               <View style={s.modalHead}>
-                <T variant="h3">Choisis l’indicatif</T>
+                <T variant="h3">{tr("Choisis l’indicatif")}</T>
               </View>
               <ScrollView style={{ paddingHorizontal: 20 }}>
                 {COUNTRY_CODES.map((c) => (
@@ -295,21 +296,21 @@ export default function Register() {
       <>
         <Checkbox checked={form.terms} onChange={set('terms')}>
           <T>
-            J’accepte les <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=cgu')}>conditions d’utilisation</T> et la <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=confidentialite')}>politique de confidentialité</T>. <T variant="small">(obligatoire)</T>
+            {tr("J’accepte les")} <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=cgu')}>{tr("conditions d’utilisation")}</T> {tr("et la")} <T color={colors.bordeaux} onPress={() => router.push('/legal?doc=confidentialite')}>{tr("politique de confidentialité")}</T>. <T variant="small">{tr("(obligatoire)")}</T>
           </T>
         </Checkbox>
         <Checkbox checked={form.health} onChange={set('health')}>
-          <T>J’accepte que Nissali traite mes données de santé (cycle, grossesse, symptômes) pour mon suivi. Elles sont chiffrées, jamais vendues ni partagées. <T variant="small">(obligatoire)</T></T>
+          <T>{tr("J’accepte que Nissali traite mes données de santé (cycle, grossesse, symptômes) pour mon suivi. Elles sont chiffrées, jamais vendues ni partagées.")} <T variant="small">{tr("(obligatoire)")}</T></T>
         </Checkbox>
         <Checkbox checked={form.marketing} onChange={set('marketing')}>
-          <T>J’accepte de recevoir les actualités et offres de Nissali par e-mail, SMS et WhatsApp. <T variant="small">(facultatif)</T></T>
+          <T>{tr("J’accepte de recevoir les actualités et offres de Nissali par e-mail, SMS et WhatsApp.")} <T variant="small">{tr("(facultatif)")}</T></T>
         </Checkbox>
       </>
     ),
     code: (
       <>
         <T variant="muted">
-          Code à 6 chiffres envoyé à <T variant="bold">{sent?.target}</T>. Pense à regarder dans tes courriers indésirables.
+          {tr("Code à 6 chiffres envoyé à")} <T variant="bold">{sent?.target}</T>{tr(". Pense à regarder dans tes courriers indésirables.")}
         </T>
         <CodeInput
           value={code}
@@ -319,7 +320,7 @@ export default function Register() {
           }}
         />
         <Pressable onPress={sendCode} disabled={busy} accessibilityRole="button" style={{ alignSelf: 'center', padding: 8 }}>
-          <Text style={s.link}>Renvoyer un code</Text>
+          <Text style={s.link}>{tr("Renvoyer un code")}</Text>
         </Pressable>
       </>
     ),
@@ -331,7 +332,7 @@ export default function Register() {
       {...meta}
       onBack={back}
       onNext={next}
-      nextLabel={k === 'accords' ? (social ? 'Créer mon compte' : 'Recevoir mon code') : k === 'code' ? 'Créer mon compte' : 'Continuer'}
+      nextLabel={k === 'accords' ? (social ? tr("Créer mon compte") : tr("Recevoir mon code")) : k === 'code' ? tr("Créer mon compte") : tr("Continuer")}
       canNext={valid}
       busy={busy}
       error={error}

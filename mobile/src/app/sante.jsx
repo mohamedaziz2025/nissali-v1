@@ -1,30 +1,29 @@
 // 4.7 · 6.2 — Suivi santé du jour : bande des 7 jours (jours futurs grisés), humeur, énergie (barre dorée),
 // symptômes, sommeil (pas de 15 min), poids (0,1 kg), médicaments repris des notes « Médicament » (case = pris),
-// glaire et température (mode « Je veux un enfant » ou option du profil). « Enregistrer » sauvegarde tout ;
-// quitter avec des changements demande confirmation. Données de santé : jamais dans les notifications.
-// Onglet Évolution : graphiques sur plusieurs cycles (5.9).
+// signes de fertilité (facultatifs), notes. « Enregistrer » sauvegarde tout ; quitter avec des changements
+// demande confirmation. Données de santé : jamais dans les notifications. Mise à jour Cycle · 6.7 : plus
+// d'onglet Évolution ici, les graphiques sont dans Cycle › Suivre ma santé.
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { ColumnChart, LineChart } from '../components/Charts';
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MoodFace } from '../components/HealthCards';
 import Icon from '../components/Icon';
-import { Button, Card, Chips, Field, Gap, Label, Loader, Row, Screen, Segmented, T, Toggle, useToast } from '../components/ui';
+import { Button, Card, Chips, Field, Loader, Row, Screen, T, Toggle, useToast } from '../components/ui';
 import { api, sendOrQueue } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { addDays, longDate, toDay } from '../lib/format';
-import { useApi } from '../lib/useApi';
+import { addDays, longDate, toDay, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
 import { colors, fonts, MOODS, SYMPTOMS, tnum } from '../theme';
 
+import { tr } from '../lib/i18n';
 const MUCUS = [
-  { key: 'seche', label: 'Sèche' },
-  { key: 'collante', label: 'Collante' },
-  { key: 'cremeuse', label: 'Crémeuse' },
-  { key: 'aqueuse', label: 'Aqueuse' },
-  { key: 'blanc_oeuf', label: 'Blanc d’œuf' },
+  { key: 'seche', label: tr("Sèche") },
+  { key: 'collante', label: tr("Collante") },
+  { key: 'cremeuse', label: tr("Crémeuse") },
+  { key: 'aqueuse', label: tr("Aqueuse") },
+  { key: 'blanc_oeuf', label: tr("Blanc d’œuf") },
 ];
-const ENERGY = ['Très basse', 'Basse', 'Moyenne', 'Bonne', 'Au top'];
-const LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+const ENERGY = [tr("Très basse"), tr("Basse"), tr("Moyenne"), tr("Bonne"), tr("Au top")];
+const LETTERS = [FMT_WEEKDAYS_SHORT[6], ...FMT_WEEKDAYS_SHORT.slice(0, 6)];
 const FIELDS = ['mood', 'energy', 'symptoms', 'sleepHours', 'weight', 'medications', 'pillTaken', 'temperature', 'cervicalMucus', 'ovulationTest', 'notes'];
 
 const hm = (h) => (h == null ? '—' : `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
@@ -36,7 +35,7 @@ function WeekStrip({ day, today, onPick }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   return (
     <View style={s.strip}>
-      <Pressable onPress={() => onPick(addDays(day, -7))} accessibilityRole="button" accessibilityLabel="Semaine précédente" hitSlop={8} style={s.stripNav}>
+      <Pressable onPress={() => onPick(addDays(day, -7))} accessibilityRole="button" accessibilityLabel={tr("Semaine précédente")} hitSlop={8} style={s.stripNav}>
         <Icon name="chevronLeft" size={18} color={colors.muted} />
       </Pressable>
       {days.map((d) => {
@@ -49,7 +48,7 @@ function WeekStrip({ day, today, onPick }) {
           </Pressable>
         );
       })}
-      <Pressable onPress={() => addDays(monday, 7) <= today && onPick(addDays(day, 7) > today ? today : addDays(day, 7))} disabled={addDays(monday, 7) > today} accessibilityRole="button" accessibilityLabel="Semaine suivante" hitSlop={8} style={[s.stripNav, addDays(monday, 7) > today && { opacity: 0.3 }]}>
+      <Pressable onPress={() => addDays(monday, 7) <= today && onPick(addDays(day, 7) > today ? today : addDays(day, 7))} disabled={addDays(monday, 7) > today} accessibilityRole="button" accessibilityLabel={tr("Semaine suivante")} hitSlop={8} style={[s.stripNav, addDays(monday, 7) > today && { opacity: 0.3 }]}>
         <Icon name="chevronRight" size={18} color={colors.muted} />
       </Pressable>
     </View>
@@ -61,11 +60,11 @@ function Stepper({ label, icon, value, display, onMinus, onPlus }) {
     <View style={s.stepRow}>
       <Icon name={icon} size={18} color={colors.bordeaux} />
       <Text style={s.stepLabel}>{label}</Text>
-      <Pressable onPress={onMinus} accessibilityRole="button" accessibilityLabel={`${label} : diminuer`} hitSlop={6} style={s.stepBtn}>
+      <Pressable onPress={onMinus} accessibilityRole="button" accessibilityLabel={tr("{0} : diminuer", [label])} hitSlop={6} style={s.stepBtn}>
         <Text style={s.stepSign}>−</Text>
       </Pressable>
       <Text style={[s.stepValue, tnum, value == null && { color: colors.muted }]}>{display}</Text>
-      <Pressable onPress={onPlus} accessibilityRole="button" accessibilityLabel={`${label} : augmenter`} hitSlop={6} style={s.stepBtn}>
+      <Pressable onPress={onPlus} accessibilityRole="button" accessibilityLabel={tr("{0} : augmenter", [label])} hitSlop={6} style={s.stepBtn}>
         <Text style={s.stepSign}>+</Text>
       </Pressable>
     </View>
@@ -95,7 +94,6 @@ function DailyLog({ day, onDirty }) {
   }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!log) return <Loader />;
   const set = (k) => (v) => setLog((l) => ({ ...l, [k]: v }));
-  const fertility = user?.onboarding?.goal === 'enfant' || user?.fertilitySigns;
   const meds = log.medications || [];
   const toggleMed = (name) => set('medications')(meds.includes(name) ? meds.filter((m) => m !== name) : [...meds, name]);
   const extraMeds = meds.filter((m) => !log.medicationNotes.some((n) => n.text === m));
@@ -104,13 +102,13 @@ function DailyLog({ day, onDirty }) {
     setBusy(true);
     try {
       const temperature = log.temperatureText != null && log.temperatureText !== '' ? Math.round(Number(String(log.temperatureText).replace(',', '.')) * 20) / 20 : (log.temperature ?? null);
-      if (temperature != null && !(temperature >= 34 && temperature <= 42)) throw new Error('Température entre 34 et 42 °C');
+      if (temperature != null && !(temperature >= 34 && temperature <= 42)) throw new Error(tr("Température entre 34 et 42 °C"));
       const body = Object.fromEntries(FIELDS.map((k) => [k, k === 'temperature' ? temperature : k === 'symptoms' || k === 'medications' ? log[k] || [] : (log[k] ?? null)]));
       const r = await sendOrQueue('PUT', `/health-log/day/${day}`, body);
       const next = { ...log, temperature, temperatureText: undefined };
       initial.current = snapshot(next);
       setLog(next);
-      toast(r.queued ? 'Enregistré hors connexion' : 'Enregistré');
+      toast(r.queued ? tr("Enregistré hors connexion") : tr("Enregistré"));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -121,7 +119,7 @@ function DailyLog({ day, onDirty }) {
   return (
     <View style={{ gap: 14 }}>
       <Card style={{ gap: 14 }}>
-        <Text style={s.title}>Humeur</Text>
+        <Text style={s.title}>{tr("Humeur")}</Text>
         <Row gap={2} justify="space-between">
           {MOODS.map((m) => {
             const on = log.mood === m.key;
@@ -134,38 +132,38 @@ function DailyLog({ day, onDirty }) {
           })}
         </Row>
         <Row justify="space-between">
-          <Text style={s.title}>Énergie</Text>
-          <Text style={s.small}>{log.energy ? ENERGY[log.energy - 1] : 'Non renseignée'}</Text>
+          <Text style={s.title}>{tr("Énergie")}</Text>
+          <Text style={s.small}>{log.energy ? ENERGY[log.energy - 1] : tr("Non renseignée")}</Text>
         </Row>
         <View style={s.energy}>
           {[1, 2, 3, 4, 5].map((k) => (
-            <Pressable key={k} onPress={() => set('energy')(log.energy === k ? null : k)} accessibilityRole="radio" accessibilityState={{ selected: log.energy === k }} accessibilityLabel={`Énergie ${ENERGY[k - 1]}`} style={[s.energyBar, (log.energy || 0) >= k && s.energyOn]} />
+            <Pressable key={k} onPress={() => set('energy')(log.energy === k ? null : k)} accessibilityRole="radio" accessibilityState={{ selected: log.energy === k }} accessibilityLabel={tr("Énergie {0}", [ENERGY[k - 1]])} style={[s.energyBar, (log.energy || 0) >= k && s.energyOn]} />
           ))}
         </View>
       </Card>
 
       <Card style={{ gap: 12 }}>
-        <Text style={s.title}>Symptômes</Text>
+        <Text style={s.title}>{tr("Symptômes")}</Text>
         <Chips items={Object.entries(SYMPTOMS).map(([key, label]) => ({ key, label }))} value={log.symptoms} onChange={set('symptoms')} multi />
       </Card>
 
       <Card style={{ gap: 4, paddingVertical: 8 }}>
-        <Stepper label="Sommeil" icon="moon" value={log.sleepHours} display={hm(log.sleepHours)} onMinus={() => set('sleepHours')(Math.max(0, (log.sleepHours ?? 7.25) - 0.25))} onPlus={() => set('sleepHours')(Math.min(24, (log.sleepHours ?? 6.75) + 0.25))} />
+        <Stepper label={tr("Sommeil")} icon="moon" value={log.sleepHours} display={hm(log.sleepHours)} onMinus={() => set('sleepHours')(Math.max(0, (log.sleepHours ?? 7.25) - 0.25))} onPlus={() => set('sleepHours')(Math.min(24, (log.sleepHours ?? 6.75) + 0.25))} />
         <View style={s.sep} />
-        <Stepper label="Poids" icon="scale" value={log.weight} display={log.weight != null ? `${log.weight.toFixed(1).replace('.', ',')} kg` : '—'} onMinus={() => set('weight')(Math.round(((log.weight ?? 60.1) - 0.1) * 10) / 10)} onPlus={() => set('weight')(Math.round(((log.weight ?? 59.9) + 0.1) * 10) / 10)} />
+        <Stepper label={tr("Poids")} icon="scale" value={log.weight} display={log.weight != null ? `${log.weight.toFixed(1).replace('.', ',')} kg` : '—'} onMinus={() => set('weight')(Math.round(((log.weight ?? 60.1) - 0.1) * 10) / 10)} onPlus={() => set('weight')(Math.round(((log.weight ?? 59.9) + 0.1) * 10) / 10)} />
         {user?.contraception?.type === 'pilule' ? (
           <>
             <View style={s.sep} />
-            <Toggle label="Pilule prise" value={log.pillTaken} onChange={set('pillTaken')} />
+            <Toggle label={tr("Pilule prise")} value={log.pillTaken} onChange={set('pillTaken')} />
           </>
         ) : null}
       </Card>
 
       <Card style={{ gap: 10 }}>
         <Row justify="space-between">
-          <Text style={s.title}>Médicaments et compléments</Text>
+          <Text style={s.title}>{tr("Médicaments et compléments")}</Text>
           <Pressable onPress={() => router.push(`/notes/nouvelle?day=${day}&type=medicament`)} accessibilityRole="button" hitSlop={6}>
-            <Text style={s.link}>+ Ajouter</Text>
+            <Text style={s.link}>{tr("+ Ajouter")}</Text>
           </Pressable>
         </Row>
         {log.medicationNotes.length || extraMeds.length ? (
@@ -180,17 +178,20 @@ function DailyLog({ day, onDirty }) {
             );
           })
         ) : (
-          <T variant="small">Les notes « Médicament » de ce jour apparaissent ici, à cocher quand c’est pris.</T>
+          <T variant="small">{tr("Les notes « Médicament » de ce jour apparaissent ici, à cocher quand c’est pris.")}</T>
         )}
       </Card>
 
-      {fertility ? (
-        <Card style={{ gap: 12 }}>
-          <Text style={s.title}>Glaire et température</Text>
+      <Card style={{ gap: 12 }}>
+          <Row justify="space-between">
+            <Text style={s.title}>{tr("Signes de fertilité")}</Text>
+            <View style={s.optional}><Text style={s.optionalText}>{tr("Facultatif")}</Text></View>
+          </Row>
+          <T variant="fieldLabel">{tr("Glaire cervicale")}</T>
           <Chips items={MUCUS} value={log.cervicalMucus} onChange={(v) => set('cervicalMucus')(log.cervicalMucus === v ? null : v)} />
           <View style={s.stepRow}>
             <Icon name="sun" size={18} color={colors.bordeaux} />
-            <Text style={s.stepLabel}>Température au réveil</Text>
+            <Text style={s.stepLabel}>{tr("Température au réveil")}</Text>
             <TextInput
               value={log.temperatureText ?? (log.temperature != null ? String(log.temperature).replace('.', ',') : '')}
               onChangeText={set('temperatureText')}
@@ -198,96 +199,18 @@ function DailyLog({ day, onDirty }) {
               placeholderTextColor={colors.caseVide}
               keyboardType="decimal-pad"
               style={s.tempInput}
-              accessibilityLabel="Température au réveil en degrés"
+              accessibilityLabel={tr("Température au réveil en degrés")}
             />
             <Text style={s.small}>°C</Text>
           </View>
-          <T variant="fieldLabel">Test d’ovulation</T>
-          <Chips items={[{ key: 'positif', label: 'Positif' }, { key: 'negatif', label: 'Négatif' }]} value={log.ovulationTest} onChange={(v) => set('ovulationTest')(log.ovulationTest === v ? null : v)} />
-          <T variant="small">Arrondie à 0,05 °C. Une hausse durable ou un test positif affine l’estimation de ton ovulation.</T>
-        </Card>
-      ) : null}
+          <T variant="fieldLabel">{tr("Test d’ovulation")}</T>
+          <Chips items={[{ key: 'positif', label: tr("Positif") }, { key: 'negatif', label: tr("Négatif") }, { key: 'pas_fait', label: tr("Pas fait") }]} value={log.ovulationTest || 'pas_fait'} onChange={(v) => set('ovulationTest')(v === 'pas_fait' ? null : v)} />
+          <T variant="small">{tr("Arrondie à 0,05 °C. Une hausse durable de température ou un test positif affine l’estimation de ton ovulation.")}</T>
+      </Card>
 
-      <Field label="Notes" value={log.notes || ''} onChangeText={set('notes')} multiline placeholder="Ce que tu veux retenir de ta journée" />
-      <Button title="Enregistrer" onPress={save} loading={busy} disabled={!dirty || busy} />
-      <T variant="small" style={{ textAlign: 'center' }}>Données de santé chiffrées, jamais affichées dans les notifications.</T>
-    </View>
-  );
-}
-
-function Evolution() {
-  const { width } = useWindowDimensions();
-  const { data, loading } = useApi('/health-log/stats?days=180');
-  const tips = useApi('/health-log/tips');
-  if (loading && !data) return <Loader />;
-  if (!data) return null;
-  const chartW = width - 40 - 40;
-  const moodTotal = Object.values(data.moods).reduce((a, b) => a + b, 0) || 1;
-  const topSymptoms = Object.entries(data.symptoms)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  return (
-    <View style={{ gap: 14 }}>
-      {tips.data?.tips?.length ? (
-        <Card tone="soft" style={{ gap: 8 }}>
-          <Label color={colors.or}>Conseils du jour</Label>
-          {tips.data.weather ? (
-            <T variant="small">
-              Météo : {Math.round(tips.data.weather.min)}° / {Math.round(tips.data.weather.max)}° · UV {Math.round(tips.data.weather.uv ?? 0)} · qualité de l’air {tips.data.weather.aqi ?? '—'}
-            </T>
-          ) : null}
-          {tips.data.tips.map((t, i) => (
-            <T key={i}>• {t.text}</T>
-          ))}
-        </Card>
-      ) : null}
-      <Card style={{ gap: 10 }}>
-        <Label>Durée de tes cycles</Label>
-        <ColumnChart data={data.cycleLengths} width={chartW} label="Durée des cycles" />
-      </Card>
-      <Card style={{ gap: 10 }}>
-        <Label>Poids (kg)</Label>
-        <LineChart data={data.weight} width={chartW} unit=" kg" minSpan={2} label="Poids" />
-      </Card>
-      <Card style={{ gap: 10 }}>
-        <Label>Sommeil (heures)</Label>
-        <LineChart data={data.sleep} width={chartW} unit=" h" minSpan={2} label="Sommeil" />
-      </Card>
-      {data.temperature.length > 1 ? (
-        <Card style={{ gap: 10 }}>
-          <Label>Température au réveil (°C)</Label>
-          <LineChart data={data.temperature} width={chartW} unit=" °C" digits={2} minSpan={0.6} label="Température" />
-        </Card>
-      ) : null}
-      <Card style={{ gap: 10 }}>
-        <Label>Humeurs sur 6 mois</Label>
-        {MOODS.map((m) => {
-          const n = data.moods[m.key] || 0;
-          return (
-            <View key={m.key} style={{ gap: 4 }}>
-              <Row justify="space-between">
-                <T>{m.label}</T>
-                <T variant="small">{n} jour{n > 1 ? 's' : ''}</T>
-              </Row>
-              <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.blush }}>
-                <View style={{ height: 8, borderRadius: 4, width: `${(n / moodTotal) * 100}%`, backgroundColor: colors.bordeaux }} />
-              </View>
-            </View>
-          );
-        })}
-      </Card>
-      {topSymptoms.length ? (
-        <Card style={{ gap: 6 }}>
-          <Label>Symptômes les plus fréquents</Label>
-          {topSymptoms.map(([k, n]) => (
-            <Row key={k} justify="space-between">
-              <T>{SYMPTOMS[k] || k}</T>
-              <T variant="small">{n} fois</T>
-            </Row>
-          ))}
-        </Card>
-      ) : null}
-      <T variant="small">Export PDF pour ta gynécologue et connexion à Apple Santé / Health Connect : prochainement.</T>
+      <Field label={tr("Notes")} value={log.notes || ''} onChangeText={set('notes')} multiline placeholder={tr("Ce que tu veux retenir de ta journée")} />
+      <Button title={tr("Enregistrer")} onPress={save} loading={busy} disabled={!dirty || busy} />
+      <T variant="small" style={{ textAlign: 'center' }}>{tr("Données de santé chiffrées, jamais affichées dans les notifications.")}</T>
     </View>
   );
 }
@@ -297,7 +220,6 @@ export default function Health() {
   const params = useLocalSearchParams();
   const navigation = useNavigation();
   const [day, setDay] = useState(typeof params.day === 'string' && params.day <= today ? params.day : today);
-  const [tab, setTab] = useState('jour');
   const dirty = useRef(false);
 
   // Quitter sans enregistrer : confirmation si quelque chose a changé.
@@ -307,9 +229,9 @@ export default function Health() {
       if (window.confirm('Quitter sans enregistrer ? Tes changements seront perdus.')) onLeave(); // eslint-disable-line no-alert
       return;
     }
-    Alert.alert('Quitter sans enregistrer ?', 'Tes changements seront perdus.', [
-      { text: 'Rester', style: 'cancel' },
-      { text: 'Quitter', style: 'destructive', onPress: onLeave },
+    Alert.alert(tr("Quitter sans enregistrer ?"), tr("Tes changements seront perdus."), [
+      { text: tr("Rester"), style: 'cancel' },
+      { text: tr("Quitter"), style: 'destructive', onPress: onLeave },
     ]);
   };
   useEffect(
@@ -330,20 +252,12 @@ export default function Health() {
   });
 
   return (
-    <Screen back title="Suivi santé">
-      <Segmented items={[{ key: 'jour', label: 'Ma journée' }, { key: 'evolution', label: 'Évolution' }]} value={tab} onChange={setTab} />
-      <Gap h={16} />
-      {tab === 'jour' ? (
-        <>
-          <WeekStrip day={day} today={today} onPick={pick} />
-          <Text style={[s.dayTitle]}>{day === today ? 'Aujourd’hui' : longDate(day)}</Text>
-          <DailyLog key={day} day={day} onDirty={(v) => {
-            dirty.current = v;
-          }} />
-        </>
-      ) : (
-        <Evolution />
-      )}
+    <Screen back title={tr("Mon journal du jour")}>
+      <WeekStrip day={day} today={today} onPick={pick} />
+      <Text style={[s.dayTitle]}>{day === today ? tr("Aujourd’hui") : longDate(day)}</Text>
+      <DailyLog key={day} day={day} onDirty={(v) => {
+        dirty.current = v;
+      }} />
     </Screen>
   );
 }
@@ -372,5 +286,7 @@ const s = StyleSheet.create({
   box: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: colors.caseVide, alignItems: 'center', justifyContent: 'center' },
   boxOn: { backgroundColor: colors.or, borderColor: colors.or },
   medText: { flex: 1, fontFamily: fonts.semi, fontSize: 15, color: colors.prune },
+  optional: { backgroundColor: colors.sable, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  optionalText: { fontFamily: fonts.bold, fontSize: 11, color: colors.orText },
   tempInput: { minWidth: 70, textAlign: 'center', fontFamily: fonts.extra, fontSize: 16, color: colors.prune, borderBottomWidth: 1.5, borderBottomColor: colors.lineField, paddingVertical: 4 },
 });

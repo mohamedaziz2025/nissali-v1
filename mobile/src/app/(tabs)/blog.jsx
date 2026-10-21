@@ -6,8 +6,9 @@ import { Card, Chips, ErrorState, Field, Gap, Label, Loader, OfflineBanner, Row,
 import { useApi } from '../../lib/useApi';
 import { colors } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const SWATCH = { rose: colors.rose, or: colors.or, blush: colors.blush, bordeaux: colors.bordeaux };
-const REVIEW = { valide_comite: 'validé par le comité', valide_sante: 'relu par une pro de santé' };
+const REVIEW = { valide_comite: tr("validé par le comité"), valide_sante: tr("relu par une pro de santé") };
 
 function ArticleRow({ a }) {
   return (
@@ -17,7 +18,7 @@ function ArticleRow({ a }) {
         <Label>{a.categoryLabel}</Label>
         <T variant="bold" style={{ fontSize: 17.5, lineHeight: 23 }}>{a.title}</T>
         <T variant="muted">
-          {a.readMinutes} min · {(a.reviewer || REVIEW[a.validation] || '').replace(/^Relu/, 'relu').replace(/^Validé/, 'validé')}
+          {a.readMinutes} {tr("min ·")} {(a.reviewer || REVIEW[a.validation] || '').replace(/^Relu/, 'relu').replace(/^Validé/, 'validé')}
         </T>
       </View>
     </Card>
@@ -34,12 +35,12 @@ export default function Blog() {
   }, [q]);
   const cats = useApi('/blog/categories');
   const { data, loading, error, offline, reload } = useApi(`/blog?${new URLSearchParams({ ...(debounced ? { q: debounced } : {}), ...(category ? { category } : {}) })}`);
-  const chips = [{ key: '', label: 'Tout' }, ...(cats.data || []).map((c) => ({ key: c.key, label: c.label }))];
+  const chips = [{ key: '', label: tr("Tout") }, ...(cats.data || []).map((c) => ({ key: c.key, label: c.label }))];
 
   return (
-    <Screen title="Blog" right={<T variant="muted">Validé par des pros</T>} onRefresh={reload}>
+    <Screen title={tr("Blog")} right={<T variant="muted">{tr("Validé par des pros")}</T>} onRefresh={reload}>
       <OfflineBanner visible={offline} />
-      <Field value={q} onChangeText={setQ} placeholder="Rechercher un article" icon="search" returnKeyType="search" />
+      <Field value={q} onChangeText={setQ} placeholder={tr("Rechercher un article")} icon="search" returnKeyType="search" />
       <Gap />
       <Chips items={chips} value={category} onChange={setCategory} scroll />
       <Gap h={18} />
@@ -47,23 +48,23 @@ export default function Blog() {
       {error && !data ? <ErrorState error={error} onRetry={reload} /> : null}
       {data?.featured ? (
         <Card tone="hero" onPress={() => router.push(`/blog/${data.featured.slug}`)} style={{ gap: 12, paddingVertical: 26, marginBottom: 14 }}>
-          <Label color={colors.rose}>À la une · {data.featured.categoryLabel}</Label>
+          <Label color={colors.rose}>{tr("À la une ·")} {data.featured.categoryLabel}</Label>
           <T variant="h2" color={colors.white} style={{ fontSize: 30, lineHeight: 36 }}>{data.featured.title}</T>
           <T color={colors.white}>
-            {data.featured.validation === 'valide_comite' ? 'Validé par le comité religieux' : 'Relu par une professionnelle de santé'} · {data.featured.readMinutes} min
+            {data.featured.validation === 'valide_comite' ? tr("Validé par le comité religieux") : tr("Relu par une professionnelle de santé")} · {data.featured.readMinutes} {tr("min")}
           </T>
         </Card>
       ) : null}
       {data?.daily ? (
         <Card tone="soft" onPress={() => router.push(`/blog/${data.daily.article.slug}`)} style={{ gap: 6, marginBottom: 14 }}>
-          <Label color={colors.or}>Article du jour · pour ta phase</Label>
+          <Label color={colors.or}>{tr("Article du jour · pour ta phase")}</Label>
           <T variant="h3">{data.daily.article.title}</T>
         </Card>
       ) : null}
       {data?.items?.map((a) => <ArticleRow key={a.id} a={a} />)}
-      {data && !data.items.length && !data.featured ? <T variant="muted">Aucun article ne correspond à ta recherche.</T> : null}
+      {data && !data.items.length && !data.featured ? <T variant="muted">{tr("Aucun article ne correspond à ta recherche.")}</T> : null}
       <Row style={{ marginTop: 8 }}>
-        <T variant="small">Chaque article santé est relu par une professionnelle de santé ; chaque article religieux est validé par le comité.</T>
+        <T variant="small">{tr("Chaque article santé est relu par une professionnelle de santé ; chaque article religieux est validé par le comité.")}</T>
       </Row>
     </Screen>
   );

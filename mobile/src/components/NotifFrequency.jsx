@@ -4,10 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 
+import { tr } from '../lib/i18n';
 export const FREQUENCIES = [
-  { key: 'faible', label: 'Faible', hint: 'Uniquement les rappels essentiels que tu as activés', more: 'Aucun conseil ni actualité' },
-  { key: 'moderee', label: 'Modérée', hint: 'Les essentiels + quelques conseils et actualités', more: '3 notifications maximum par semaine' },
-  { key: 'elevee', label: 'Élevée', hint: 'Davantage de conseils, de contenus et de nouveautés', more: '5 notifications maximum par semaine' },
+  { key: 'faible', label: tr("Faible"), hint: tr("Uniquement les rappels essentiels que tu as activés"), more: 'Aucun conseil ni actualité' },
+  { key: 'moderee', label: tr("Modérée"), hint: tr("Les essentiels + quelques conseils et actualités"), more: '3 notifications maximum par semaine' },
+  { key: 'elevee', label: tr("Élevée"), hint: tr("Davantage de conseils, de contenus et de nouveautés"), more: '5 notifications maximum par semaine' },
 ];
 
 export function FrequencyPicker({ value = 'faible', onChange }) {
@@ -21,7 +22,7 @@ export function FrequencyPicker({ value = 'faible', onChange }) {
             <View style={{ flex: 1 }}>
               <Text style={s.label}>
                 {f.label}
-                {f.key === 'faible' ? <Text style={s.default}> · par défaut</Text> : null}
+                {f.key === 'faible' ? <Text style={s.default}> {tr("· par défaut")}</Text> : null}
               </Text>
               <Text style={s.hint}>{f.hint}</Text>
               <Text style={s.more}>{f.more}</Text>
@@ -30,7 +31,7 @@ export function FrequencyPicker({ value = 'faible', onChange }) {
           </Pressable>
         );
       })}
-      <Text style={s.note}>Tes rappels de prière, de notes et de jeûnes ne changent pas, quel que soit le niveau. Pas de conseil la nuit (22:00–08:00) ni à l’heure d’une prière, jamais deux le même jour.</Text>
+      <Text style={s.note}>{tr("Tes rappels de prière, de notes et de jeûnes ne changent pas, quel que soit le niveau. Pas de conseil la nuit (22:00–08:00) ni à l’heure d’une prière, jamais deux le même jour.")}</Text>
     </View>
   );
 }

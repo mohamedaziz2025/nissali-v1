@@ -13,6 +13,7 @@ import { dayMonth } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { colors, fonts, PRAYER_LABELS, tnum } from '../theme';
 
+import { tr } from '../lib/i18n';
 function Step({ n, title, done, children, last }) {
   return (
     <View style={s.step}>
@@ -52,11 +53,11 @@ export default function Ghusl() {
 
   const header = (sub) => (
     <View style={[s.header, { paddingTop: insets.top + 12 }]}>
-      <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Fermer" hitSlop={10} style={s.close}>
+      <Pressable onPress={close} accessibilityRole="button" accessibilityLabel={tr("Fermer")} hitSlop={10} style={s.close}>
         <Icon name="close" size={18} color={colors.white} />
       </Pressable>
-      <Text style={s.surtitle}>APRÈS TES RÈGLES</Text>
-      <Text style={s.title} accessibilityRole="header">Ghusl et prières</Text>
+      <Text style={s.surtitle}>{tr("APRÈS TES RÈGLES")}</Text>
+      <Text style={s.title} accessibilityRole="header">{tr("Ghusl et prières")}</Text>
       {sub ? <Text style={s.sub}>{sub}</Text> : null}
     </View>
   );
@@ -69,8 +70,8 @@ export default function Ghusl() {
       <View style={s.screen}>
         {header()}
         <View style={{ padding: 20, gap: 14 }}>
-          <T>Rien à faire pour l’instant. Cet écran s’ouvre quand tu notes la fin de tes règles.</T>
-          <Button title="Retour à l’accueil" onPress={() => router.replace('/')} />
+          <T>{tr("Rien à faire pour l’instant. Cet écran s’ouvre quand tu notes la fin de tes règles.")}</T>
+          <Button title={tr("Retour à l’accueil")} onPress={() => router.replace('/')} />
         </View>
       </View>
     );
@@ -117,7 +118,7 @@ export default function Ghusl() {
         {header(`Règles du ${dayMonth(p.start)} au ${dayMonth(p.end)}${p.endTime ? `, fin à ${p.endTime}` : ''} · ${p.days} jour${p.days > 1 ? 's' : ''}`)}
         <View style={s.progressWrap}>
           <View style={s.progressCard}>
-            <Text style={[s.progressText, tnum]}>{p.done} sur {p.total} fait</Text>
+            <Text style={[s.progressText, tnum]}>{p.done} {tr("sur")} {p.total} {tr("fait")}</Text>
             <View style={s.track}>
               <View style={[s.fill, { width: `${Math.round((p.done / Math.max(1, p.total)) * 100)}%` }]} />
             </View>
@@ -125,40 +126,40 @@ export default function Ghusl() {
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 22 }}>
-          <Step n={1} title="Ton ghusl" done={p.ghusl}>
-            <CheckRow label="J’ai fait mon ghusl" done={p.ghusl} onPress={toggleGhusl} disabled={busy} />
+          <Step n={1} title={tr("Ton ghusl")} done={p.ghusl}>
+            <CheckRow label={tr("J’ai fait mon ghusl")} done={p.ghusl} onPress={toggleGhusl} disabled={busy} />
             <Pressable onPress={() => router.push('/blog/comment-faire-mes-grandes-ablutions-ghusl')} accessibilityRole="link" style={s.linkRow}>
-              <Text style={s.link}>Comment faire mon ghusl</Text>
+              <Text style={s.link}>{tr("Comment faire mon ghusl")}</Text>
               <Icon name="chevronRight" size={14} color={colors.bordeaux} />
             </Pressable>
           </Step>
 
-          <Step n={2} title="Les prières à accomplir" done={p.prayers.length > 0 && p.prayers.every((x) => x.done)}>
+          <Step n={2} title={tr("Les prières à accomplir")} done={p.prayers.length > 0 && p.prayers.every((x) => x.done)}>
             {!p.endTime ? (
-              <Notice>Indique l’heure de fin de tes règles (Mes règles › Modifier) pour savoir quelles prières accomplir.</Notice>
+              <Notice>{tr("Indique l’heure de fin de tes règles (Mes règles › Modifier) pour savoir quelles prières accomplir.")}</Notice>
             ) : p.prayers.length ? (
-              p.prayers.map((x) => <CheckRow key={x.key} label={x.label} sub={x.due ? `${x.time} · à accomplir` : `${x.time} · à son heure`} done={x.done} onPress={() => togglePrayer(x.key)} disabled={busy} />)
+              p.prayers.map((x) => <CheckRow key={x.key} label={x.label} sub={x.due ? tr("{0} · à accomplir", [x.time]) : tr("{0} · à son heure", [x.time])} done={x.done} onPress={() => togglePrayer(x.key)} disabled={busy} />)
             ) : (
-              <T variant="muted">Aucune prière à rattraper : reprends tes prières à leur heure.</T>
+              <T variant="muted">{tr("Aucune prière à rattraper : reprends tes prières à leur heure.")}</T>
             )}
             <Text style={s.rule}>{p.ruleText}</Text>
           </Step>
 
-          <Step n={3} title="Tes prières reprennent" done={allDone} last>
-            <T variant="muted">{p.next ? `Prochaine prière à son heure : ${PRAYER_LABELS[p.next]}. ` : ''}Tes rappels de prière sont réactivés.</T>
+          <Step n={3} title={tr("Tes prières reprennent")} done={allDone} last>
+            <T variant="muted">{p.next ? tr("Prochaine prière à son heure : {0}. ", [PRAYER_LABELS[p.next]]) : ''}{tr("Tes rappels de prière sont réactivés.")}</T>
             <View style={s.toggleCard}>
-              <Toggle label="Me rappeler les prières à accomplir" hint="Avant le Fajr suivant, si elles ne sont pas cochées." value={reminders} onChange={setReminders} />
+              <Toggle label={tr("Me rappeler les prières à accomplir")} hint={tr("Avant le Fajr suivant, si elles ne sont pas cochées.")} value={reminders} onChange={setReminders} />
             </View>
           </Step>
 
           {allDone ? (
             <View style={s.doneCard}>
               <Icon name="sparkle" size={18} color={colors.orText} />
-              <Text style={s.doneText}>Tout est fait. Qu’Allah accepte tes prières.</Text>
+              <Text style={s.doneText}>{tr("Tout est fait. Qu’Allah accepte tes prières.")}</Text>
             </View>
           ) : null}
-          <Button title={allDone ? 'Terminer' : 'Plus tard'} variant={allDone ? 'primary' : 'outline'} onPress={close} style={{ marginTop: 22 }} />
-          <T variant="small" style={{ textAlign: 'center', marginTop: 10 }}>En cas de doute, rapproche-toi d’une personne de science.</T>
+          <Button title={allDone ? tr("Terminer") : tr("Plus tard")} variant={allDone ? 'primary' : 'outline'} onPress={close} style={{ marginTop: 22 }} />
+          <T variant="small" style={{ textAlign: 'center', marginTop: 10 }}>{tr("En cas de doute, rapproche-toi d’une personne de science.")}</T>
         </View>
       </ScrollView>
     </View>

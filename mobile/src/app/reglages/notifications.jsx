@@ -11,12 +11,13 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 // Chaque famille regroupe les rappels essentiels de 5.12.
 const FAMILIES = [
-  { key: 'cycle', label: 'Mon cycle', hint: 'Règles prévues, fenêtre fertile, fin des règles', prefs: ['periodSoon', 'fertileWindow', 'periodEndQuestion'] },
-  { key: 'jeunes', label: 'Mes jeûnes', hint: 'Jeûnes programmés (la veille), Ramadan, jours blancs', prefs: ['fastMakeup', 'fastPlanned', 'ramadan', 'whiteDays'] },
-  { key: 'messages', label: 'Messages des praticiennes', hint: 'À la réception d’un message', prefs: ['messages'] },
-  { key: 'events', label: 'Mes événements', hint: 'Validation, rappel la veille', prefs: ['events'] },
+  { key: 'cycle', label: tr("Mon cycle"), hint: tr("Règles prévues, fenêtre fertile, fin des règles"), prefs: ['periodSoon', 'fertileWindow', 'periodEndQuestion'] },
+  { key: 'jeunes', label: tr("Mes jeûnes"), hint: tr("Jeûnes programmés (la veille), Ramadan, jours blancs"), prefs: ['fastMakeup', 'fastPlanned', 'ramadan', 'whiteDays'] },
+  { key: 'messages', label: tr("Messages des praticiennes"), hint: tr("À la réception d’un message"), prefs: ['messages'] },
+  { key: 'events', label: tr("Mes événements"), hint: tr("Validation, rappel la veille"), prefs: ['events'] },
 ];
 
 export default function NotificationSettings() {
@@ -37,43 +38,43 @@ export default function NotificationSettings() {
   const familyOn = (f) => f.prefs.some((k) => np[k] !== false);
 
   return (
-    <Screen back title="Notifications">
-      <SettingsCard title="Niveau">
-        <T variant="small">Conseils et actualités en plus de tes rappels. Tes rappels de prière et tes rappels personnels ne changent jamais.</T>
+    <Screen back title={tr("Notifications")}>
+      <SettingsCard title={tr("Niveau")}>
+        <T variant="small">{tr("Conseils et actualités en plus de tes rappels. Tes rappels de prière et tes rappels personnels ne changent jamais.")}</T>
         <FrequencyPicker value={np.frequency || 'faible'} onChange={(v) => patch({ frequency: v, frequencyAsked: true }, 'Niveau enregistré')} />
       </SettingsCard>
       <Gap />
 
-      <SettingsCard title="Rappels essentiels">
+      <SettingsCard title={tr("Rappels essentiels")}>
         {FAMILIES.map((f) => (
           <Toggle key={f.key} label={f.label} hint={f.hint} value={familyOn(f)} onChange={(v) => patch(Object.fromEntries(f.prefs.map((k) => [k, v])))} />
         ))}
-        <Toggle label="Petit rappel du jour" hint="Un rappel discret le matin" value={np.dailyReminder !== false} onChange={(v) => patch({ dailyReminder: v })} />
+        <Toggle label={tr("Petit rappel du jour")} hint={tr("Un rappel discret le matin")} value={np.dailyReminder !== false} onChange={(v) => patch({ dailyReminder: v })} />
         <Pressable onPress={() => router.push('/reglages/prieres')} accessibilityRole="link" style={s.row}>
           <Icon name="bell" size={17} color={colors.bordeaux} />
-          <Text style={s.rowText}>Rappels de prière et adhan</Text>
+          <Text style={s.rowText}>{tr("Rappels de prière et adhan")}</Text>
           <Icon name="chevronRight" size={16} color={colors.muted} />
         </Pressable>
       </SettingsCard>
       <Gap />
 
-      <SettingsCard title="Écran verrouillé">
-        <Toggle label="Masquer l’aperçu" hint="Aucun mot sensible : seulement « Rappel Nissali »" value={hide} onChange={(v) => patch({ hideNotePreview: v })} />
+      <SettingsCard title={tr("Écran verrouillé")}>
+        <Toggle label={tr("Masquer l’aperçu")} hint={tr("Aucun mot sensible : seulement « Rappel Nissali »")} value={hide} onChange={(v) => patch({ hideNotePreview: v })} />
         {/* Aperçu en direct de l'écran verrouillé */}
-        <View style={s.lock} accessibilityLabel={`Aperçu de l’écran verrouillé : ${hide ? 'Rappel Nissali' : 'Prendre mon comprimé de fer, 08:00'}`}>
+        <View style={s.lock} accessibilityLabel={tr("Aperçu de l’écran verrouillé : {0}", [(hide ? tr("Rappel Nissali") : tr("Prendre mon comprimé de fer, 08:00"))])}>
           <Text style={s.lockTime}>08:00</Text>
           <View style={s.notif}>
             <View style={s.notifIcon}>
               <Text style={s.notifLogo}>N</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.notifTitle}>{hide ? 'Nissali' : 'Rappel'}</Text>
-              <Text style={s.notifBody}>{hide ? 'Rappel Nissali' : 'Prendre mon comprimé de fer · 08:00'}</Text>
+              <Text style={s.notifTitle}>{hide ? tr("Nissali") : tr("Rappel")}</Text>
+              <Text style={s.notifBody}>{hide ? tr("Rappel Nissali") : tr("Prendre mon comprimé de fer · 08:00")}</Text>
             </View>
-            <Text style={s.notifNow}>maintenant</Text>
+            <Text style={s.notifNow}>{tr("maintenant")}</Text>
           </View>
         </View>
-        <T variant="small">Les rappels du cycle s’affichent toujours en « Petit rappel du jour », jamais « Tes règles arrivent ».</T>
+        <T variant="small">{tr("Les rappels du cycle s’affichent toujours en « Petit rappel du jour », jamais « Tes règles arrivent ».")}</T>
       </SettingsCard>
     </Screen>
   );

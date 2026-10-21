@@ -9,6 +9,7 @@ import { DatePickerSheet } from './Calendar';
 import Icon from './Icon';
 import { Chip, Field, Row, T, styles as ui } from './ui';
 
+import { tr } from '../lib/i18n';
 export function DateField({ label, value, onChange, maxDay = toDay(new Date()), minDay, placeholder = 'Choisir une date', allowClear }) {
   const [open, setOpen] = useState(false);
   const { width } = useWindowDimensions();
@@ -19,7 +20,7 @@ export function DateField({ label, value, onChange, maxDay = toDay(new Date()), 
         <Icon name="calendar" size={20} color={colors.muted} />
         <T style={{ flex: 1, color: value ? colors.prune : '#A88C93' }}>{value ? longDate(value, { year: true }) : placeholder}</T>
         {allowClear && value ? (
-          <Pressable hitSlop={10} onPress={() => onChange(null)} accessibilityLabel="Effacer">
+          <Pressable hitSlop={10} onPress={() => onChange(null)} accessibilityLabel={tr("Effacer")}>
             <Icon name="close" size={18} color={colors.muted} />
           </Pressable>
         ) : null}
@@ -47,10 +48,10 @@ export function TimeField({ label, value, onChange, hint, allowUnknown = true })
   };
   return (
     <View style={{ gap: 8 }}>
-      <Field label={label} value={text} onChangeText={update} placeholder="HH:MM" keyboardType="number-pad" icon="clock" hint={hint} maxLength={5} />
+      <Field label={label} value={text} onChangeText={update} placeholder={tr("HH:MM")} keyboardType="number-pad" icon="clock" hint={hint} maxLength={5} />
       <Row gap={8}>
-        <Chip label="Maintenant" onPress={() => onChange(nowTime())} />
-        {allowUnknown ? <Chip label="Je ne sais pas" selected={!value} onPress={() => onChange(null)} /> : null}
+        <Chip label={tr("Maintenant")} onPress={() => onChange(nowTime())} />
+        {allowUnknown ? <Chip label={tr("Je ne sais pas")} selected={!value} onPress={() => onChange(null)} /> : null}
       </Row>
     </View>
   );
@@ -87,7 +88,7 @@ export function CityPicker({ value, onChange, label = 'Ville' }) {
     setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') throw new Error('Autorise l’accès à ta position pour l’utiliser.');
+      if (status !== 'granted') throw new Error(tr("Autorise l’accès à ta position pour l’utiliser."));
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const city = await api.get(`/geo/reverse?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
       onChange({ ...city, source: 'gps' });
@@ -106,7 +107,7 @@ export function CityPicker({ value, onChange, label = 'Ville' }) {
         label={label}
         value={query}
         onChangeText={setQuery}
-        placeholder={value ? `${value.name}${value.country ? `, ${value.country}` : ''}` : 'Rechercher ta ville…'}
+        placeholder={value ? `${value.name}${value.country ? `, ${value.country}` : ''}` : tr("Rechercher ta ville…")}
         icon="pin"
         autoCorrect={false}
         right={busy ? <ActivityIndicator color={colors.bordeaux} /> : null}
@@ -143,7 +144,7 @@ export function CityPicker({ value, onChange, label = 'Ville' }) {
       ) : null}
       <Pressable accessibilityRole="button" onPress={locate} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
         {locating ? <ActivityIndicator color={colors.bordeaux} /> : <Icon name="locate" size={20} color={colors.bordeaux} />}
-        <T variant="medium" color={colors.bordeaux}>Utiliser ma position actuelle</T>
+        <T variant="medium" color={colors.bordeaux}>{tr("Utiliser ma position actuelle")}</T>
       </Pressable>
     </View>
   );

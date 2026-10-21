@@ -13,7 +13,8 @@ import { longDate } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const MODE = { cabinet: 'Au cabinet', visio: 'En visio', les_deux: 'Cabinet ou visio' };
+import { tr } from '../../lib/i18n';
+const MODE = { cabinet: tr("Au cabinet"), visio: tr("En visio"), les_deux: tr("Cabinet ou visio") };
 
 function CircleButton({ icon, label, onPress, active }) {
   return (
@@ -61,34 +62,34 @@ function ServiceSheet({ service, practitioner, onClose, onBook, onContact }) {
   if (!service) return null;
   const place = service.mode === 'visio' ? 'En visio' : service.mode === 'les_deux' ? 'Au cabinet ou en visio' : 'Au cabinet';
   return (
-    <Sheet visible onClose={onClose} title={service.name} footer={!practitioner.isSelf ? <Button title="Réserver cette prestation" onPress={() => onBook(service)} /> : null}>
+    <Sheet visible onClose={onClose} title={service.name} footer={!practitioner.isSelf ? <Button title={tr("Réserver cette prestation")} onPress={() => onBook(service)} /> : null}>
       <View style={s.detailPrice}>
         <Text style={s.detailPriceValue}>{euros(service.price)}</Text>
-        <T variant="small">Tarif indicatif</T>
+        <T variant="small">{tr("Tarif indicatif")}</T>
       </View>
       <View style={s.detailRows}>
         <View style={s.detailRow}>
           <Icon name="clock" size={18} color={colors.bordeaux} />
-          <T style={{ flex: 1 }}>Durée</T>
-          <T variant="bold">{service.durationMinutes} min</T>
+          <T style={{ flex: 1 }}>{tr("Durée")}</T>
+          <T variant="bold">{service.durationMinutes} {tr("min")}</T>
         </View>
         <View style={s.detailRow}>
           <Icon name={service.mode === 'visio' ? 'video' : 'pin'} size={18} color={colors.bordeaux} />
-          <T style={{ flex: 1 }}>Lieu</T>
+          <T style={{ flex: 1 }}>{tr("Lieu")}</T>
           <T variant="bold" style={{ flexShrink: 1, textAlign: 'right' }}>{place}{service.mode !== 'visio' && practitioner.city ? ` · ${practitioner.city}` : ''}</T>
         </View>
         <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
           <Icon name="calendar" size={18} color={colors.bordeaux} />
-          <T style={{ flex: 1 }}>Prochain créneau</T>
-          {next === undefined ? <ActivityIndicator size="small" color={colors.bordeaux} /> : <T variant="bold" color={next ? colors.success : colors.muted}>{next ? nextLabel(next) : 'Sur demande'}</T>}
+          <T style={{ flex: 1 }}>{tr("Prochain créneau")}</T>
+          {next === undefined ? <ActivityIndicator size="small" color={colors.bordeaux} /> : <T variant="bold" color={next ? colors.success : colors.muted}>{next ? nextLabel(next) : tr("Sur demande")}</T>}
         </View>
       </View>
-      <Label>Description</Label>
-      <T style={{ lineHeight: 24 }}>{service.description || 'La praticienne n’a pas encore détaillé cette prestation. N’hésite pas à lui écrire pour en savoir plus.'}</T>
+      <Label>{tr("Description")}</Label>
+      <T style={{ lineHeight: 24 }}>{service.description || tr("La praticienne n’a pas encore détaillé cette prestation. N’hésite pas à lui écrire pour en savoir plus.")}</T>
       {!practitioner.isSelf ? (
         <Pressable onPress={onContact} accessibilityRole="button" hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' }}>
           <Icon name="chat" size={18} color={colors.bordeaux} />
-          <T variant="medium" color={colors.bordeaux}>Une question ? Écrire à {practitioner.displayName}</T>
+          <T variant="medium" color={colors.bordeaux}>{tr("Une question ? Écrire à")} {practitioner.displayName}</T>
         </Pressable>
       ) : null}
     </Sheet>
@@ -144,7 +145,7 @@ function BookingSheet({ visible, onClose, practitioner, initialService }) {
 
   if (done) {
     return (
-      <Sheet visible={visible} onClose={onClose} title={done.status === 'confirmee' ? 'Rendez-vous confirmé' : 'Demande envoyée'} footer={<Button title="Voir mes rendez-vous" onPress={() => { onClose(); router.push('/rendez-vous'); }} />}>
+      <Sheet visible={visible} onClose={onClose} title={done.status === 'confirmee' ? tr("Rendez-vous confirmé") : tr("Demande envoyée")} footer={<Button title={tr("Voir mes rendez-vous")} onPress={() => { onClose(); router.push('/rendez-vous'); }} />}>
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 10 }}>
           <View style={s.successIcon}>
             <Icon name="check" size={34} color={colors.white} strokeWidth={2.6} />
@@ -153,7 +154,7 @@ function BookingSheet({ visible, onClose, practitioner, initialService }) {
             {longDate(done.day)} à {done.time}
           </T>
           <T variant="muted" style={{ textAlign: 'center' }}>
-            {done.status === 'confirmee' ? `${practitioner.displayName} t’attend.` : `${practitioner.displayName} va confirmer ta demande. Tu recevras une notification.`}
+            {done.status === 'confirmee' ? tr("{0} t’attend.", [practitioner.displayName]) : tr("{0} va confirmer ta demande. Tu recevras une notification.", [practitioner.displayName])}
           </T>
         </View>
       </Sheet>
@@ -164,17 +165,17 @@ function BookingSheet({ visible, onClose, practitioner, initialService }) {
     <Sheet
       visible={visible}
       onClose={onClose}
-      title="Prendre rendez-vous"
+      title={tr("Prendre rendez-vous")}
       footer={
         <Button
-          title={time ? 'Confirmer le rendez-vous' : 'Choisis un créneau'}
+          title={time ? tr("Confirmer le rendez-vous") : tr("Choisis un créneau")}
           onPress={book}
           loading={busy}
           disabled={!service || !day || !time}
         />
       }
     >
-      <Label>1. Prestation</Label>
+      <Label>{tr("1. Prestation")}</Label>
       {practitioner.services.map((sv) => {
         const on = service?.id === sv.id;
         return (
@@ -183,7 +184,7 @@ function BookingSheet({ visible, onClose, practitioner, initialService }) {
             <View style={{ flex: 1 }}>
               <T variant="bold">{sv.name}</T>
               <T variant="small">
-                {sv.durationMinutes} min · {MODE[sv.mode].toLowerCase()}
+                {sv.durationMinutes} {tr("min ·")} {MODE[sv.mode].toLowerCase()}
               </T>
             </View>
             <T variant="bold" color={colors.bordeaux}>
@@ -196,33 +197,33 @@ function BookingSheet({ visible, onClose, practitioner, initialService }) {
         <>
           {service.mode === 'les_deux' && practitioner.supportsVideo ? (
             <>
-              <Label>2. Lieu</Label>
-              <Segmented items={[{ key: 'cabinet', label: 'Au cabinet' }, { key: 'visio', label: 'En visio' }]} value={mode} onChange={setMode} />
+              <Label>{tr("2. Lieu")}</Label>
+              <Segmented items={[{ key: 'cabinet', label: tr("Au cabinet") }, { key: 'visio', label: tr("En visio") }]} value={mode} onChange={setMode} />
             </>
           ) : null}
-          <Label>{service.mode === 'les_deux' && practitioner.supportsVideo ? '3. Jour' : '2. Jour'}</Label>
+          <Label>{service.mode === 'les_deux' && practitioner.supportsVideo ? tr("3. Jour") : tr("2. Jour")}</Label>
           {!days ? (
-            <Loader label="Recherche des créneaux…" />
+            <Loader label={tr("Recherche des créneaux…")} />
           ) : days.length ? (
             <DayStrip days={days} value={day} onChange={(d) => { setDay(d); setTime(null); }} />
           ) : (
-            <T variant="muted">Aucun créneau disponible dans les prochaines semaines.</T>
+            <T variant="muted">{tr("Aucun créneau disponible dans les prochaines semaines.")}</T>
           )}
           {days?.length ? (
             <>
-              <Label>Heure</Label>
+              <Label>{tr("Heure")}</Label>
               <TimeGrid slots={slots} value={time} onChange={setTime} />
             </>
           ) : null}
           {time ? (
             <>
-              <Field label="Message pour la praticienne (facultatif)" value={note} onChangeText={setNote} multiline />
+              <Field label={tr("Message pour la praticienne (facultatif)")} value={note} onChangeText={setNote} multiline />
               <Card tone="soft" style={{ gap: 4, padding: 16 }}>
                 <T variant="bold">{service.name}</T>
                 <T>
-                  {longDate(day)} à {time} · {mode === 'visio' ? 'en visio' : 'au cabinet'}
+                  {longDate(day)} à {time} · {mode === 'visio' ? tr("en visio") : tr("au cabinet")}
                 </T>
-                <T variant="small">Ton prénom et tes coordonnées lui sont transmis ; aucune donnée de cycle ou de santé.</T>
+                <T variant="small">{tr("Ton prénom et tes coordonnées lui sont transmis ; aucune donnée de cycle ou de santé.")}</T>
               </Card>
             </>
           ) : null}
@@ -277,10 +278,10 @@ export default function PractitionerProfile() {
         <PractitionerCover p={data} height={400 + insets.top} radius={0} initialsSize={110}>
           <LinearGradient colors={['rgba(30,8,15,0.5)', 'transparent']} style={s.heroTopShade} />
           <View style={[s.heroBar, { paddingTop: insets.top + 8 }]}>
-            <CircleButton icon="chevronLeft" label="Retour" onPress={() => (router.canGoBack() ? router.back() : router.replace('/praticiennes'))} />
+            <CircleButton icon="chevronLeft" label={tr("Retour")} onPress={() => (router.canGoBack() ? router.back() : router.replace('/praticiennes'))} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <CircleButton icon="share" label="Partager" onPress={() => Share.share({ message: `${data.displayName} — ${label} à ${data.city}, sur Nissali` })} />
-              {!data.isSelf ? <CircleButton icon="heart" label={data.favorite ? 'Retirer des favorites' : 'Ajouter aux favorites'} active={data.favorite} onPress={toggleFav} /> : null}
+              <CircleButton icon="share" label={tr("Partager")} onPress={() => Share.share({ message: `${data.displayName} — ${label} à ${data.city}, sur Nissali` })} />
+              {!data.isSelf ? <CircleButton icon="heart" label={data.favorite ? tr("Retirer des favorites") : tr("Ajouter aux favorites")} active={data.favorite} onPress={toggleFav} /> : null}
             </View>
           </View>
           <LinearGradient colors={['transparent', 'rgba(30,8,15,0.82)']} style={s.heroShade} />
@@ -291,7 +292,7 @@ export default function PractitionerProfile() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.name} numberOfLines={2}>{data.displayName}</Text>
               {data.verified ? (
-                <View style={s.verified} accessibilityLabel="Profil vérifié">
+                <View style={s.verified} accessibilityLabel={tr("Profil vérifié")}>
                   <Icon name="check" size={12} color={colors.white} strokeWidth={3} />
                 </View>
               ) : null}
@@ -299,7 +300,7 @@ export default function PractitionerProfile() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Stars value={data.rating} size={14} />
-              <Text style={s.heroMeta}>{total ? `${data.rating.toFixed(1).replace('.', ',')} · ${total} avis` : 'Nouvelle sur Nissali'}</Text>
+              <Text style={s.heroMeta}>{total ? tr("{0} · {1} avis", [data.rating.toFixed(1).replace('.', ','), total]) : tr("Nouvelle sur Nissali")}</Text>
             </View>
           </View>
         </PractitionerCover>
@@ -307,20 +308,20 @@ export default function PractitionerProfile() {
         <View style={s.body}>
           {!data.isSelf ? (
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Pressable onPress={contact} disabled={contacting} accessibilityRole="button" accessibilityLabel={`Envoyer un message à ${data.displayName}`} style={({ pressed }) => [s.action, s.actionMain, pressed && { opacity: 0.88 }]}>
+              <Pressable onPress={contact} disabled={contacting} accessibilityRole="button" accessibilityLabel={tr("Envoyer un message à {0}", [data.displayName])} style={({ pressed }) => [s.action, s.actionMain, pressed && { opacity: 0.88 }]}>
                 <Icon name="chat" size={20} color={colors.white} />
-                <Text style={[s.actionText, { color: colors.white }]}>{contacting ? 'Ouverture…' : 'Message'}</Text>
+                <Text style={[s.actionText, { color: colors.white }]}>{contacting ? tr("Ouverture…") : tr("Message")}</Text>
               </Pressable>
               {data.phone ? (
-                <Pressable onPress={() => callPhone(data.phone)} accessibilityRole="button" accessibilityLabel={`Appeler ${data.displayName} au ${data.phone}`} style={({ pressed }) => [s.action, pressed && { opacity: 0.88 }]}>
+                <Pressable onPress={() => callPhone(data.phone)} accessibilityRole="button" accessibilityLabel={tr("Appeler {0} au {1}", [data.displayName, data.phone])} style={({ pressed }) => [s.action, pressed && { opacity: 0.88 }]}>
                   <Icon name="phone" size={19} color={colors.bordeaux} />
-                  <Text style={s.actionText}>Appeler</Text>
+                  <Text style={s.actionText}>{tr("Appeler")}</Text>
                 </Pressable>
               ) : null}
               {data.services.length ? (
-                <Pressable onPress={() => openBooking()} accessibilityRole="button" accessibilityLabel="Prendre rendez-vous" style={({ pressed }) => [s.action, s.actionMain, { flex: 1 }, pressed && { opacity: 0.88 }]}>
+                <Pressable onPress={() => openBooking()} accessibilityRole="button" accessibilityLabel={tr("Prendre rendez-vous")} style={({ pressed }) => [s.action, s.actionMain, { flex: 1 }, pressed && { opacity: 0.88 }]}>
                   <Icon name="calendar" size={19} color={colors.white} />
-                  <Text style={[s.actionText, { color: colors.white }]}>RDV</Text>
+                  <Text style={[s.actionText, { color: colors.white }]}>{tr("RDV")}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -331,19 +332,19 @@ export default function PractitionerProfile() {
               <Icon name="pin" size={15} color={colors.bordeaux} />
               <Text style={s.chipText}>
                 {data.city}
-                {data.distanceKm != null ? ` · ${String(data.distanceKm).replace('.', ',')} km` : ''}
+                {data.distanceKm != null ? tr(" · {0} km", [String(data.distanceKm).replace('.', ',')]) : ''}
               </Text>
             </View>
             {data.inPerson ? (
               <View style={s.chip}>
                 <Icon name="home" size={15} color={colors.bordeaux} />
-                <Text style={s.chipText}>Cabinet</Text>
+                <Text style={s.chipText}>{tr("Cabinet")}</Text>
               </View>
             ) : null}
             {data.supportsVideo ? (
               <View style={s.chip}>
                 <Icon name="video" size={15} color={colors.bordeaux} />
-                <Text style={s.chipText}>Visio</Text>
+                <Text style={s.chipText}>{tr("Visio")}</Text>
               </View>
             ) : null}
             {(data.languages || []).map((l) => (
@@ -354,16 +355,16 @@ export default function PractitionerProfile() {
           </View>
 
           <View style={s.stats}>
-            <Stat value={total ? data.rating.toFixed(1).replace('.', ',') : '—'} label="Note" />
+            <Stat value={total ? data.rating.toFixed(1).replace('.', ',') : '—'} label={tr("Note")} />
             <View style={s.statSep} />
-            <Stat value={total} label="Avis" />
+            <Stat value={total} label={tr("Avis")} />
             <View style={s.statSep} />
-            <Stat value={data.minPrice != null ? euros(data.minPrice) : '—'} label="Dès" />
+            <Stat value={data.minPrice != null ? euros(data.minPrice) : '—'} label={tr("Dès")} />
           </View>
 
           {data.isSelf ? (
             <Card tone="soft" style={{ marginTop: 16 }}>
-              <T>C’est ton profil public, tel que le voient les utilisatrices.</T>
+              <T>{tr("C’est ton profil public, tel que le voient les utilisatrices.")}</T>
             </Card>
           ) : next ? (
             <Pressable onPress={() => openBooking()} accessibilityRole="button" style={s.next}>
@@ -371,7 +372,7 @@ export default function PractitionerProfile() {
                 <Icon name="calendar" size={20} color={colors.white} />
               </View>
               <View style={{ flex: 1 }}>
-                <T variant="small">Prochaine disponibilité</T>
+                <T variant="small">{tr("Prochaine disponibilité")}</T>
                 <T variant="bold">{next}</T>
               </View>
               <Icon name="chevronRight" size={20} color={colors.bordeaux} />
@@ -379,28 +380,28 @@ export default function PractitionerProfile() {
           ) : null}
 
           {data.description ? (
-            <Section title="À propos">
+            <Section title={tr("À propos")}>
               <T style={{ lineHeight: 24 }} numberOfLines={expanded ? undefined : 5}>
                 {data.description}
               </T>
               {longText ? (
                 <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={8}>
-                  <T variant="medium" color={colors.bordeaux}>{expanded ? 'Réduire' : 'Lire la suite'}</T>
+                  <T variant="medium" color={colors.bordeaux}>{expanded ? tr("Réduire") : tr("Lire la suite")}</T>
                 </Pressable>
               ) : null}
             </Section>
           ) : null}
 
-          <Section title="Prestations" action={<T variant="small">{data.services.length}</T>}>
+          <Section title={tr("Prestations")} action={<T variant="small">{data.services.length}</T>}>
             {data.services.map((sv) => (
               <View key={sv.id} style={s.service}>
-                <Pressable onPress={() => setDetail(sv)} accessibilityRole="button" accessibilityLabel={`${sv.name}, voir le détail`} style={({ pressed }) => [{ flex: 1, gap: 6 }, pressed && { opacity: 0.7 }]}>
+                <Pressable onPress={() => setDetail(sv)} accessibilityRole="button" accessibilityLabel={tr("{0}, voir le détail", [sv.name])} style={({ pressed }) => [{ flex: 1, gap: 6 }, pressed && { opacity: 0.7 }]}>
                   <T variant="bold" style={{ fontSize: 16.5 }}>{sv.name}</T>
                   {sv.description ? <T variant="small" numberOfLines={2}>{sv.description}</T> : null}
                   <View style={{ flexDirection: 'row', gap: 6 }}>
                     <View style={s.mini}>
                       <Icon name="clock" size={13} color={colors.muted} />
-                      <Text style={s.miniText}>{sv.durationMinutes} min</Text>
+                      <Text style={s.miniText}>{sv.durationMinutes} {tr("min")}</Text>
                     </View>
                     <View style={s.mini}>
                       <Icon name={sv.mode === 'visio' ? 'video' : 'pin'} size={13} color={colors.muted} />
@@ -408,15 +409,15 @@ export default function PractitionerProfile() {
                     </View>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <Text style={s.detailLink}>Voir le détail</Text>
+                    <Text style={s.detailLink}>{tr("Voir le détail")}</Text>
                     <Icon name="chevronRight" size={15} color={colors.bordeaux} />
                   </View>
                 </Pressable>
                 <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
                   <Text style={s.servicePrice}>{euros(sv.price)}</Text>
                   {!data.isSelf ? (
-                    <Pressable onPress={() => openBooking(sv)} accessibilityRole="button" accessibilityLabel={`Réserver ${sv.name}`} style={s.bookSmall}>
-                      <Text style={s.bookSmallText}>Réserver</Text>
+                    <Pressable onPress={() => openBooking(sv)} accessibilityRole="button" accessibilityLabel={tr("Réserver {0}", [sv.name])} style={s.bookSmall}>
+                      <Text style={s.bookSmallText}>{tr("Réserver")}</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -431,7 +432,7 @@ export default function PractitionerProfile() {
             </View>
           ) : null}
           {data.diplomas?.length ? (
-            <Section title="Diplômes et certifications">
+            <Section title={tr("Diplômes et certifications")}>
               {data.diplomas.map((d) => (
                 <View key={d} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
                   <Icon name="check" size={18} color={colors.success} strokeWidth={2.4} />
@@ -442,13 +443,13 @@ export default function PractitionerProfile() {
           ) : null}
 
           {data.address ? (
-            <Section title="Infos pratiques">
+            <Section title={tr("Infos pratiques")}>
               <Pressable onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(data.address)}`)} accessibilityRole="link" style={s.service}>
                 <View style={s.nextIcon}>
                   <Icon name="pin" size={20} color={colors.white} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <T variant="bold">Adresse du cabinet</T>
+                  <T variant="bold">{tr("Adresse du cabinet")}</T>
                   <T variant="small">{data.address}</T>
                 </View>
                 <Icon name="external" size={18} color={colors.bordeaux} />
@@ -456,13 +457,13 @@ export default function PractitionerProfile() {
             </Section>
           ) : null}
 
-          <Section title="Avis">
+          <Section title={tr("Avis")}>
             {total ? (
               <View style={[s.service, { alignItems: 'center' }]}>
                 <View style={{ alignItems: 'center', width: 90 }}>
                   <Text style={s.bigRating}>{data.rating.toFixed(1).replace('.', ',')}</Text>
                   <Stars value={data.rating} size={13} />
-                  <T variant="small">{total} avis</T>
+                  <T variant="small">{total} {tr("avis")}</T>
                 </View>
                 <View style={{ flex: 1, gap: 5 }}>
                   {data.ratingBreakdown.map((b) => (
@@ -476,7 +477,7 @@ export default function PractitionerProfile() {
                 </View>
               </View>
             ) : (
-              <T variant="muted">Pas encore d’avis. Sois la première après ton rendez-vous.</T>
+              <T variant="muted">{tr("Pas encore d’avis. Sois la première après ton rendez-vous.")}</T>
             )}
             {data.reviews.map((r) => (
               <View key={r.id} style={[s.service, { flexDirection: 'column', gap: 8 }]}>
@@ -491,7 +492,7 @@ export default function PractitionerProfile() {
                 {r.comment ? <T>{r.comment}</T> : null}
                 {r.reply ? (
                   <View style={s.reply}>
-                    <T variant="small" color={colors.bordeaux}>Réponse de {data.displayName}</T>
+                    <T variant="small" color={colors.bordeaux}>{tr("Réponse de")} {data.displayName}</T>
                     <T variant="small" color={colors.prune}>{r.reply}</T>
                   </View>
                 ) : null}
@@ -504,10 +505,10 @@ export default function PractitionerProfile() {
       {!data.isSelf && data.services.length ? (
         <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
           <View style={{ flex: 1 }}>
-            <T variant="small">Tarif indicatif dès</T>
+            <T variant="small">{tr("Tarif indicatif dès")}</T>
             <Text style={s.bottomPrice}>{euros(data.minPrice)}</Text>
           </View>
-          <Button title="Prendre rendez-vous" onPress={() => openBooking()} style={{ flex: 1.6 }} />
+          <Button title={tr("Prendre rendez-vous")} onPress={() => openBooking()} style={{ flex: 1.6 }} />
         </View>
       ) : null}
       <ServiceSheet

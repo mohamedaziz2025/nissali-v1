@@ -1,8 +1,7 @@
 // 02 / 03 — Poids : saisie numérique en kg (virgule acceptée), datée du jour par défaut et modifiable,
-// correction et suppression d'une mesure ; graphique d'évolution.
+// correction et suppression d'une mesure.
 import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { api } from '../lib/api';
 import { shortDate, toDay } from '../lib/format';
 import { colors, fonts } from '../theme';
@@ -10,24 +9,26 @@ import { DateField } from './forms';
 import Icon from './Icon';
 import { Button, Label, Sheet, T, useToast } from './ui';
 
+import { tr } from '../lib/i18n';
 /** « 64,2 » */
 export const kg = (v) => (v == null ? '' : String(Math.round(v * 10) / 10).replace('.', ','));
 /** Lit « 64,2 » ou « 64.2 » ; NaN si la saisie n'est pas un nombre. */
 export const parseKg = (t) => (/^\s*\d{1,3}([.,]\d{1,2})?\s*$/.test(t || '') ? Number(t.trim().replace(',', '.')) : NaN);
 
-function confirm(title, message, action) {
+function confirmAction(title, message, label, action, destructive = false) {
   if (Platform.OS === 'web') {
     if (window.confirm(`${title}\n${message}`)) action();
     return;
   }
-  Alert.alert(title, message, [{ text: 'Annuler', style: 'cancel' }, { text: 'Supprimer', style: 'destructive', onPress: action }]);
+  Alert.alert(title, message, [{ text: tr("Annuler"), style: 'cancel' }, { text: label, style: destructive ? 'destructive' : 'default', onPress: action }]);
 }
+const confirm = (title, message, action) => confirmAction(title, message, 'Supprimer', action, true);
 
 /**
  * Fenêtre « Ajouter une mesure » / « Modifier la mesure ».
  * entry : mesure existante à corriger ({ day, weight }) ; sinon nouvelle mesure datée du jour.
  */
-export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved }) {
+export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved, day: presetDay }) {
   const toast = useToast();
   const [day, setDay] = useState(toDay(new Date()));
   const [text, setText] = useState('');
@@ -35,10 +36,10 @@ export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!visible) return;
-    setDay(entry?.day || toDay(new Date()));
+    setDay(entry?.day || presetDay || toDay(new Date()));
     setText(entry ? kg(entry.weight) : lastWeight != null ? kg(lastWeight) : '');
     setError(null);
-  }, [visible, entry, lastWeight]);
+  }, [visible, entry, lastWeight, presetDay]);
 
   const value = parseKg(text);
   const step = (d) => {
@@ -46,15 +47,19 @@ export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved }) {
     setText(kg(Math.min(300, Math.max(25, Math.round((base + d) * 10) / 10))));
     setError(null);
   };
-  const save = async () => {
+  const save = async (confirmed = false) => {
     // Saisie invalide : message, sans effacer ce qui a été tapé.
     if (!Number.isFinite(value)) return setError('Indique ton poids en kg, par exemple 64,2');
     if (value < 25 || value > 300) return setError('Poids invalide : entre 25 et 300 kg');
+    // Mise à jour Cycle · 6.8 — écart de plus de 5 kg avec la pesée précédente : on demande confirmation.
+    if (!confirmed && lastWeight != null && Math.abs(value - lastWeight) > 5) {
+      return confirmAction(tr("Tu confirmes ?"), tr("{0} kg, soit plus de 5 kg d’écart avec ta pesée précédente ({1} kg).", [kg(value), kg(lastWeight)]), 'Confirmer', () => save(true));
+    }
     setBusy(true);
     try {
       await api.put(`/health-log/weights/${day}`, { weight: value });
       if (entry && entry.day !== day) await api.delete(`/health-log/weights/${entry.day}`).catch(() => {});
-      toast('Poids enregistré');
+      toast(tr("Poids enregistré"));
       onSaved?.({ day, weight: value });
       onClose();
     } catch (e) {
@@ -64,10 +69,10 @@ export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved }) {
     }
   };
   const remove = () =>
-    confirm('Supprimer cette mesure ?', `${kg(entry.weight)} kg le ${shortDate(entry.day)}`, async () => {
+    confirm(tr("Supprimer cette mesure ?"), tr("{0} kg le {1}", [kg(entry.weight), shortDate(entry.day)]), async () => {
       try {
         await api.delete(`/health-log/weights/${entry.day}`);
-        toast('Mesure supprimée');
+        toast(tr("Mesure supprimée"));
         onSaved?.(null);
         onClose();
       } catch (e) {
@@ -79,19 +84,19 @@ export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved }) {
     <Sheet
       visible={visible}
       onClose={onClose}
-      title={entry ? 'Modifier la mesure' : 'Ajouter une mesure'}
+      title={entry ? tr("Modifier la mesure") : tr("Ajouter une mesure")}
       footer={
         <View style={{ gap: 10 }}>
-          <Button title="Enregistrer mon poids" onPress={save} loading={busy} disabled={busy} />
-          <Button title="Annuler" variant="outline" onPress={onClose} />
+          <Button title={tr("Enregistrer mon poids")} onPress={() => save()} loading={busy} disabled={busy} />
+          <Button title={tr("Annuler")} variant="outline" onPress={onClose} />
         </View>
       }
     >
-      <DateField label="Date" value={day} onChange={setDay} />
+      <DateField label={tr("Date")} value={day} onChange={setDay} />
       <View style={{ gap: 8 }}>
-        <Label>Poids (kg)</Label>
+        <Label>{tr("Poids (kg)")}</Label>
         <View style={s.row}>
-          <Pressable onPress={() => step(-0.1)} accessibilityRole="button" accessibilityLabel="Moins 100 grammes" style={s.stepBtn}>
+          <Pressable onPress={() => step(-0.1)} accessibilityRole="button" accessibilityLabel={tr("Moins 100 grammes")} style={s.stepBtn}>
             <Text style={s.stepText}>−</Text>
           </Pressable>
           <View style={[s.input, error && { borderColor: colors.danger }]}>
@@ -104,64 +109,25 @@ export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved }) {
               keyboardType="decimal-pad"
               placeholder="64,2"
               placeholderTextColor="#A88C93"
-              accessibilityLabel="Poids en kilogrammes"
+              accessibilityLabel={tr("Poids en kilogrammes")}
               style={s.inputText}
               maxLength={6}
             />
-            <Text style={s.unit}>kg</Text>
+            <Text style={s.unit}>{tr("kg")}</Text>
           </View>
-          <Pressable onPress={() => step(0.1)} accessibilityRole="button" accessibilityLabel="Plus 100 grammes" style={s.stepBtn}>
+          <Pressable onPress={() => step(0.1)} accessibilityRole="button" accessibilityLabel={tr("Plus 100 grammes")} style={s.stepBtn}>
             <Text style={s.stepText}>+</Text>
           </Pressable>
         </View>
-        {error ? <T variant="small" color={colors.danger}>{error}</T> : <T variant="small">Tu peux modifier la date pour une mesure passée.</T>}
+        {error ? <T variant="small" color={colors.danger}>{error}</T> : <T variant="small">{tr("Tu peux modifier la date pour une mesure passée.")}</T>}
       </View>
       {entry ? (
         <Pressable onPress={remove} accessibilityRole="button" style={s.delete}>
           <Icon name="trash" size={17} color={colors.danger} />
-          <Text style={s.deleteText}>Supprimer cette mesure</Text>
+          <Text style={s.deleteText}>{tr("Supprimer cette mesure")}</Text>
         </Pressable>
       ) : null}
     </Sheet>
-  );
-}
-
-/** Courbe de poids : une série, trait de 2 px, points de 8 px, grille discrète. */
-export function WeightChart({ items, width, height = 150 }) {
-  const pts = items.slice(-12);
-  if (pts.length < 2) return <T variant="small" style={{ paddingVertical: 12 }}>La courbe apparaîtra dès ta deuxième mesure.</T>;
-  const values = pts.map((p) => p.weight);
-  const lo = Math.floor(Math.min(...values) - 1);
-  const hi = Math.ceil(Math.max(...values) + 1);
-  const left = 30;
-  const top = 10;
-  const bottom = 24;
-  const w = width - left - 8;
-  const h = height - top - bottom;
-  const x = (i) => left + (pts.length === 1 ? w / 2 : (i / (pts.length - 1)) * w);
-  const y = (v) => top + (1 - (v - lo) / (hi - lo)) * h;
-  const ticks = [hi, Math.round((hi + lo) / 2), lo];
-  const labels = [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
-  return (
-    <Svg width={width} height={height} accessibilityLabel={`Courbe de poids : de ${kg(values[0])} à ${kg(values[values.length - 1])} kg`}>
-      {ticks.map((t) => (
-        <Line key={t} x1={left} x2={left + w} y1={y(t)} y2={y(t)} stroke={colors.line} strokeWidth={1} />
-      ))}
-      {ticks.map((t) => (
-        <SvgText key={`l${t}`} x={left - 6} y={y(t) + 4} fontSize={11} fill={colors.muted} textAnchor="end">
-          {t}
-        </SvgText>
-      ))}
-      <Path d={pts.map((p, i) => `${i ? 'L' : 'M'}${x(i)} ${y(p.weight)}`).join(' ')} stroke={colors.bordeaux} strokeWidth={2} fill="none" strokeLinejoin="round" />
-      {pts.map((p, i) => (
-        <Circle key={p.day} cx={x(i)} cy={y(p.weight)} r={i === pts.length - 1 ? 5.5 : 4} fill={colors.bordeaux} stroke={colors.white} strokeWidth={2} />
-      ))}
-      {labels.map((i) => (
-        <SvgText key={`d${i}`} x={x(i)} y={height - 6} fontSize={11} fill={colors.muted} textAnchor={i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}>
-          {shortDate(pts[i].day)}
-        </SvgText>
-      ))}
-    </Svg>
   );
 }
 

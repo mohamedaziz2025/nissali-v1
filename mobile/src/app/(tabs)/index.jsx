@@ -14,6 +14,7 @@ import { noteDate } from '../../components/Notes';
 import { FrequencyPicker } from '../../components/NotifFrequency';
 import { usePeriodActions } from '../../components/PeriodSheets';
 import { Button, ErrorState, Gap, Loader, Notice, OfflineBanner, Row, Screen, Sheet, T, useToast } from '../../components/ui';
+import WhiteDaysCard from '../../components/WhiteDaysCard';
 import { api, sendOrQueue } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { countdown, dayMonth, longDate } from '../../lib/format';
@@ -25,13 +26,25 @@ import { readJson, writeJson } from '../../lib/storage';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts, PRAYER_LABELS, PRAYERS, tnum } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const NOTE_DOTS = { medicament: colors.bordeaux, cours: colors.or, rendez_vous: colors.prune, symptome: colors.rose, autre: colors.caseVide };
 const HOME_FLOWS = [
-  { key: 'traces', label: 'Traces' },
-  { key: 'leger', label: 'Léger' },
-  { key: 'moyen', label: 'Moyen' },
-  { key: 'abondant', label: 'Abondant' },
+  { key: 'traces', label: tr("Traces") },
+  { key: 'leger', label: tr("Léger") },
+  { key: 'moyen', label: tr("Moyen") },
+  { key: 'abondant', label: tr("Abondant") },
 ];
+
+const toMin = (t) => (/^\d{2}:\d{2}/.test(t || '') ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null);
+/** Vrai dans les 30 minutes qui suivent l'une des 5 prières du jour. */
+function justAfterPrayer(timings = {}, time) {
+  const now = toMin(time);
+  if (now == null) return false;
+  return PRAYERS.some((p) => {
+    const t = toMin(timings[p]);
+    return t != null && now >= t && now - t <= 30;
+  });
+}
 
 function CardHead({ title, right }) {
   return (
@@ -66,13 +79,13 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
 
   if (paused && prayers.periodHome === 'ligne') {
     return (
-      <Pressable onPress={() => router.push('/horaires')} accessibilityRole="button" accessibilityLabel={`Prières en pause pendant ${why}. Voir les horaires`} style={[s.card, s.lineCard]}>
+      <Pressable onPress={() => router.push('/horaires')} accessibilityRole="button" accessibilityLabel={tr("Prières en pause pendant {0}. Voir les horaires", [why])} style={[s.card, s.lineCard]}>
         <View style={s.roundIcon}>
           <Icon name="bellOff" size={17} color={colors.bordeaux} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.lineTitle}>Prières en pause</Text>
-          <Text style={s.muted} numberOfLines={1}>Pendant {why} · voir les horaires</Text>
+          <Text style={s.lineTitle}>{tr("Prières en pause")}</Text>
+          <Text style={s.muted} numberOfLines={1}>{tr("Pendant")} {why} {tr("· voir les horaires")}</Text>
         </View>
         <Icon name="chevronRight" size={16} color={colors.muted} />
       </Pressable>
@@ -84,15 +97,15 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
   return (
     <View style={s.card}>
       <Row gap={12} align="flex-start">
-        <Pressable onPress={() => router.push('/horaires')} accessibilityRole="button" accessibilityLabel={`Prochaine prière : ${PRAYER_LABELS[shown]} à ${shownTime}${nextKey ? `, dans ${countdown(t.instants[nextKey], now)}` : ', demain'}. ${place}. Ouvrir les horaires`} style={{ flex: 1, gap: 6 }}>
-          <Text style={s.surtitle}>{paused ? 'HORAIRES DU JOUR' : 'PROCHAINE PRIÈRE'}</Text>
+        <Pressable onPress={() => router.push('/horaires')} accessibilityRole="button" accessibilityLabel={tr("Prochaine prière : {0} à {1}{2}. {3}. Ouvrir les horaires", [PRAYER_LABELS[shown], shownTime, (nextKey ? tr(", dans {0}", [countdown(t.instants[nextKey], now)]) : tr(", demain")), place])} style={{ flex: 1, gap: 6 }}>
+          <Text style={s.surtitle}>{paused ? tr("HORAIRES DU JOUR") : tr("PROCHAINE PRIÈRE")}</Text>
           <Row gap={10} style={{ flexWrap: 'wrap' }}>
             <Text style={[s.nextName, tnum]} numberOfLines={1}>
               {PRAYER_LABELS[shown]} <Text style={{ color: colors.bordeaux }}>{shownTime}</Text>
             </Text>
             {paused ? (
               <View style={s.badge}>
-                <Text style={s.badgeText}>En pause pendant {why}</Text>
+                <Text style={s.badgeText}>{tr("En pause pendant")} {why}</Text>
               </View>
             ) : (
               <View style={s.badge}>
@@ -105,13 +118,13 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
             <Text style={s.muted} numberOfLines={1}>{place}</Text>
           </Row>
         </Pressable>
-        <Pressable onPress={() => router.push('/qibla')} accessibilityRole="button" accessibilityLabel="Qibla" style={({ pressed }) => [s.qibla, pressed && { opacity: 0.85 }]}>
+        <Pressable onPress={() => router.push('/qibla')} accessibilityRole="button" accessibilityLabel={tr("Qibla")} style={({ pressed }) => [s.qibla, pressed && { opacity: 0.85 }]}>
           <Icon name="compass" size={22} color={colors.bordeaux} />
-          <Text style={s.qiblaText}>Qibla</Text>
+          <Text style={s.qiblaText}>{tr("Qibla")}</Text>
         </Pressable>
       </Row>
 
-      {paused ? <Text style={s.pauseText}>Aucune prière n’est due pendant {why} : rien ne sera compté comme manqué. Le dhikr reste ouvert.</Text> : null}
+      {paused ? <Text style={s.pauseText}>{tr("Aucune prière n’est due pendant")} {why} {tr(": rien ne sera compté comme manqué. Le dhikr reste ouvert.")}</Text> : null}
 
       <View style={s.tiles}>
         {PRAYERS.map((p) => {
@@ -145,24 +158,24 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
 
       {ramadan?.current && !paused ? (
         <Text style={[s.small, { textAlign: 'center' }]}>
-          Ramadan · jour {ramadan.day} · Suhur avant {t.fajr} · Iftar {t.maghrib}
+          {tr("Ramadan · jour")} {ramadan.day} {tr("· Suhur avant")} {t.fajr} {tr("· Iftar")} {t.maghrib}
         </Text>
       ) : null}
-      {jumua?.today && !paused ? <Text style={[s.small, { textAlign: 'center' }]}>Vendredi · Jumu’a à {jumua.times.join(' et ')}</Text> : null}
+      {jumua?.today && !paused ? <Text style={[s.small, { textAlign: 'center' }]}>{tr("Vendredi · Jumu’a à")} {jumua.times.join(' et ')}</Text> : null}
 
       {paused ? (
-        <Pressable onPress={settings} accessibilityRole="button" accessibilityLabel={`Rappels de prière ${prayers.remindersDuringPeriod ? 'gardés' : 'coupés'}. Régler`} style={s.footRow}>
+        <Pressable onPress={settings} accessibilityRole="button" accessibilityLabel={tr("Rappels de prière {0}. Régler", [(prayers.remindersDuringPeriod ? tr("gardés") : tr("coupés"))])} style={s.footRow}>
           <Icon name={prayers.remindersDuringPeriod ? 'bell' : 'bellOff'} size={17} color={colors.prune} />
-          <Text style={s.footText}>Rappels de prière</Text>
-          <Text style={s.footState}>{prayers.remindersDuringPeriod ? 'Gardés' : 'Coupés'}</Text>
-          <Text style={s.link}>Régler</Text>
+          <Text style={s.footText}>{tr("Rappels de prière")}</Text>
+          <Text style={s.footState}>{prayers.remindersDuringPeriod ? tr("Gardés") : tr("Coupés")}</Text>
+          <Text style={s.link}>{tr("Régler")}</Text>
         </Pressable>
       ) : (
-        <Pressable onPress={onAdhanSettings} accessibilityRole="button" accessibilityLabel={`Adhan ${adhan.on ? 'activé' : 'désactivé'}. Régler`} style={s.footRow}>
+        <Pressable onPress={onAdhanSettings} accessibilityRole="button" accessibilityLabel={tr("Adhan {0}. Régler", [(adhan.on ? tr("activé") : tr("désactivé"))])} style={s.footRow}>
           <Icon name="volume" size={17} color={colors.prune} />
-          <Text style={s.footText}>Adhan</Text>
-          <Text style={s.footState}>{adhan.on ? 'Activé' : 'Désactivé'}</Text>
-          <Text style={s.link}>Régler</Text>
+          <Text style={s.footText}>{tr("Adhan")}</Text>
+          <Text style={s.footState}>{adhan.on ? tr("Activé") : tr("Désactivé")}</Text>
+          <Text style={s.link}>{tr("Régler")}</Text>
         </Pressable>
       )}
     </View>
@@ -191,8 +204,8 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
   const head = (label, open = '/mes-regles') => (
     <Row justify="space-between">
       <Text style={s.rulesLabel}>{label}</Text>
-      <Pressable onPress={() => router.push(open)} accessibilityRole="button" accessibilityLabel={`${label}, modifier`} hitSlop={8} style={s.modify}>
-        <Text style={s.modifyText}>Modifier</Text>
+      <Pressable onPress={() => router.push(open)} accessibilityRole="button" accessibilityLabel={tr("{0}, modifier", [label])} hitSlop={8} style={s.modify}>
+        <Text style={s.modifyText}>{tr("Modifier")}</Text>
         <Icon name="chevronRight" size={12} color={colors.white} />
       </Pressable>
     </Row>
@@ -207,8 +220,8 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
     return (
       <View style={s.rules}>
         {head('Ma grossesse', '/grossesse')}
-        <Text style={s.rulesBig}>Semaine {cycle.sa?.weeks}</Text>
-        <Text style={s.rulesSub}>{cycle.sa?.weeks} SA{cycle.sa?.days ? ` + ${cycle.sa.days} j` : ''} · {cycle.trimester}e trimestre · terme le {dayMonth(cycle.dueDate)}</Text>
+        <Text style={s.rulesBig}>{tr("Semaine")} {cycle.sa?.weeks}</Text>
+        <Text style={s.rulesSub}>{cycle.sa?.weeks} {tr("SA")}{cycle.sa?.days ? ` + ${cycle.sa.days} j` : ''} · {cycle.trimester}{tr("e trimestre · terme le")} {dayMonth(cycle.dueDate)}</Text>
       </View>
     );
   }
@@ -216,8 +229,8 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
     return (
       <View style={s.rules}>
         {head('Post-partum', '/grossesse')}
-        <Text style={s.rulesBig}>Jour {cycle.day}</Text>
-        <Text style={s.rulesSub}>{cycle.exceeded ? 'Au-delà de la durée maximale : la prière reprend (istihada).' : 'Nifas · tes rappels de prière sont en pause.'}</Text>
+        <Text style={s.rulesBig}>{tr("Jour")} {cycle.day}</Text>
+        <Text style={s.rulesSub}>{cycle.exceeded ? tr("Au-delà de la durée maximale : la prière reprend (istihada).") : tr("Nifas · tes rappels de prière sont en pause.")}</Text>
         {whiteBtn('Mes saignements sont terminés', () => onEnd(null, 'nifas'))}
       </View>
     );
@@ -226,14 +239,14 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
     return (
       <View style={s.rules}>
         {head('Mes règles')}
-        <Text style={s.rulesBig}>Jour {cycle.periodDay}</Text>
-        {cycle.expectedEnd ? <Text style={s.rulesSub}>Fin prévue vers le {dayMonth(cycle.expectedEnd)}</Text> : null}
-        <Text style={[s.rulesSub, { marginTop: 14, color: colors.white, fontFamily: fonts.bold }]}>Flux du jour</Text>
+        <Text style={s.rulesBig}>{tr("Jour")} {cycle.periodDay}</Text>
+        {cycle.expectedEnd ? <Text style={s.rulesSub}>{tr("Fin prévue vers le")} {dayMonth(cycle.expectedEnd)}</Text> : null}
+        <Text style={[s.rulesSub, { marginTop: 14, color: colors.white, fontFamily: fonts.bold }]}>{tr("Flux du jour")}</Text>
         <View style={s.flows}>
           {HOME_FLOWS.map((f) => {
             const on = flow === f.key;
             return (
-              <Pressable key={f.key} onPress={() => pickFlow(f.key)} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`Flux ${f.label}`} style={[s.flowBtn, on && s.flowOn]}>
+              <Pressable key={f.key} onPress={() => pickFlow(f.key)} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={tr("Flux {0}", [f.label])} style={[s.flowBtn, on && s.flowOn]}>
                 {f.key === 'traces' ? <View style={[s.traceDot, on && { backgroundColor: colors.bordeaux }]} /> : <FlowDrop level={f.key} color={on ? colors.bordeaux : colors.white} size={20} />}
                 <Text style={[s.flowText, on && { color: colors.bordeaux }]} numberOfLines={1}>{f.label}</Text>
               </Pressable>
@@ -243,7 +256,7 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
         {ramadan?.current ? (
           <View style={s.ramadanLine}>
             <Icon name="moon" size={14} color={colors.orClair} />
-            <Text style={s.ramadanText}>Ramadan : les jours de règles s’ajoutent à tes jeûnes à rattraper.</Text>
+            <Text style={s.ramadanText}>{tr("Ramadan : les jours de règles s’ajoutent à tes jeûnes à rattraper.")}</Text>
           </View>
         ) : null}
         {whiteBtn('Mes règles sont terminées', () => onEnd(cycle.periodId, 'hayd', cycle.start))}
@@ -254,8 +267,8 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
     return (
       <View style={s.rules}>
         {head('Mes règles')}
-        <Text style={[s.rulesBig, { fontSize: 28, lineHeight: 34 }]}>{cycle.kind === 'vide' ? 'Note tes prochaines règles' : 'Retour imprévisible'}</Text>
-        <Text style={s.rulesSub}>{cycle.kind === 'vide' ? 'Les prévisions démarrent dès ta première saisie.' : 'Pas de prévision tant que deux cycles n’ont pas été enregistrés.'}</Text>
+        <Text style={[s.rulesBig, { fontSize: 28, lineHeight: 34 }]}>{cycle.kind === 'vide' ? tr("Note tes prochaines règles") : tr("Retour imprévisible")}</Text>
+        <Text style={s.rulesSub}>{cycle.kind === 'vide' ? tr("Les prévisions démarrent dès ta première saisie.") : tr("Pas de prévision tant que deux cycles n’ont pas été enregistrés.")}</Text>
         {whiteBtn('Mes règles ont commencé', onStart)}
       </View>
     );
@@ -265,10 +278,10 @@ function RulesCard({ cycle, today, ramadan, onStart, onEnd, onFlow }) {
   return (
     <View style={s.rules}>
       {head('Prochaines règles')}
-      <Pressable onPress={() => router.push('/cycle')} accessibilityRole="button" accessibilityLabel="Ouvrir mon cycle">
-        <Text style={s.rulesBig}>{late ? `${cycle.lateDays} jour${cycle.lateDays > 1 ? 's' : ''} de retard` : d === 0 ? 'Aujourd’hui' : d === 1 ? 'Demain' : `Dans ${d} jours`}</Text>
+      <Pressable onPress={() => router.push('/cycle')} accessibilityRole="button" accessibilityLabel={tr("Ouvrir mon cycle")}>
+        <Text style={s.rulesBig}>{late ? tr("{0} jour{1} de retard", [cycle.lateDays, cycle.lateDays > 1 ? 's' : '']) : d === 0 ? tr("Aujourd’hui") : d === 1 ? tr("Demain") : tr("Dans {0} jours", [d])}</Text>
         <Text style={s.rulesSub}>
-          {late ? `Prévues le ${dayMonth(cycle.nextDate)}` : `Vers le ${dayMonth(cycle.nextDate)}`} · jour {cycle.cycleDay} du cycle{cycle.isDefault ? ' · estimation' : ''}
+          {late ? tr("Prévues le {0}", [dayMonth(cycle.nextDate)]) : tr("Vers le {0}", [dayMonth(cycle.nextDate)])} {tr("· jour")} {cycle.cycleDay} {tr("du cycle")}{cycle.isDefault ? tr(" · estimation") : ''}
         </Text>
       </Pressable>
       {whiteBtn('Mes règles ont commencé', onStart)}
@@ -289,7 +302,7 @@ function NotesWidget({ notes }) {
         <View style={s.roundIcon}>
           <Icon name="note" size={17} color={colors.bordeaux} />
         </View>
-        <Text style={[s.cardTitle, { flex: 1 }]}>Mes notes</Text>
+        <Text style={[s.cardTitle, { flex: 1 }]}>{tr("Mes notes")}</Text>
         {iconBtn('calendar', 'Voir mon calendrier', '/calendrier')}
         {iconBtn('edit', 'Ajouter une note', '/notes/nouvelle')}
       </Row>
@@ -297,7 +310,7 @@ function NotesWidget({ notes }) {
         <>
           <View>
             {notes.map((n, i) => (
-              <Pressable key={`${n.noteId}-${n.day}`} onPress={() => router.push(`/notes/nouvelle?id=${n.noteId}`)} accessibilityRole="button" accessibilityLabel={`${n.text}, ${noteDate(n.day)}${n.time ? ` à ${n.time}` : ''}${n.remind ? ', avec rappel' : ''}`} style={[s.noteRow, i < notes.length - 1 && s.noteLine]}>
+              <Pressable key={`${n.noteId}-${n.day}`} onPress={() => router.push(`/notes/nouvelle?id=${n.noteId}`)} accessibilityRole="button" accessibilityLabel={`${n.text}, ${noteDate(n.day)}${n.time ? ` à ${n.time}` : ''}${(n.remind ? tr(", avec rappel") : '')}`} style={[s.noteRow, i < notes.length - 1 && s.noteLine]}>
                 <View style={[s.noteDot, { backgroundColor: NOTE_DOTS[n.type] || NOTE_DOTS.autre }]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.noteTitle} numberOfLines={1}>{n.text}</Text>
@@ -308,16 +321,16 @@ function NotesWidget({ notes }) {
             ))}
           </View>
           <Pressable onPress={() => router.push('/notes')} accessibilityRole="link" style={s.footRow}>
-            <Text style={[s.link, { flex: 1 }]}>Toutes mes notes</Text>
+            <Text style={[s.link, { flex: 1 }]}>{tr("Toutes mes notes")}</Text>
             <Icon name="chevronRight" size={14} color={colors.bordeaux} />
           </Pressable>
         </>
       ) : (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 6 }}>
-          <Text style={s.muted}>Rien de prévu pour l’instant</Text>
+          <Text style={s.muted}>{tr("Rien de prévu pour l’instant")}</Text>
           <Pressable onPress={() => router.push('/notes/nouvelle')} accessibilityRole="button" style={s.addNote}>
             <Icon name="plus" size={15} color={colors.white} />
-            <Text style={s.addNoteText}>Ajouter ma première note</Text>
+            <Text style={s.addNoteText}>{tr("Ajouter ma première note")}</Text>
           </Pressable>
         </View>
       )}
@@ -330,9 +343,9 @@ function ReminderCard({ reminder }) {
   if (!reminder?.text) return null;
   return (
     <View style={s.reminder} accessibilityRole="text">
-      <Text style={s.surtitle}>PETIT RAPPEL</Text>
+      <Text style={s.surtitle}>{tr("PETIT RAPPEL")}</Text>
       <Text style={s.reminderText}>{reminder.text}</Text>
-      <Text style={s.small}>{reminder.source ? `${reminder.kind === 'hadith' ? 'Rapporté par ' : ''}${reminder.source}` : 'L’équipe Nissali'}</Text>
+      <Text style={s.small}>{reminder.source ? `${(reminder.kind === 'hadith' ? tr("Rapporté par ") : '')}${reminder.source}` : tr("L’équipe Nissali")}</Text>
     </View>
   );
 }
@@ -386,7 +399,7 @@ export default function Today() {
       router.replace('/consentement');
       return null;
     }
-    return <Screen title="Aujourd’hui"><ErrorState error={error} onRetry={reload} /></Screen>;
+    return <Screen title={tr("Aujourd’hui")}><ErrorState error={error} onRetry={reload} /></Screen>;
   }
 
   // Hors connexion et cache d'un autre jour : horaires recalculés localement.
@@ -411,7 +424,7 @@ export default function Today() {
   return (
     <Screen onRefresh={reload} refreshing={false} top={<BrandBar unread={data.notificationsUnread} />}>
       <View style={{ marginBottom: 16 }}>
-        <T variant="h1" accessibilityRole="header" fit>Salam, {user?.firstName}</T>
+        <T variant="h1" accessibilityRole="header" fit>{tr("Salam,")} {user?.firstName}</T>
         <T variant="muted">
           {longDate(data.today)}
           {data.hijri?.label ? ` · ${data.hijri.label}` : ''}
@@ -430,21 +443,25 @@ export default function Today() {
       <PrayersCard prayers={prayers} ramadan={data.ramadan} onToggle={togglePrayer} onAdhanSettings={() => setAdhanOpen(true)} />
       <Gap />
 
-      {/* 2 · Dhikr (compteur sur l'accueil, RG-42) */}
-      <DhikrCard />
+      {/* 2 · Dhikr : « Après la prière » par défaut dans les 30 min qui suivent une prière */}
+      <DhikrCard afterPrayer={justAfterPrayer(prayers.timings, data.time)} />
       <Gap />
 
       {/* 3 · Règles */}
       <RulesCard cycle={c} today={data.today} ramadan={data.ramadan} onStart={() => openStart()} onEnd={openEnd} onFlow={(level) => setData((d) => ({ ...d, cycle: { ...d.cycle, flowToday: level } }))} />
       <Gap />
 
+      {/* Mise à jour Accueil (page 7) — Jours blancs, sous Règles */}
+      <WhiteDaysCard whiteDays={data.whiteDays} inPeriod={c.kind === 'regles' || c.kind === 'nifas'} today={data.today} onChanged={reload} />
+      <Gap />
+
       {c.askPeriodEnded ? (
         <>
           <View style={[s.card, { backgroundColor: colors.blush, borderColor: colors.blush }]}>
-            <Text style={s.cardTitle}>Tes règles sont-elles terminées ?</Text>
+            <Text style={s.cardTitle}>{tr("Tes règles sont-elles terminées ?")}</Text>
             <Row>
-              <Button title="Oui" small onPress={() => answerPeriodEnded(true)} style={{ flex: 1 }} />
-              <Button title="Pas encore" small variant="outline" onPress={() => answerPeriodEnded(false)} style={{ flex: 1 }} />
+              <Button title={tr("Oui")} small onPress={() => answerPeriodEnded(true)} style={{ flex: 1 }} />
+              <Button title={tr("Pas encore")} small variant="outline" onPress={() => answerPeriodEnded(false)} style={{ flex: 1 }} />
             </Row>
           </View>
           <Gap />
@@ -452,16 +469,16 @@ export default function Today() {
       ) : null}
       {c.istihada && c.istihadaInfo ? (
         <>
-          <Notice title="Istihada">{c.istihadaInfo}</Notice>
+          <Notice title={tr("Istihada")}>{c.istihadaInfo}</Notice>
           <Gap />
         </>
       ) : null}
       {c.askPregnancy ? (
         <>
           <View style={[s.card, { backgroundColor: colors.blush, borderColor: colors.blush }]}>
-            <Text style={s.cardTitle}>Tes règles ont {c.lateDays} jours de retard. Es-tu enceinte ?</Text>
-            <T variant="muted">Un test de grossesse peut te le confirmer.</T>
-            <Button title="Oui, je suis enceinte" small onPress={() => router.push('/grossesse')} />
+            <Text style={s.cardTitle}>{tr("Tes règles ont")} {c.lateDays} {tr("jours de retard. Es-tu enceinte ?")}</Text>
+            <T variant="muted">{tr("Un test de grossesse peut te le confirmer.")}</T>
+            <Button title={tr("Oui, je suis enceinte")} small onPress={() => router.push('/grossesse')} />
           </View>
           <Gap />
         </>
@@ -481,16 +498,16 @@ export default function Today() {
           setFreqClosed(true);
           api.patch('/me', { notificationPrefs: { frequencyAsked: true } }).then(setSession).catch(() => {});
         }}
-        title="Combien de notifications ?"
+        title={tr("Combien de notifications ?")}
       >
-        <T variant="muted">Choisis combien de conseils et d’actualités tu reçois. Tu pourras changer à tout moment dans ton profil.</T>
+        <T variant="muted">{tr("Choisis combien de conseils et d’actualités tu reçois. Tu pourras changer à tout moment dans ton profil.")}</T>
         <FrequencyPicker
           value={user?.notificationPrefs?.frequency || 'faible'}
           onChange={async (v) => {
             setFreqClosed(true);
             try {
               await setSession(await api.patch('/me', { notificationPrefs: { frequency: v, frequencyAsked: true } }));
-              toast('Fréquence enregistrée');
+              toast(tr("Fréquence enregistrée"));
             } catch (e) {
               toast(e.message, 'error');
             }

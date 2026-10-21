@@ -17,9 +17,10 @@ import { jumuaOf } from '../lib/jumua';
 import { currentPosition, syncLocation } from '../lib/location';
 import { colors, fonts, PRAYER_LABELS, PRAYERS } from '../theme';
 
+import { tr } from '../lib/i18n';
 function MosqueRow({ m, selected, onPress }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={`${m.name}, ${m.city}${m.distanceKm != null ? `, ${m.distanceKm} kilomètres` : ''}`} style={({ pressed }) => [s.mosque, selected && s.mosqueOn, pressed && { opacity: 0.8 }]}>
+    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={`${m.name}, ${m.city}${(m.distanceKm != null ? tr(", {0} kilomètres", [m.distanceKm]) : '')}`} style={({ pressed }) => [s.mosque, selected && s.mosqueOn, pressed && { opacity: 0.8 }]}>
       <View style={[s.mosqueIcon, selected && { backgroundColor: colors.bordeaux }]}>
         <Icon name="home" size={18} color={selected ? colors.white : colors.or} />
       </View>
@@ -27,7 +28,7 @@ function MosqueRow({ m, selected, onPress }) {
         <Text style={s.mosqueName} numberOfLines={1}>{m.name}</Text>
         <Text style={s.mosqueMeta} numberOfLines={1}>
           {[m.city, m.distanceKm != null ? `${String(m.distanceKm).replace('.', ',')} km` : null].filter(Boolean).join(' · ')}
-          {m.partner ? ' · horaires publiés' : ''}
+          {m.partner ? tr(" · horaires publiés") : ''}
         </Text>
       </View>
       {selected ? (
@@ -108,7 +109,7 @@ export default function PrayerTimes() {
     setBusy(true);
     try {
       const p = usePosition ? await currentPosition({ ask: true }) : pos;
-      if (usePosition && !p) toast('Autorise la localisation pour trouver les mosquées autour de toi', 'error');
+      if (usePosition && !p) toast(tr("Autorise la localisation pour trouver les mosquées autour de toi"), 'error');
       if (p) setPos(p);
       setNearby(await api.get(`/mosques/nearby${p ? `?lat=${p.lat}&lng=${p.lng}` : ''}`));
     } catch (e) {
@@ -154,7 +155,7 @@ export default function PrayerTimes() {
       const session = await api.put('/me/prayer-source', m.id ? { mode: 'mosquee', mosqueId: m.id } : { mode: 'mosquee', osm: { osmId: m.osmId, name: m.name, address: m.address, city: m.city, lat: m.lat, lng: m.lng } });
       await setSession(session);
       close();
-      toast(`Horaires de ${m.name}`);
+      toast(tr("Horaires de {0}", [m.name]));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -169,7 +170,7 @@ export default function PrayerTimes() {
       if (city) session = await api.patch('/me', { city: { ...city, source: city.source || 'manuel' }, prayerSettings: { followLocation: city.source === 'gps' } });
       await setSession(session);
       close();
-      toast(`Horaires calculés pour ${session.user.city?.name || 'ta ville'}`);
+      toast(tr("Horaires calculés pour {0}", [(session.user.city?.name || tr("ta ville"))]));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -186,8 +187,8 @@ export default function PrayerTimes() {
       if (session) {
         await setSession(session);
         close();
-        toast(`Horaires à ta position : ${session.user.city?.name}`);
-      } else toast('Position indisponible', 'error');
+        toast(tr("Horaires à ta position : {0}", [session.user.city?.name]));
+      } else toast(tr("Position indisponible"), 'error');
     } finally {
       setBusy(false);
     }
@@ -210,7 +211,7 @@ export default function PrayerTimes() {
   const nextJ = today?.jumuaNext || (jumua ? { ...jumua, estimated: false, mosque: meta?.label } : null);
   const isMosque = meta?.mode === 'mosquee';
   const placeName = isMosque ? meta.label : today?.city?.name || user?.city?.name || 'Ma ville';
-  const placeHint = isMosque ? [meta.city, meta.fallback ? 'horaires calculés à son adresse' : meta.partner ? 'horaires publiés par la mosquée' : 'horaires calculés à son adresse'].filter(Boolean).join(' · ') : user?.city?.source === 'gps' ? 'Ma position · horaires calculés' : 'Ma ville · horaires calculés';
+  const placeHint = isMosque ? [meta.city, meta.fallback ? 'horaires calculés à son adresse' : meta.partner ? 'horaires publiés par la mosquée' : 'horaires calculés à son adresse'].filter(Boolean).join(' · ') : user?.city?.source === 'gps' ? tr("Ma position · horaires calculés") : tr("Ma ville · horaires calculés");
   const nextKey = t?.instants ? PRAYERS.find((p) => new Date(t.instants[p]).getTime() > now) : null;
   const heroKey = nextKey || 'fajr';
   const notifOn = user?.prayerSettings?.notifications !== false;
@@ -219,11 +220,11 @@ export default function PrayerTimes() {
   // --- Choix de la source : ville ou mosquée (masqué une fois le choix fait) -----------------------
   if (choosing) {
     return (
-      <Screen back title="Mes horaires" subtitle="Choisis d’où viennent tes horaires" scrollRef={scrollRef} right={source.mode !== 'mosquee' || selectedId ? <Pressable onPress={close} hitSlop={10} accessibilityRole="button"><Text style={s.link}>Annuler</Text></Pressable> : null}>
+      <Screen back title={tr("Mes horaires")} subtitle={tr("Choisis d’où viennent tes horaires")} scrollRef={scrollRef} right={source.mode !== 'mosquee' || selectedId ? <Pressable onPress={close} hitSlop={10} accessibilityRole="button"><Text style={s.link}>{tr("Annuler")}</Text></Pressable> : null}>
         <Segmented
           items={[
-            { key: 'ville', label: 'Ma ville' },
-            { key: 'mosquee', label: 'Ma mosquée' },
+            { key: 'ville', label: tr("Ma ville") },
+            { key: 'mosquee', label: tr("Ma mosquée") },
           ]}
           value={mode}
           onChange={setMode}
@@ -232,21 +233,21 @@ export default function PrayerTimes() {
 
         {mode === 'mosquee' ? (
           <>
-            <Field value={q} onChangeText={setQ} placeholder="Rechercher une mosquée ou une ville" icon="search" autoCorrect={false} returnKeyType="search" />
+            <Field value={q} onChangeText={setQ} placeholder={tr("Rechercher une mosquée ou une ville")} icon="search" autoCorrect={false} returnKeyType="search" />
             <Gap h={14} />
             <Row justify="space-between" style={{ marginBottom: 10 }}>
-              <Text style={s.section}>{results ? (results.city ? `Autour de ${results.city.name}` : 'Résultats') : 'Autour de toi'}</Text>
+              <Text style={s.section}>{results ? (results.city ? tr("Autour de {0}", [results.city.name]) : tr("Résultats")) : tr("Autour de toi")}</Text>
               <Pressable onPress={() => loadNearby(true)} hitSlop={8} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Icon name="locate" size={16} color={colors.bordeaux} />
-                <Text style={s.link}>Ma position</Text>
+                <Text style={s.link}>{tr("Ma position")}</Text>
               </Pressable>
             </Row>
             {busy && !list.length ? <ActivityIndicator color={colors.bordeaux} style={{ marginVertical: 20 }} /> : null}
             {list.map((m) => (
               <MosqueRow key={m.id || m.osmId} m={m} selected={Boolean(selectedId) && (m.id === selectedId || (meta?.mosqueId && m.id === meta.mosqueId))} onPress={() => chooseMosque(m)} />
             ))}
-            {!busy && (results || nearby) && !list.length ? <T variant="muted" style={{ textAlign: 'center', marginVertical: 12 }}>Aucune mosquée trouvée. Essaie avec le nom de ta ville.</T> : null}
-            <T variant="small" style={{ marginTop: 6 }}>Mosquées partenaires : horaires publiés par la mosquée. Autres mosquées : horaires calculés à leur adresse, le temps qu’elles rejoignent Nissali.</T>
+            {!busy && (results || nearby) && !list.length ? <T variant="muted" style={{ textAlign: 'center', marginVertical: 12 }}>{tr("Aucune mosquée trouvée. Essaie avec le nom de ta ville.")}</T> : null}
+            <T variant="small" style={{ marginTop: 6 }}>{tr("Mosquées partenaires : horaires publiés par la mosquée. Autres mosquées : horaires calculés à leur adresse, le temps qu’elles rejoignent Nissali.")}</T>
           </>
         ) : (
           <>
@@ -254,19 +255,19 @@ export default function PrayerTimes() {
               <Row gap={10}>
                 <Icon name="pin" size={18} color={colors.or} />
                 <View style={{ flex: 1 }}>
-                  <T variant="bold">{user?.city?.name || 'Paris'}</T>
-                  <T variant="small">{user?.city?.source === 'gps' ? 'Ta position actuelle (GPS)' : 'Ville enregistrée'}</T>
+                  <T variant="bold">{user?.city?.name || tr("Paris")}</T>
+                  <T variant="small">{user?.city?.source === 'gps' ? tr("Ta position actuelle (GPS)") : tr("Ville enregistrée")}</T>
                 </View>
               </Row>
-              {source.mode === 'mosquee' ? <Button title={`Horaires de ${user?.city?.name || 'ma ville'}`} onPress={() => chooseCity(null)} loading={busy} /> : null}
+              {source.mode === 'mosquee' ? <Button title={tr("Horaires de {0}", [(user?.city?.name || tr("ma ville"))])} onPress={() => chooseCity(null)} loading={busy} /> : null}
               <Pressable onPress={useMyPosition} disabled={busy} accessibilityRole="button" style={s.positionBtn}>
                 {busy ? <ActivityIndicator color={colors.bordeaux} /> : <Icon name="locate" size={18} color={colors.bordeaux} />}
-                <Text style={s.positionText}>Utiliser ma position</Text>
+                <Text style={s.positionText}>{tr("Utiliser ma position")}</Text>
               </Pressable>
             </Card>
             <Gap h={12} />
-            <CityPicker label="Ou choisis une ville" value={null} onChange={(c) => chooseCity(c)} />
-            <T variant="small" style={{ marginTop: 8 }}>Horaires calculés pour ta ville (API Aladhan, méthode choisie par le comité), ajustables de quelques minutes dans ton profil.</T>
+            <CityPicker label={tr("Ou choisis une ville")} value={null} onChange={(c) => chooseCity(c)} />
+            <T variant="small" style={{ marginTop: 8 }}>{tr("Horaires calculés pour ta ville (API Aladhan, méthode choisie par le comité), ajustables de quelques minutes dans ton profil.")}</T>
           </>
         )}
       </Screen>
@@ -275,7 +276,7 @@ export default function PrayerTimes() {
 
   // --- Affichage : source choisie, prochaine prière, horaires du jour -----------------------------
   return (
-    <Screen back title="Horaires de prière" scrollRef={scrollRef} onRefresh={loadToday}>
+    <Screen back title={tr("Horaires de prière")} scrollRef={scrollRef} onRefresh={loadToday}>
       <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${placeName}. Changer de ville ou de mosquée`} style={({ pressed }) => [s.place, pressed && { opacity: 0.85 }]}>
         <View style={s.placeIcon}>
           <Icon name={isMosque ? 'home' : 'pin'} size={18} color={colors.bordeaux} />
@@ -293,11 +294,11 @@ export default function PrayerTimes() {
         <>
           <LinearGradient colors={[colors.bordeaux, colors.prune]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
             <Arches />
-            <Text style={s.heroLabel}>PROCHAINE PRIÈRE</Text>
+            <Text style={s.heroLabel}>{tr("PROCHAINE PRIÈRE")}</Text>
             <Text style={s.heroName}>{PRAYER_LABELS[heroKey]}</Text>
             <Text style={s.heroTime}>{t[heroKey]}</Text>
-            <Text style={s.heroIn}>{nextKey ? `Dans ${countdown(t.instants[nextKey], now).replace(/^(\d+)\s+min$/, (_, m) => `${m}\u00A0minute${m > 1 ? 's' : ''}`)}` : 'Demain matin'}</Text>
-            {jumua?.today ? <Text style={s.heroJumua}>Aujourd’hui · Jumu’a à {jumua.times.join(' et ')}</Text> : null}
+            <Text style={s.heroIn}>{nextKey ? tr("Dans {0}", [countdown(t.instants[nextKey], now).replace(/^(\d+)\s+min$/, (_, m) => `${m}\u00A0minute${m > 1 ? 's' : ''}`)]) : tr("Demain matin")}</Text>
+            {jumua?.today ? <Text style={s.heroJumua}>{tr("Aujourd’hui · Jumu’a à")} {jumua.times.join(' et ')}</Text> : null}
             <Pressable
               onPress={() => patchSettings({ notifications: !notifOn }, notifOn ? 'Rappels de prière désactivés' : 'Rappels de prière activés')}
               accessibilityRole="switch"
@@ -305,7 +306,7 @@ export default function PrayerTimes() {
               style={s.heroPill}
             >
               <Icon name="bell" size={15} color={colors.white} fill={notifOn ? colors.white : 'none'} />
-              <Text style={s.heroPillText}>{notifOn ? 'Rappel activé' : 'Rappel désactivé'}</Text>
+              <Text style={s.heroPillText}>{notifOn ? tr("Rappel activé") : tr("Rappel désactivé")}</Text>
             </Pressable>
           </LinearGradient>
 
@@ -316,13 +317,13 @@ export default function PrayerTimes() {
               return (
                 <View key={r.key}>
                   {sep ? <View style={s.sep} /> : null}
-                  <Pressable onPress={() => setPrayerSheet(r.key)} accessibilityRole="button" accessibilityLabel={`${PRAYER_LABELS[r.key]} à ${t[r.key]}${on ? ', prochaine prière' : ''}. Régler le rappel`} style={({ pressed }) => [s.row, on && s.rowOn, pressed && { opacity: 0.85 }]}>
+                  <Pressable onPress={() => setPrayerSheet(r.key)} accessibilityRole="button" accessibilityLabel={tr("{0} à {1}{2}. Régler le rappel", [PRAYER_LABELS[r.key], t[r.key], (on ? tr(", prochaine prière") : '')])} style={({ pressed }) => [s.row, on && s.rowOn, pressed && { opacity: 0.85 }]}>
                     <View style={[s.rowIcon, on && { backgroundColor: colors.white }]}>
                       <Icon name={r.icon} size={20} color={on ? colors.bordeaux : colors.or} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[s.rowName, on && { color: colors.bordeaux, fontFamily: fonts.bold }]}>{PRAYER_LABELS[r.key]}</Text>
-                      {r.key === 'fajr' ? <Text style={s.rowHint}>Lever du soleil {t.sunrise}</Text> : null}
+                      {r.key === 'fajr' ? <Text style={s.rowHint}>{tr("Lever du soleil")} {t.sunrise}</Text> : null}
                     </View>
                     {notifOn && user?.prayerSettings?.notifyPrayers?.[r.key] === false ? <Icon name="bellOff" size={15} color={colors.muted} /> : null}
                     <Text style={[s.rowTime, on && { color: colors.bordeaux }]}>{t[r.key]}</Text>
@@ -334,18 +335,18 @@ export default function PrayerTimes() {
           </View>
 
           <T variant="small" style={{ marginTop: 10, textAlign: 'center' }}>
-            {isMosque && !meta.fallback ? 'Horaires publiés par la mosquée.' : meta?.fallback ? 'Horaires de la mosquée indisponibles aujourd’hui : calculés à son adresse.' : today.method || ''}
+            {isMosque && !meta.fallback ? tr("Horaires publiés par la mosquée.") : meta?.fallback ? tr("Horaires de la mosquée indisponibles aujourd’hui : calculés à son adresse.") : today.method || ''}
           </T>
 
           {/* 5.7 bis — Dhikr : total du jour, tasbih après la prière */}
-          <Pressable onPress={() => router.push('/dhikr')} accessibilityRole="button" accessibilityLabel="Dhikr" style={({ pressed }) => [s.dhikr, pressed && { opacity: 0.85 }]}>
+          <Pressable onPress={() => router.push('/dhikr')} accessibilityRole="button" accessibilityLabel={tr("Dhikr")} style={({ pressed }) => [s.dhikr, pressed && { opacity: 0.85 }]}>
             <View style={s.dhikrIcon}>
               <Icon name="beads" size={20} color={colors.white} strokeWidth={1.7} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.dhikrTitle}>Dhikr</Text>
+              <Text style={s.dhikrTitle}>{tr("Dhikr")}</Text>
               <Text style={s.rowHint}>
-                {Object.values(dhikr.counts || {}).reduce((n, c) => n + c, 0)} aujourd’hui · Tasbih après la prière
+                {Object.values(dhikr.counts || {}).reduce((n, c) => n + c, 0)} {tr("aujourd’hui · Tasbih après la prière")}
               </Text>
             </View>
             <Icon name="chevronRight" size={18} color={colors.muted} />
@@ -353,36 +354,36 @@ export default function PrayerTimes() {
 
           {/* Prochaine Jumu'a, en bas, juste avant Qibla et Mes rappels */}
           {nextJ ? (
-            <View style={[s.jumua, nextJ.today && s.jumuaToday]} accessibilityLabel={`Prochaine Jumu’a ${nextJ.today ? 'aujourd’hui' : longDate(nextJ.day)} à ${nextJ.times.join(' et ')}${nextJ.estimated ? ', heure de Dhuhr' : ''}`}>
+            <View style={[s.jumua, nextJ.today && s.jumuaToday]} accessibilityLabel={tr("Prochaine Jumu’a {0} à {1}{2}", [(nextJ.today ? tr("aujourd’hui") : longDate(nextJ.day)), nextJ.times.join(' et '), (nextJ.estimated ? tr(", heure de Dhuhr") : '')])}>
               <View style={[s.jumuaIcon, nextJ.today && { backgroundColor: colors.bordeaux }]}>
                 <Icon name="home" size={20} color={nextJ.today ? colors.white : colors.or} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.jumuaLabel}>{nextJ.today ? 'JUMU’A · AUJOURD’HUI' : `PROCHAINE JUMU’A · ${longDate(nextJ.day).toUpperCase()}`}</Text>
+                <Text style={s.jumuaLabel}>{nextJ.today ? tr("JUMU’A · AUJOURD’HUI") : tr("PROCHAINE JUMU’A · {0}", [longDate(nextJ.day).toUpperCase()])}</Text>
                 <Text style={s.rowHint} numberOfLines={3}>
                   {nextJ.estimated
                     ? nextJ.mosque
-                      ? `${nextJ.mosque} · heure non communiquée : heure de Dhuhr`
-                      : 'Heure de Dhuhr · à confirmer auprès de ta mosquée'
+                      ? tr("{0} · heure non communiquée : heure de Dhuhr", [nextJ.mosque])
+                      : tr("Heure de Dhuhr · à confirmer auprès de ta mosquée")
                     : nextJ.mosque}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[s.jumuaTime, nextJ.today && { color: colors.bordeaux }]}>{nextJ.estimated ? `≈ ${nextJ.times[0]}` : nextJ.times[0]}</Text>
-                {nextJ.times[1] ? <Text style={s.rowHint}>2ᵉ Jumu’a {nextJ.times[1]}</Text> : null}
+                {nextJ.times[1] ? <Text style={s.rowHint}>{tr("2ᵉ Jumu’a")} {nextJ.times[1]}</Text> : null}
               </View>
             </View>
           ) : null}
 
           <Row gap={12} style={{ marginTop: 18 }}>
-            <BottomButton icon="compass" label={`Qibla${today.qibla?.direction != null ? ` · ${Math.round(today.qibla.direction)}°` : ''}`} onPress={() => router.push('/qibla')} />
-            <BottomButton icon="bell" label="Mes rappels" onPress={() => setReminders(true)} />
+            <BottomButton icon="compass" label={tr("Qibla{0}", [today.qibla?.direction != null ? ` · ${Math.round(today.qibla.direction)}°` : ''])} onPress={() => router.push('/qibla')} />
+            <BottomButton icon="bell" label={tr("Mes rappels")} onPress={() => setReminders(true)} />
           </Row>
         </>
       )}
 
-      <Sheet visible={reminders} onClose={() => setReminders(false)} title="Mes rappels de prière">
-        <Toggle label="Notification à l’heure de chaque prière" value={notifOn} onChange={(v) => patchSettings({ notifications: v }, v ? 'Rappels de prière activés' : 'Rappels de prière désactivés')} />
+      <Sheet visible={reminders} onClose={() => setReminders(false)} title={tr("Mes rappels de prière")}>
+        <Toggle label={tr("Notification à l’heure de chaque prière")} value={notifOn} onChange={(v) => patchSettings({ notifications: v }, v ? 'Rappels de prière activés' : 'Rappels de prière désactivés')} />
         {/* 07 — son de l'adhan : réglage distinct, il ne réactive pas des rappels désactivés */}
         <Pressable
           onPress={() => {
@@ -393,8 +394,8 @@ export default function PrayerTimes() {
           style={s.soundRow}
         >
           <Icon name="volume" size={18} color={colors.bordeaux} />
-          <Text style={s.soundText}>Son de l’adhan</Text>
-          <Text style={s.soundState}>{adhanMode === 'adhan' ? 'Activé' : 'Désactivé'}</Text>
+          <Text style={s.soundText}>{tr("Son de l’adhan")}</Text>
+          <Text style={s.soundState}>{adhanMode === 'adhan' ? tr("Activé") : tr("Désactivé")}</Text>
           <Icon name="chevronRight" size={16} color={colors.muted} />
         </Pressable>
         <Pressable
@@ -405,29 +406,29 @@ export default function PrayerTimes() {
           accessibilityRole="link"
           style={{ paddingVertical: 8 }}
         >
-          <T variant="medium" color={colors.bordeaux}>Voix de l’adhan, ajustements et adhkar → Profil</T>
+          <T variant="medium" color={colors.bordeaux}>{tr("Voix de l’adhan, ajustements et adhkar → Profil")}</T>
         </Pressable>
       </Sheet>
       <AdhanSoundSheet visible={adhanSound} onClose={() => setAdhanSound(false)} />
       <Sheet visible={Boolean(prayerSheet)} onClose={() => setPrayerSheet(null)} title={prayerSheet ? `${PRAYER_LABELS[prayerSheet]} · ${t?.[prayerSheet] || ''}` : ''}>
         {prayerSheet ? (
           <>
-            {!notifOn ? <T variant="muted">Tes rappels de prière sont désactivés. Active-les dans « Mes rappels » pour régler chaque prière.</T> : null}
+            {!notifOn ? <T variant="muted">{tr("Tes rappels de prière sont désactivés. Active-les dans « Mes rappels » pour régler chaque prière.")}</T> : null}
             <Toggle
-              label={`Rappel à l’heure de ${PRAYER_LABELS[prayerSheet]}`}
-              hint="Notification à l’heure de la prière (sauf pendant les règles)"
+              label={tr("Rappel à l’heure de {0}", [PRAYER_LABELS[prayerSheet]])}
+              hint={tr("Notification à l’heure de la prière (sauf pendant les règles)")}
               value={notifOn && user?.prayerSettings?.notifyPrayers?.[prayerSheet] !== false}
               onChange={(v) => patchSettings({ ...(v && !notifOn ? { notifications: true } : {}), notifyPrayers: { [prayerSheet]: v } }, v ? `Rappel de ${PRAYER_LABELS[prayerSheet]} activé` : `Rappel de ${PRAYER_LABELS[prayerSheet]} désactivé`)}
             />
             {adhanMode === 'adhan' ? (
               <Toggle
-                label={`Adhan pour ${PRAYER_LABELS[prayerSheet]}`}
-                hint="Appel à la prière avec la notification"
+                label={tr("Adhan pour {0}", [PRAYER_LABELS[prayerSheet]])}
+                hint={tr("Appel à la prière avec la notification")}
                 value={user?.prayerSettings?.adhanPrayers?.[prayerSheet] !== false}
                 onChange={(v) => patchSettings({ adhanPrayers: { [prayerSheet]: v } }, v ? `Adhan activé pour ${PRAYER_LABELS[prayerSheet]}` : `Adhan désactivé pour ${PRAYER_LABELS[prayerSheet]}`)}
               />
             ) : null}
-            <Button title="Son de l’adhan et voix" variant="soft" small onPress={() => { setPrayerSheet(null); setTimeout(() => setAdhanSound(true), 350); }} />
+            <Button title={tr("Son de l’adhan et voix")} variant="soft" small onPress={() => { setPrayerSheet(null); setTimeout(() => setAdhanSound(true), 350); }} />
           </>
         ) : null}
       </Sheet>

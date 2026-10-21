@@ -10,6 +10,7 @@ import { colors, fonts } from '../theme';
 import Icon from './Icon';
 import { useToast } from './ui';
 
+import { tr } from '../lib/i18n';
 const HIDDEN = 'nissali.contextHidden';
 const STYLE = {
   ghusl: { bg: colors.blush, icon: 'drop' },
@@ -50,7 +51,7 @@ export default function ContextCard({ cards = [], today, onStartPeriod, onChange
     try {
       if (card.fast?.kind === 'rattrapage') await sendOrQueue('POST', '/fasts/made-up', { day: today });
       else await api.post('/fasts/voluntary', { day: today, type: card.fast?.type || 'autre' });
-      toast('Qu’Allah l’accepte de toi !');
+      toast(tr("Qu’Allah l’accepte de toi !"));
       onChanged?.();
     } catch (e) {
       toast(e.message, 'error');
@@ -60,7 +61,7 @@ export default function ContextCard({ cards = [], today, onStartPeriod, onChange
   };
   const notFasted = async () => {
     await hide();
-    toast('D’accord, rien n’est coché. Tu peux décaler ce jour dans ton programme.');
+    toast(tr("D’accord, rien n’est coché. Tu peux décaler ce jour dans ton programme."));
   };
 
   const dark = st.dark;
@@ -83,7 +84,7 @@ export default function ContextCard({ cards = [], today, onStartPeriod, onChange
         {card.key === 'ghusl' ? actionBtn('Continuer', () => router.push('/ghusl')) : null}
         {card.key === 'retard' ? actionBtn('Noter', () => onStartPeriod?.()) : null}
         {card.dismissable && card.key !== 'retard' && card.key !== 'ramadan' ? (
-          <Pressable onPress={hide} accessibilityRole="button" accessibilityLabel="Masquer jusqu’à demain" hitSlop={10} style={s.close}>
+          <Pressable onPress={hide} accessibilityRole="button" accessibilityLabel={tr("Masquer jusqu’à demain")} hitSlop={10} style={s.close}>
             <Icon name="close" size={14} color={colors.muted} />
           </Pressable>
         ) : null}

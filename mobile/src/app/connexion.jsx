@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors } from '../theme';
 
+import { tr } from '../lib/i18n';
 export default function Login() {
   const { signIn } = useAuth();
   const [mode, setMode] = useState('code'); // code | password | forgot
@@ -55,7 +56,7 @@ export default function Login() {
 
   const identifierField = (
     <Field
-      label="Adresse e-mail"
+      label={tr("Adresse e-mail")}
       value={identifier}
       onChangeText={setIdentifier}
       placeholder="amina@exemple.fr"
@@ -68,13 +69,13 @@ export default function Login() {
   );
 
   return (
-    <Screen back title={mode === 'forgot' ? 'Mot de passe oublié' : 'Connexion'}>
+    <Screen back title={mode === 'forgot' ? tr("Mot de passe oublié") : tr("Connexion")}>
       <View style={{ gap: 16 }}>
         {mode !== 'forgot' ? (
           <Segmented
             items={[
-              { key: 'code', label: 'Code' },
-              { key: 'password', label: 'Mot de passe' },
+              { key: 'code', label: tr("Code") },
+              { key: 'password', label: tr("Mot de passe") },
             ]}
             value={mode}
             onChange={switchMode}
@@ -85,7 +86,7 @@ export default function Login() {
           <>
             {identifierField}
             <Field
-              label="Mot de passe"
+              label={tr("Mot de passe")}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -95,29 +96,29 @@ export default function Login() {
               returnKeyType="go"
               onSubmitEditing={loginPassword}
               right={
-                <Pressable onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} hitSlop={8}>
+                <Pressable onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? tr("Masquer le mot de passe") : tr("Afficher le mot de passe")} hitSlop={8}>
                   <Icon name={showPassword ? 'eyeOff' : 'eye'} size={22} color={colors.muted} />
                 </Pressable>
               }
             />
             {error ? <T color={colors.danger}>{error}</T> : null}
-            <Button title="Me connecter" onPress={loginPassword} loading={busy} disabled={identifier.trim().length < 4 || !password} />
-            <Button title="Mot de passe oublié ?" variant="ghost" onPress={() => switchMode('forgot')} />
+            <Button title={tr("Me connecter")} onPress={loginPassword} loading={busy} disabled={identifier.trim().length < 4 || !password} />
+            <Button title={tr("Mot de passe oublié ?")} variant="ghost" onPress={() => switchMode('forgot')} />
           </>
         ) : !sent ? (
           <>
             <T variant="muted">
-              {mode === 'forgot' ? 'Saisis ton adresse e-mail : nous t’envoyons un code pour choisir un nouveau mot de passe.' : 'Saisis ton adresse e-mail : nous t’envoyons un code à 6 chiffres.'}
+              {mode === 'forgot' ? tr("Saisis ton adresse e-mail : nous t’envoyons un code pour choisir un nouveau mot de passe.") : tr("Saisis ton adresse e-mail : nous t’envoyons un code à 6 chiffres.")}
             </T>
             {identifierField}
             {error ? <T color={colors.danger}>{error}</T> : null}
-            <Button title="Recevoir mon code" onPress={sendCode} loading={busy} disabled={identifier.trim().length < 4} />
-            {mode === 'forgot' ? <Button title="Retour à la connexion" variant="ghost" onPress={() => switchMode('password')} /> : <Button title="Créer un compte" variant="ghost" onPress={() => router.replace('/inscription')} />}
+            <Button title={tr("Recevoir mon code")} onPress={sendCode} loading={busy} disabled={identifier.trim().length < 4} />
+            {mode === 'forgot' ? <Button title={tr("Retour à la connexion")} variant="ghost" onPress={() => switchMode('password')} /> : <Button title={tr("Créer un compte")} variant="ghost" onPress={() => router.replace('/inscription')} />}
           </>
         ) : (
           <>
             <T variant="muted">
-              Code envoyé par e-mail à <T variant="bold">{sent.target}</T>. Pense à regarder dans tes courriers indésirables.
+              {tr("Code envoyé par e-mail à")} <T variant="bold">{sent.target}</T>{tr(". Pense à regarder dans tes courriers indésirables.")}
             </T>
             <CodeInput
               value={code}
@@ -128,16 +129,16 @@ export default function Login() {
             />
             {mode === 'forgot' ? (
               <Field
-                label="Nouveau mot de passe"
+                label={tr("Nouveau mot de passe")}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry={!showNewPassword}
                 autoComplete="new-password"
                 textContentType="newPassword"
                 icon="lock"
-                hint="8 caractères minimum"
+                hint={tr("8 caractères minimum")}
                 right={
-                  <Pressable onPress={() => setShowNewPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showNewPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} hitSlop={8}>
+                  <Pressable onPress={() => setShowNewPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showNewPassword ? tr("Masquer le mot de passe") : tr("Afficher le mot de passe")} hitSlop={8}>
                     <Icon name={showNewPassword ? 'eyeOff' : 'eye'} size={22} color={colors.muted} />
                   </Pressable>
                 }
@@ -145,12 +146,12 @@ export default function Login() {
             ) : null}
             {error ? <T color={colors.danger} style={{ textAlign: 'center' }}>{error}</T> : null}
             {mode === 'forgot' ? (
-              <Button title="Enregistrer et me connecter" onPress={resetPassword} loading={busy} disabled={code.length !== 6 || newPassword.length < 8} />
+              <Button title={tr("Enregistrer et me connecter")} onPress={resetPassword} loading={busy} disabled={code.length !== 6 || newPassword.length < 8} />
             ) : (
-              <Button title="Me connecter" onPress={() => verifyCode()} loading={busy} disabled={code.length !== 6} />
+              <Button title={tr("Me connecter")} onPress={() => verifyCode()} loading={busy} disabled={code.length !== 6} />
             )}
-            <Button title="Renvoyer un code" variant="ghost" onPress={sendCode} disabled={busy} />
-            <Button title="Changer d’adresse e-mail" variant="ghost" onPress={() => setSent(null)} />
+            <Button title={tr("Renvoyer un code")} variant="ghost" onPress={sendCode} disabled={busy} />
+            <Button title={tr("Changer d’adresse e-mail")} variant="ghost" onPress={() => setSent(null)} />
           </>
         )}
         <Gap h={4} />

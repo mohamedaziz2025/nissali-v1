@@ -13,6 +13,7 @@ import { readJson, writeJson } from '../lib/storage';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 
+import { tr } from '../lib/i18n';
 const POLL_MS = 15000;
 const SEEN_KEY = 'nissali.bannerSeen';
 const ICON = { message: 'mail', annonce: 'bell', evenement: 'calendar', reservation: 'calendar' };
@@ -102,11 +103,11 @@ export default function InAppNotifier() {
           <Icon name={ICON[banner.type] || 'bell'} size={20} color={colors.bordeaux} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.title} numberOfLines={1}>{banner.type === 'annonce' && banner.title !== 'Nissali' ? banner.title : banner.type === 'message' ? 'Nouveau message' : 'Nissali'}</Text>
+          <Text style={s.title} numberOfLines={1}>{banner.type === 'annonce' && banner.title !== 'Nissali' ? banner.title : banner.type === 'message' ? tr("Nouveau message") : tr("Nissali")}</Text>
           <Text style={s.body} numberOfLines={2}>{banner.detail || banner.body}</Text>
         </View>
         {banner.imageUrl ? <Image source={{ uri: assetUrl(banner.imageUrl) }} style={s.thumb} /> : null}
-        <Pressable onPress={hide} hitSlop={10} accessibilityLabel="Fermer">
+        <Pressable onPress={hide} hitSlop={10} accessibilityLabel={tr("Fermer")}>
           <Icon name="close" size={16} color={colors.muted} />
         </Pressable>
       </Pressable>

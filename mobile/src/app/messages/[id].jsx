@@ -13,6 +13,7 @@ import { Button, Field, Sheet, T, useToast } from '../../components/ui';
 import { api, uploadImage } from '../../lib/api';
 import { colors, fonts } from '../../theme';
 
+import { tr } from '../../lib/i18n';
 const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🤲'];
 const MORE_EMOJIS = ['😍', '🥰', '😊', '🙂', '😉', '🤗', '🤭', '😇', '🥹', '😅', '🤣', '😁', '😎', '🤔', '😴', '😔', '😥', '😭', '😡', '😱', '🙏', '👏', '🙌', '💪', '👌', '✌️', '🤝', '💯', '🔥', '✨', '⭐', '🌙', '☀️', '🌸', '🌹', '💐', '🍀', '🎉', '🎁', '☕', '🍵', '💕', '💖', '💗', '💜', '🤍', '💛', '✅', '❌', '❗', '❓', '👀', '🤲🏽', '👍🏽', '🫶', '🫡'];
 const POLL_MS = 2500;
@@ -22,8 +23,8 @@ function ReplyQuote({ reply, mine, otherName }) {
   const who = reply.mine ? 'toi' : otherName;
   return (
     <View style={[s.quote, mine ? s.quoteMine : s.quoteOther]}>
-      <Text style={[s.quoteWho, mine && { color: colors.rose }]} numberOfLines={1}>Réponse à {who}</Text>
-      <Text style={[s.quoteText, mine && { color: '#F3D9DE' }]} numberOfLines={2}>{reply.text || (reply.hasImage ? '📷 Photo' : '')}</Text>
+      <Text style={[s.quoteWho, mine && { color: colors.rose }]} numberOfLines={1}>{tr("Réponse à")} {who}</Text>
+      <Text style={[s.quoteText, mine && { color: '#F3D9DE' }]} numberOfLines={2}>{reply.text || (reply.hasImage ? tr("📷 Photo") : '')}</Text>
     </View>
   );
 }
@@ -43,15 +44,15 @@ function Bubble({ m, first, last, otherName, maxWidth, onLongPress, onOpenImage,
   if (m.deleted) {
     return (
       <View style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
-        <Pressable onLongPress={() => onLongPress(m)} delayLongPress={280} style={[s.bubble, s.deleted, corner, { maxWidth }]} accessibilityLabel="Message supprimé">
-          <Text style={s.deletedText}>🚫 {mine ? 'Tu as retiré un message' : 'Message supprimé'}</Text>
+        <Pressable onLongPress={() => onLongPress(m)} delayLongPress={280} style={[s.bubble, s.deleted, corner, { maxWidth }]} accessibilityLabel={tr("Message supprimé")}>
+          <Text style={s.deletedText}>🚫 {mine ? tr("Tu as retiré un message") : tr("Message supprimé")}</Text>
         </Pressable>
       </View>
     );
   }
   return (
     <View style={{ alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: grouped.length ? 14 : 0 }}>
-      <Pressable onLongPress={() => onLongPress(m)} delayLongPress={280} onPress={m.image ? () => onOpenImage(m) : undefined} accessibilityRole={m.image ? 'imagebutton' : 'text'} accessibilityLabel={`${mine ? 'Toi' : otherName} : ${m.text || 'photo'}`} accessibilityHint="Appui long pour réagir ou répondre">
+      <Pressable onLongPress={() => onLongPress(m)} delayLongPress={280} onPress={m.image ? () => onOpenImage(m) : undefined} accessibilityRole={m.image ? 'imagebutton' : 'text'} accessibilityLabel={`${(mine ? tr("Toi") : otherName)} : ${m.text || 'photo'}`} accessibilityHint={tr("Appui long pour réagir ou répondre")}>
         <View style={[s.bubble, mine ? s.mine : s.other, corner, { maxWidth }, m.image && !m.text && s.photoOnly, m.pending && { opacity: 0.6 }]}>
           <ReplyQuote reply={m.reply} mine={mine} otherName={otherName} />
           {m.image ? (
@@ -62,7 +63,7 @@ function Bubble({ m, first, last, otherName, maxWidth, onLongPress, onOpenImage,
           {m.text ? <Text style={[s.text, mine ? { color: colors.white } : { color: colors.prune }, m.image && { marginTop: 6 }]}>{m.text}</Text> : null}
         </View>
         {grouped.length ? (
-          <Pressable onPress={() => onReact(m, grouped[0][0])} style={[s.reactions, mine ? { right: 8 } : { left: 8 }]} accessibilityLabel={`Réactions : ${grouped.map(([e, n]) => `${e} ${n}`).join(', ')}`}>
+          <Pressable onPress={() => onReact(m, grouped[0][0])} style={[s.reactions, mine ? { right: 8 } : { left: 8 }]} accessibilityLabel={tr("Réactions : {0}", [grouped.map(([e, n]) => `${e} ${n}`).join(', ')])}>
             {grouped.map(([e, n]) => (
               <Text key={e} style={s.reactionEmoji}>
                 {e}
@@ -79,12 +80,12 @@ function Bubble({ m, first, last, otherName, maxWidth, onLongPress, onOpenImage,
 
 /** Statut d'un message envoyé : envoi, envoyé ✓, reçu ✓✓, vu ✓✓ (bordeaux). */
 function statusOf(m, meta) {
-  if (m.pending) return { label: 'Envoi…' };
+  if (m.pending) return { label: tr("Envoi…") };
   const at = new Date(m.at);
   const time = hhmm(m.at);
-  if (meta.otherReadAt && new Date(meta.otherReadAt) >= at) return { label: `${time} · ✓✓ Vu`, seen: true };
-  if (meta.otherDeliveredAt && new Date(meta.otherDeliveredAt) >= at) return { label: `${time} · ✓✓ Reçu` };
-  return { label: `${time} · ✓ Envoyé` };
+  if (meta.otherReadAt && new Date(meta.otherReadAt) >= at) return { label: tr("{0} · ✓✓ Vu", [time]), seen: true };
+  if (meta.otherDeliveredAt && new Date(meta.otherDeliveredAt) >= at) return { label: tr("{0} · ✓✓ Reçu", [time]) };
+  return { label: tr("{0} · ✓ Envoyé", [time]) };
 }
 
 export default function Conversation() {
@@ -204,10 +205,10 @@ export default function Conversation() {
       if (fromSheet) await new Promise((r) => setTimeout(r, Platform.OS === 'ios' ? 600 : 250));
       if (camera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return toast('Autorise l’appareil photo dans les réglages du téléphone', 'error');
+        if (!perm.granted) return toast(tr("Autorise l’appareil photo dans les réglages du téléphone"), 'error');
       } else if (Platform.OS !== 'web') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted && perm.accessPrivileges !== 'limited') return toast('Autorise l’accès aux photos dans les réglages du téléphone', 'error');
+        if (!perm.granted && perm.accessPrivileges !== 'limited') return toast(tr("Autorise l’accès aux photos dans les réglages du téléphone"), 'error');
       }
       const r = await (camera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync)({ mediaTypes: ['images'], quality: 0.7, allowsEditing: false, exif: false });
       if (r.canceled || !r.assets?.length) return;
@@ -217,7 +218,7 @@ export default function Conversation() {
       await send({ text: text.trim(), photo, local: asset.uri, width: Math.round(asset.width) || undefined, height: Math.round(asset.height) || undefined });
       setText('');
     } catch (e) {
-      toast(e.message || 'Envoi de la photo impossible', 'error');
+      toast(e.message || tr("Envoi de la photo impossible"), 'error');
     } finally {
       setSending(false);
     }
@@ -259,16 +260,16 @@ export default function Conversation() {
       }
     };
     if (Platform.OS === 'web') return go();
-    Alert.alert(scope === 'all' ? 'Retirer pour tout le monde ?' : 'Supprimer pour toi ?', scope === 'all' ? 'Le message sera supprimé de la conversation pour vous deux.' : 'Le message disparaîtra seulement de ton côté.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: scope === 'all' ? 'Retirer' : 'Supprimer', style: 'destructive', onPress: go },
+    Alert.alert(scope === 'all' ? tr("Retirer pour tout le monde ?") : tr("Supprimer pour toi ?"), scope === 'all' ? tr("Le message sera supprimé de la conversation pour vous deux.") : tr("Le message disparaîtra seulement de ton côté."), [
+      { text: tr("Annuler"), style: 'cancel' },
+      { text: scope === 'all' ? tr("Retirer") : tr("Supprimer"), style: 'destructive', onPress: go },
     ]);
   };
 
   const copy = async (m) => {
     setMenu(null);
     await Clipboard.setStringAsync(m.text || '').catch(() => {});
-    toast('Message copié');
+    toast(tr("Message copié"));
   };
 
   const toggleBlock = async () => {
@@ -277,13 +278,13 @@ export default function Conversation() {
       try {
         const r = await api.post(`/messages/conversations/${id}/block${q}`, { blocked: !meta.blockedByMe, as });
         setMeta((x) => ({ ...x, blocked: r.blocked, blockedByMe: r.blockedByMe }));
-        toast(r.blockedByMe ? 'Conversation bloquée' : 'Conversation débloquée');
+        toast(r.blockedByMe ? tr("Conversation bloquée") : tr("Conversation débloquée"));
       } catch (e) {
         toast(e.message, 'error');
       }
     };
     if (meta.blockedByMe || Platform.OS === 'web') return go();
-    Alert.alert('Bloquer cette conversation ?', 'Plus aucun message ne pourra être envoyé, de part et d’autre.', [{ text: 'Annuler', style: 'cancel' }, { text: 'Bloquer', style: 'destructive', onPress: go }]);
+    Alert.alert(tr("Bloquer cette conversation ?"), tr("Plus aucun message ne pourra être envoyé, de part et d’autre."), [{ text: tr("Annuler"), style: 'cancel' }, { text: tr("Bloquer"), style: 'destructive', onPress: go }]);
   };
 
   const sendReport = async () => {
@@ -291,7 +292,7 @@ export default function Conversation() {
       await api.post(`/messages/conversations/${id}/report${q}`, { reason, as });
       setReportOpen(false);
       setReason('');
-      toast('Merci, notre équipe va examiner ce signalement.');
+      toast(tr("Merci, notre équipe va examiner ce signalement."));
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -319,22 +320,22 @@ export default function Conversation() {
   return (
     <KeyboardAvoidingView style={[s.screen, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={s.header}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/messages'))} hitSlop={12} accessibilityRole="button" accessibilityLabel="Retour" style={s.headerBtn}>
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/messages'))} hitSlop={12} accessibilityRole="button" accessibilityLabel={tr("Retour")} style={s.headerBtn}>
           <Icon name="chevronLeft" size={26} />
         </Pressable>
         <Pressable onPress={() => (as === 'user' && other.id ? router.push(`/praticienne/${other.id}`) : as === 'pro' && other.id ? router.push(`/fiche-cliente/${other.id}`) : null)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} accessibilityRole="button">
           <Avatar person={other} size={40} />
           <View style={{ flex: 1 }}>
             <Text style={s.headerName} numberOfLines={1}>{other.name}</Text>
-            <Text style={[s.headerSub, meta.otherTyping && { color: colors.bordeaux }]} numberOfLines={1}>{meta.otherTyping ? 'écrit…' : other.subtitle || (as === 'pro' ? 'Cliente' : 'Praticienne')}</Text>
+            <Text style={[s.headerSub, meta.otherTyping && { color: colors.bordeaux }]} numberOfLines={1}>{meta.otherTyping ? tr("écrit…") : other.subtitle || (as === 'pro' ? tr("Cliente") : tr("Praticienne"))}</Text>
           </View>
         </Pressable>
         {other.phone ? (
-          <Pressable onPress={() => Linking.openURL(`tel:${other.phone.replace(/\s/g, '')}`)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Appeler ${other.name}`} style={s.headerBtn}>
+          <Pressable onPress={() => Linking.openURL(`tel:${other.phone.replace(/\s/g, '')}`)} hitSlop={8} accessibilityRole="button" accessibilityLabel={tr("Appeler {0}", [other.name])} style={s.headerBtn}>
             <Icon name="phone" size={22} color={colors.bordeaux} />
           </Pressable>
         ) : null}
-        <Pressable onPress={() => setOptions(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Options de la conversation" style={s.headerBtn}>
+        <Pressable onPress={() => setOptions(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel={tr("Options de la conversation")} style={s.headerBtn}>
           <Icon name="info" size={22} color={colors.bordeaux} />
         </Pressable>
       </View>
@@ -357,16 +358,16 @@ export default function Conversation() {
               {other.subtitle ? <T variant="small">{other.subtitle}</T> : null}
               <View style={s.notice}>
                 <Icon name="lock" size={14} color={colors.muted} />
-                <T variant="small" style={{ flex: 1 }}>Ne partage pas d’informations médicales sensibles par message.</T>
+                <T variant="small" style={{ flex: 1 }}>{tr("Ne partage pas d’informations médicales sensibles par message.")}</T>
               </View>
             </View>
           }
           renderItem={({ item: r }) => {
             if (r.type === 'day') return <Text style={s.day}>{dayLabel(r.at)} · {hhmm(r.at)}</Text>;
-            if (r.type === 'seen') return <Text style={s.seen}>Vu</Text>;
+            if (r.type === 'seen') return <Text style={s.seen}>{tr("Vu")}</Text>;
             if (r.type === 'typing')
               return (
-                <View style={[s.bubble, s.other, { alignSelf: 'flex-start', paddingVertical: 12 }]} accessibilityLabel={`${other.name} écrit`}>
+                <View style={[s.bubble, s.other, { alignSelf: 'flex-start', paddingVertical: 12 }]} accessibilityLabel={tr("{0} écrit", [other.name])}>
                   <Text style={{ color: colors.muted, fontSize: 18, letterSpacing: 2 }}>•••</Text>
                 </View>
               );
@@ -381,33 +382,33 @@ export default function Conversation() {
 
       {meta.blocked ? (
         <View style={[s.blocked, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <T variant="medium" style={{ textAlign: 'center' }}>{meta.blockedByMe ? 'Tu as bloqué cette conversation.' : 'Cette conversation n’est plus disponible.'}</T>
-          {meta.blockedByMe ? <Button title="Débloquer" small variant="soft" onPress={toggleBlock} /> : null}
+          <T variant="medium" style={{ textAlign: 'center' }}>{meta.blockedByMe ? tr("Tu as bloqué cette conversation.") : tr("Cette conversation n’est plus disponible.")}</T>
+          {meta.blockedByMe ? <Button title={tr("Débloquer")} small variant="soft" onPress={toggleBlock} /> : null}
         </View>
       ) : (
         <View style={[s.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           {reply ? (
             <View style={s.replyBar}>
               <View style={{ flex: 1 }}>
-                <Text style={s.replyWho}>Réponse à {reply.mine ? 'toi' : other.name}</Text>
-                <Text style={s.replyText} numberOfLines={1}>{reply.text || '📷 Photo'}</Text>
+                <Text style={s.replyWho}>{tr("Réponse à")} {reply.mine ? 'toi' : other.name}</Text>
+                <Text style={s.replyText} numberOfLines={1}>{reply.text || tr("📷 Photo")}</Text>
               </View>
-              <Pressable onPress={() => setReply(null)} hitSlop={10} accessibilityLabel="Annuler la réponse">
+              <Pressable onPress={() => setReply(null)} hitSlop={10} accessibilityLabel={tr("Annuler la réponse")}>
                 <Icon name="close" size={18} color={colors.muted} />
               </Pressable>
             </View>
           ) : null}
           <View style={s.composer}>
-            <Pressable onPress={() => (Platform.OS === 'web' ? pickPhoto(false) : setOptions('photo'))} disabled={sending} hitSlop={6} accessibilityRole="button" accessibilityLabel="Envoyer une photo" style={s.iconBtn}>
+            <Pressable onPress={() => (Platform.OS === 'web' ? pickPhoto(false) : setOptions('photo'))} disabled={sending} hitSlop={6} accessibilityRole="button" accessibilityLabel={tr("Envoyer une photo")} style={s.iconBtn}>
               {sending ? <ActivityIndicator color={colors.bordeaux} size="small" /> : <Icon name="plus" size={22} color={colors.bordeaux} />}
             </Pressable>
-            <TextInput ref={inputRef} value={text} onChangeText={onChangeText} placeholder="Message" placeholderTextColor="#A88C93" style={s.input} multiline maxLength={2000} accessibilityLabel="Écrire un message" />
+            <TextInput ref={inputRef} value={text} onChangeText={onChangeText} placeholder={tr("Message")} placeholderTextColor="#A88C93" style={s.input} multiline maxLength={2000} accessibilityLabel={tr("Écrire un message")} />
             {text.trim() ? (
-              <Pressable onPress={sendText} accessibilityRole="button" accessibilityLabel="Envoyer" style={s.send}>
+              <Pressable onPress={sendText} accessibilityRole="button" accessibilityLabel={tr("Envoyer")} style={s.send}>
                 <Icon name="arrowUp" size={20} color={colors.white} strokeWidth={2.4} />
               </Pressable>
             ) : (
-              <Pressable onPress={() => send({ text: '🤲' })} accessibilityRole="button" accessibilityLabel="Envoyer 🤲" style={s.iconBtn}>
+              <Pressable onPress={() => send({ text: '🤲' })} accessibilityRole="button" accessibilityLabel={tr("Envoyer 🤲")} style={s.iconBtn}>
                 <Text style={{ fontSize: 24 }}>🤲</Text>
               </Pressable>
             )}
@@ -425,12 +426,12 @@ export default function Conversation() {
                   {REACTIONS.map((e) => {
                     const on = (menu.reactions || []).some((r) => r.mine && r.emoji === e);
                     return (
-                      <Pressable key={e} onPress={() => react(menu, e)} accessibilityRole="button" accessibilityLabel={`Réagir ${e}`} style={[s.reactionBtn, on && { backgroundColor: colors.blush }]}>
+                      <Pressable key={e} onPress={() => react(menu, e)} accessibilityRole="button" accessibilityLabel={tr("Réagir {0}", [e])} style={[s.reactionBtn, on && { backgroundColor: colors.blush }]}>
                         <Text style={{ fontSize: 28 }}>{e}</Text>
                       </Pressable>
                     );
                   })}
-                  <Pressable onPress={() => { const m = menu; setMenu(null); setTimeout(() => setEmojiFor(m), 250); }} accessibilityRole="button" accessibilityLabel="Plus d’emojis" style={[s.reactionBtn, { backgroundColor: colors.blush }]}>
+                  <Pressable onPress={() => { const m = menu; setMenu(null); setTimeout(() => setEmojiFor(m), 250); }} accessibilityRole="button" accessibilityLabel={tr("Plus d’emojis")} style={[s.reactionBtn, { backgroundColor: colors.blush }]}>
                     <Icon name="plus" size={22} color={colors.bordeaux} />
                   </Pressable>
                 </View>
@@ -438,24 +439,24 @@ export default function Conversation() {
               <View style={s.menuActions}>
                 {!menu.deleted ? <Pressable onPress={() => startReply(menu)} style={s.menuItem} accessibilityRole="button">
                   <Icon name="chevronLeft" size={18} color={colors.prune} />
-                  <Text style={s.menuText}>Répondre</Text>
+                  <Text style={s.menuText}>{tr("Répondre")}</Text>
                 </Pressable> : null}
                 {menu.text ? (
                   <Pressable onPress={() => copy(menu)} style={s.menuItem} accessibilityRole="button">
                     <Icon name="edit" size={18} color={colors.prune} />
-                    <Text style={s.menuText}>Copier</Text>
+                    <Text style={s.menuText}>{tr("Copier")}</Text>
                   </Pressable>
                 ) : null}
                 {menu.mine && !menu.deleted && !menu.pending ? (
                   <Pressable onPress={() => remove(menu, 'all')} style={s.menuItem} accessibilityRole="button">
                     <Icon name="trash" size={18} color={colors.danger} />
-                    <Text style={[s.menuText, { color: colors.danger }]}>Retirer pour tout le monde</Text>
+                    <Text style={[s.menuText, { color: colors.danger }]}>{tr("Retirer pour tout le monde")}</Text>
                   </Pressable>
                 ) : null}
                 {!menu.pending ? (
                   <Pressable onPress={() => remove(menu, 'me')} style={[s.menuItem, { borderBottomWidth: 0 }]} accessibilityRole="button">
                     <Icon name="trash" size={18} color={colors.muted} />
-                    <Text style={s.menuText}>Supprimer pour moi</Text>
+                    <Text style={s.menuText}>{tr("Supprimer pour moi")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -466,7 +467,7 @@ export default function Conversation() {
 
       {/* Photo en plein écran */}
       <Modal visible={Boolean(viewer)} transparent animationType="fade" onRequestClose={() => setViewer(null)}>
-        <Pressable style={s.viewer} onPress={() => setViewer(null)} accessibilityLabel="Fermer la photo">
+        <Pressable style={s.viewer} onPress={() => setViewer(null)} accessibilityLabel={tr("Fermer la photo")}>
           {viewer ? <Image source={{ uri: viewer.image?.local || viewer.image?.url }} style={{ width, height: height * 0.8 }} resizeMode="contain" /> : null}
           <View style={[s.viewerClose, { top: insets.top + 12 }]}>
             <Icon name="close" size={26} color={colors.white} />
@@ -474,36 +475,36 @@ export default function Conversation() {
         </Pressable>
       </Modal>
 
-      <Sheet visible={Boolean(emojiFor)} onClose={() => setEmojiFor(null)} title="Choisir une réaction">
+      <Sheet visible={Boolean(emojiFor)} onClose={() => setEmojiFor(null)} title={tr("Choisir une réaction")}>
         <View style={s.emojiGrid}>
           {[...REACTIONS, ...MORE_EMOJIS].map((e) => {
             const on = (emojiFor?.reactions || []).some((r) => r.mine && r.emoji === e);
             return (
-              <Pressable key={e} onPress={() => { const m = emojiFor; setEmojiFor(null); react(m, e); }} accessibilityRole="button" accessibilityLabel={`Réagir ${e}`} style={[s.emojiCell, on && { backgroundColor: colors.blush }]}>
+              <Pressable key={e} onPress={() => { const m = emojiFor; setEmojiFor(null); react(m, e); }} accessibilityRole="button" accessibilityLabel={tr("Réagir {0}", [e])} style={[s.emojiCell, on && { backgroundColor: colors.blush }]}>
                 <Text style={{ fontSize: 28 }}>{e}</Text>
               </Pressable>
             );
           })}
         </View>
-        <T variant="small" style={{ textAlign: 'center' }}>Touche ton emoji actuel pour retirer ta réaction.</T>
+        <T variant="small" style={{ textAlign: 'center' }}>{tr("Touche ton emoji actuel pour retirer ta réaction.")}</T>
       </Sheet>
 
-      <Sheet visible={options === 'photo'} onClose={() => setOptions(false)} title="Envoyer une photo">
-        <Button title="Prendre une photo" icon="plus" variant="soft" onPress={() => pickPhoto(true)} />
-        <Button title="Choisir dans la galerie" icon="share" variant="soft" onPress={() => pickPhoto(false)} />
-        <T variant="small" style={{ textAlign: 'center' }}>Évite d’envoyer des documents médicaux par message.</T>
+      <Sheet visible={options === 'photo'} onClose={() => setOptions(false)} title={tr("Envoyer une photo")}>
+        <Button title={tr("Prendre une photo")} icon="plus" variant="soft" onPress={() => pickPhoto(true)} />
+        <Button title={tr("Choisir dans la galerie")} icon="share" variant="soft" onPress={() => pickPhoto(false)} />
+        <T variant="small" style={{ textAlign: 'center' }}>{tr("Évite d’envoyer des documents médicaux par message.")}</T>
       </Sheet>
 
       <Sheet visible={options === true} onClose={() => setOptions(false)} title={other.name}>
-        {other.phone ? <Button title={`Appeler · ${other.phone}`} icon="phone" variant="soft" onPress={() => Linking.openURL(`tel:${other.phone.replace(/\s/g, '')}`)} /> : null}
-        {as === 'user' && other.id ? <Button title="Voir la fiche" variant="soft" onPress={() => { setOptions(false); router.push(`/praticienne/${other.id}`); }} /> : null}
-        <Button title={meta.blockedByMe ? 'Débloquer la conversation' : 'Bloquer la conversation'} variant="outline" onPress={toggleBlock} />
-        <Button title="Signaler" variant="outline" onPress={() => { setOptions(false); setReportOpen(true); }} />
+        {other.phone ? <Button title={tr("Appeler · {0}", [other.phone])} icon="phone" variant="soft" onPress={() => Linking.openURL(`tel:${other.phone.replace(/\s/g, '')}`)} /> : null}
+        {as === 'user' && other.id ? <Button title={tr("Voir la fiche")} variant="soft" onPress={() => { setOptions(false); router.push(`/praticienne/${other.id}`); }} /> : null}
+        <Button title={meta.blockedByMe ? tr("Débloquer la conversation") : tr("Bloquer la conversation")} variant="outline" onPress={toggleBlock} />
+        <Button title={tr("Signaler")} variant="outline" onPress={() => { setOptions(false); setReportOpen(true); }} />
       </Sheet>
 
-      <Sheet visible={reportOpen} onClose={() => setReportOpen(false)} title="Signaler la conversation" footer={<Button title="Envoyer le signalement" onPress={sendReport} disabled={reason.trim().length < 3} />}>
-        <T variant="small">Notre équipe examine chaque signalement. Explique en quelques mots ce qui pose problème.</T>
-        <Field value={reason} onChangeText={setReason} multiline placeholder="Motif du signalement" />
+      <Sheet visible={reportOpen} onClose={() => setReportOpen(false)} title={tr("Signaler la conversation")} footer={<Button title={tr("Envoyer le signalement")} onPress={sendReport} disabled={reason.trim().length < 3} />}>
+        <T variant="small">{tr("Notre équipe examine chaque signalement. Explique en quelques mots ce qui pose problème.")}</T>
+        <Field value={reason} onChangeText={setReason} multiline placeholder={tr("Motif du signalement")} />
       </Sheet>
     </KeyboardAvoidingView>
   );

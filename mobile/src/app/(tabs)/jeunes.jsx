@@ -7,43 +7,37 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { BrandBar } from '../../components/Brand';
 import { PriorSheet } from '../../components/FastsPrior';
+import MyFasts from '../../components/MyFasts';
 import { DateField, TimeField } from '../../components/forms';
 import Icon from '../../components/Icon';
 import { Button, Card, Chip, Chips, ErrorState, Gap, Label, ListItem, Loader, OfflineBanner, Row, Screen, Segmented, Sheet, Stepper, T, useToast } from '../../components/ui';
 import { api, sendOrQueue } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { dayMonth, inDays, longDate, parseDay, shortDate } from '../../lib/format';
+import { dayMonth, inDays, longDate, parseDay, shortDate, DAYS_SHORT as FMT_DAYS_SHORT, MONTHS_SHORT as FMT_MONTHS_SHORT, WEEK as FMT_WEEK } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
-const WEEK = [
-  { v: 1, l: 'L', name: 'lundi' },
-  { v: 2, l: 'M', name: 'mardi' },
-  { v: 3, l: 'M', name: 'mercredi' },
-  { v: 4, l: 'J', name: 'jeudi' },
-  { v: 5, l: 'V', name: 'vendredi' },
-  { v: 6, l: 'S', name: 'samedi' },
-  { v: 0, l: 'D', name: 'dimanche' },
-];
-const DAY_SHORT = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
+import { tr } from '../../lib/i18n';
+const WEEK = FMT_WEEK;
+const DAY_SHORT = FMT_DAYS_SHORT.map((d) => d.replace(/\.$/, '').toUpperCase());
 const MISSED_REASONS = [
-  { key: 'regles', label: 'Règles' },
-  { key: 'maladie', label: 'Maladie' },
-  { key: 'voyage', label: 'Voyage' },
-  { key: 'grossesse', label: 'Grossesse' },
-  { key: 'allaitement', label: 'Allaitement' },
-  { key: 'autre', label: 'Autre' },
+  { key: 'regles', label: tr("Règles") },
+  { key: 'maladie', label: tr("Maladie") },
+  { key: 'voyage', label: tr("Voyage") },
+  { key: 'grossesse', label: tr("Grossesse") },
+  { key: 'allaitement', label: tr("Allaitement") },
+  { key: 'autre', label: tr("Autre") },
 ];
 const VOLUNTARY = [
-  { key: 'lundi_jeudi', label: 'Lundi / jeudi' },
-  { key: 'jours_blancs', label: 'Jour blanc' },
-  { key: 'arafat', label: 'Arafat' },
-  { key: 'achoura', label: 'Achoura' },
-  { key: 'chawwal', label: '6 de Chawwal' },
-  { key: 'autre', label: 'Autre' },
+  { key: 'lundi_jeudi', label: tr("Lundi / jeudi") },
+  { key: 'jours_blancs', label: tr("Jour blanc") },
+  { key: 'arafat', label: tr("Arafat") },
+  { key: 'achoura', label: tr("Achoura") },
+  { key: 'chawwal', label: tr("6 de Chawwal") },
+  { key: 'autre', label: tr("Autre") },
 ];
 const plural = (n, w = 'jour') => `${n} ${w}${n > 1 ? 's' : ''}`;
-const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const MONTHS_SHORT = FMT_MONTHS_SHORT;
 const shortDay = (day) => {
   const d = parseDay(day);
   return { wd: DAY_SHORT[d.getUTCDay()], date: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}` };
@@ -54,7 +48,7 @@ function confirm(title, message, action, label = 'Supprimer') {
     if (window.confirm(`${title}\n${message}`)) action();
     return;
   }
-  Alert.alert(title, message, [{ text: 'Annuler', style: 'cancel' }, { text: label, style: 'destructive', onPress: action }]);
+  Alert.alert(title, message, [{ text: tr("Annuler"), style: 'cancel' }, { text: label, style: 'destructive', onPress: action }]);
 }
 
 /** Jours de la semaine (L M M J V S D), choix multiple. */
@@ -103,7 +97,7 @@ function MakeUp({ data, reload }) {
     setBusy(true);
     try {
       const r = await fn();
-      if (message) toast(r?.queued ? 'Noté hors connexion' : message);
+      if (message) toast(r?.queued ? tr("Noté hors connexion") : message);
       setSheet(null);
       reload();
     } catch (e) {
@@ -117,11 +111,11 @@ function MakeUp({ data, reload }) {
     return run(() => api.put('/fasts/plan', { active: days.length > 0, perWeek: Math.max(1, days.length), weekdays: days.length ? days : [1, 4], reminderTime: time }), days.length ? 'Programme enregistré' : 'Programme mis en pause');
   };
   const fastedToday = () => run(() => sendOrQueue('POST', '/fasts/made-up', { day: data.today }), 'Qu’Allah l’accepte de toi ! Compteur mis à jour.');
-  const uncheck = (b) => confirm('Décocher ce jour ?', `Rattrapage du ${longDate(b.day)}`, () => run(() => api.delete(`/fasts/made-up/${b.id}`), 'Case décochée'), 'Décocher');
+  const uncheck = (b) => confirm(tr("Décocher ce jour ?"), tr("Rattrapage du {0}", [longDate(b.day)]), () => run(() => api.delete(`/fasts/made-up/${b.id}`), 'Case décochée'), 'Décocher');
   const toggleReminder = async (v) => {
     try {
       await setSession(await api.patch('/me', { notificationPrefs: { fastMakeup: v } }));
-      toast(v ? 'Rappel la veille activé' : 'Rappel la veille désactivé');
+      toast(v ? tr("Rappel la veille activé") : tr("Rappel la veille désactivé"));
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -143,22 +137,22 @@ function MakeUp({ data, reload }) {
       <View style={s.hero}>
         {counter.remaining ? (
           <>
-            <Text style={s.heroLabel}>À RATTRAPER AVANT RAMADAN</Text>
+            <Text style={s.heroLabel}>{tr("À RATTRAPER AVANT RAMADAN")}</Text>
             <Row gap={12} align="flex-end">
               <Text style={s.heroBig} adjustsFontSizeToFit numberOfLines={1}>{counter.remaining}</Text>
-              <Text style={[s.heroText, { marginBottom: 14 }]}>jour{counter.remaining > 1 ? 's' : ''}</Text>
+              <Text style={[s.heroText, { marginBottom: 14 }]}>{tr("jour")}{counter.remaining > 1 ? 's' : ''}</Text>
             </Row>
           </>
         ) : (
           <>
-            <Text style={s.heroLabel}>JEÛNES OBLIGATOIRES</Text>
-            <Text style={[s.heroBig, { fontSize: 40, lineHeight: 46 }]}>Tu es à jour</Text>
-            <Text style={s.heroText}>Tous tes jours sont rattrapés. Qu’Allah l’accepte de toi.</Text>
+            <Text style={s.heroLabel}>{tr("JEÛNES OBLIGATOIRES")}</Text>
+            <Text style={[s.heroBig, { fontSize: 40, lineHeight: 46 }]}>{tr("Tu es à jour")}</Text>
+            <Text style={s.heroText}>{tr("Tous tes jours sont rattrapés. Qu’Allah l’accepte de toi.")}</Text>
           </>
         )}
         {data.nextRamadan ? (
           <Text style={s.heroText}>
-            Ramadan {data.nextRamadan.hijriYear} vers le {dayMonth(data.nextRamadan.start)} {data.nextRamadan.start.slice(0, 4)} · dans {plural(data.nextRamadan.daysLeft)}
+            {tr("Ramadan")} {data.nextRamadan.hijriYear} {tr("vers le")} {dayMonth(data.nextRamadan.start)} {data.nextRamadan.start.slice(0, 4)} {tr("· dans")} {plural(data.nextRamadan.daysLeft)}
           </Text>
         ) : null}
         {counter.missed ? (
@@ -167,20 +161,20 @@ function MakeUp({ data, reload }) {
               <View style={[s.fill, { width: `${Math.round(pct * 100)}%` }]} />
             </View>
             <Text style={s.heroSmall}>
-              {counter.madeUp} rattrapé{counter.madeUp > 1 ? 's' : ''} sur {counter.missed}
-              {counter.remaining && data.rhythm ? ` · ${data.rhythm.alert ? data.rhythm.label : `conseil : ${data.rhythm.label[0].toLowerCase()}${data.rhythm.label.slice(1)}`}` : ''}
+              {counter.madeUp} {tr("rattrapé")}{counter.madeUp > 1 ? 's' : ''} {tr("sur")} {counter.missed}
+              {counter.remaining && data.rhythm ? ` · ${(data.rhythm.alert ? data.rhythm.label : tr("conseil : {0}{1}", [data.rhythm.label[0].toLowerCase(), data.rhythm.label.slice(1)]))}` : ''}
             </Text>
           </View>
         ) : null}
         {counter.remaining ? (
           <Pressable onPress={fastedToday} disabled={busy || Boolean(blocked) || data.madeUpToday} accessibilityRole="button" style={[s.whiteBtn, (busy || blocked || data.madeUpToday) && { opacity: 0.55 }]}>
             <Icon name="check" size={17} color={colors.bordeaux} strokeWidth={2.6} />
-            <Text style={s.whiteBtnText}>{data.madeUpToday ? 'Aujourd’hui est coché' : 'J’ai jeûné aujourd’hui'}</Text>
+            <Text style={s.whiteBtnText}>{data.madeUpToday ? tr("Aujourd’hui est coché") : tr("J’ai jeûné aujourd’hui")}</Text>
           </Pressable>
         ) : null}
         {blocked && counter.remaining ? (
           <Text style={[s.heroSmall, { textAlign: 'center' }]}>
-            {data.todayStatus.forbidden ? `Le jeûne n’est pas permis aujourd’hui (${data.todayStatus.forbidden}).` : data.todayStatus.ramadan ? 'Pendant Ramadan, on ne rattrape pas.' : 'Pas de jeûne pendant tes règles : tu peux cocher un jour passé.'}
+            {data.todayStatus.forbidden ? tr("Le jeûne n’est pas permis aujourd’hui ({0}).", [data.todayStatus.forbidden]) : data.todayStatus.ramadan ? tr("Pendant Ramadan, on ne rattrape pas.") : tr("Pas de jeûne pendant tes règles : tu peux cocher un jour passé.")}
           </Text>
         ) : null}
       </View>
@@ -189,7 +183,7 @@ function MakeUp({ data, reload }) {
       {/* Mes jours rattrapés : une case par jour, toucher = cocher (date, case dorée) ou décocher. */}
       <Card style={{ gap: 12 }}>
         <Row justify="space-between">
-          <Text style={s.cardTitle}>Mes jours rattrapés</Text>
+          <Text style={s.cardTitle}>{tr("Mes jours rattrapés")}</Text>
           <Text style={s.count}>{done} / {data.boxes.length}</Text>
         </Row>
         {data.boxes.length ? (
@@ -200,20 +194,20 @@ function MakeUp({ data, reload }) {
                 onPress={() => (b.done ? uncheck(b) : (setMadeUpDay(data.today), setSheet('madeup')))}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: b.done }}
-                accessibilityLabel={b.done ? `Jour ${b.index}, rattrapé le ${longDate(b.day)}` : `Jour ${b.index}, à rattraper`}
+                accessibilityLabel={b.done ? tr("Jour {0}, rattrapé le {1}", [b.index, longDate(b.day)]) : tr("Jour {0}, à rattraper", [b.index])}
                 style={[s.box, b.done && s.boxDone]}
               >
                 <View style={[s.boxCheck, b.done && s.boxCheckOn]}>{b.done ? <Icon name="check" size={13} color={colors.white} strokeWidth={3} /> : null}</View>
-                <Text style={[s.boxText, b.done && { color: colors.orText }]} numberOfLines={1}>{b.done ? shortDay(b.day).date : `Jour ${b.index}`}</Text>
+                <Text style={[s.boxText, b.done && { color: colors.orText }]} numberOfLines={1}>{b.done ? shortDay(b.day).date : tr("Jour {0}", [b.index])}</Text>
               </Pressable>
             ))}
           </View>
         ) : (
-          <T variant="muted">Aucun jour à rattraper.</T>
+          <T variant="muted">{tr("Aucun jour à rattraper.")}</T>
         )}
         <Pressable onPress={() => { setMissed({ reason: 'regles', count: 1, day: null, hijriYear: hijriYear || yearList[yearList.length - 1] }); setSheet('missed'); }} accessibilityRole="button" style={s.secondary}>
           <Icon name="plus" size={16} color={colors.bordeaux} />
-          <Text style={s.secondaryText}>Jour manqué</Text>
+          <Text style={s.secondaryText}>{tr("Jour manqué")}</Text>
         </Pressable>
       </Card>
       <Gap />
@@ -223,28 +217,28 @@ function MakeUp({ data, reload }) {
         <>
           <Card style={{ gap: 12 }}>
             <Row justify="space-between">
-              <Text style={s.cardTitle}>Mon programme</Text>
+              <Text style={s.cardTitle}>{tr("Mon programme")}</Text>
               <Pressable onPress={() => setSheet('time')} hitSlop={8} accessibilityRole="button">
-                <Text style={s.link}>Modifier</Text>
+                <Text style={s.link}>{tr("Modifier")}</Text>
               </Pressable>
             </Row>
             {next ? (
               <View>
-                <Text style={s.small}>Prochain jeûne</Text>
+                <Text style={s.small}>{tr("Prochain jeûne")}</Text>
                 <Text style={s.nextBig}>{longDate(next.day)}</Text>
               </View>
             ) : (
-              <T variant="small">Choisis tes jours : Nissali les place en évitant tes règles prévues, le Ramadan, les deux Aïd et les jours de Tachriq.</T>
+              <T variant="small">{tr("Choisis tes jours : Nissali les place en évitant tes règles prévues, le Ramadan, les deux Aïd et les jours de Tachriq.")}</T>
             )}
-            {chosen.length && data.plan?.active ? <Text style={s.lineText}>Chaque {chosen.join(', ')}</Text> : null}
+            {chosen.length && data.plan?.active ? <Text style={s.lineText}>{tr("Chaque")} {chosen.join(', ')}</Text> : null}
             <Row gap={10}>
               <Icon name="bell" size={17} color={colors.muted} />
-              <Text style={s.lineText}>Rappel la veille à {reminderTime} (suhur)</Text>
-              <Switch value={reminderOn} onValueChange={toggleReminder} trackColor={{ true: colors.bordeaux, false: colors.line }} thumbColor={colors.white} accessibilityLabel="Rappel la veille" />
+              <Text style={s.lineText}>{tr("Rappel la veille à")} {reminderTime} {tr("(suhur)")}</Text>
+              <Switch value={reminderOn} onValueChange={toggleReminder} trackColor={{ true: colors.bordeaux, false: colors.line }} thumbColor={colors.white} accessibilityLabel={tr("Rappel la veille")} />
             </Row>
             {data.plan?.active && data.planEnd ? (
               <Text style={[s.rhythm, !data.planEnough && { color: colors.danger }]}>
-                {data.planEnough ? `À ce rythme : terminé le ${dayMonth(data.planEnd)} ✓` : `À ce rythme, tu finirais le ${dayMonth(data.planEnd)}, après le début du Ramadan.`}
+                {data.planEnough ? tr("À ce rythme : terminé le {0} ✓", [dayMonth(data.planEnd)]) : tr("À ce rythme, tu finirais le {0}, après le début du Ramadan.", [dayMonth(data.planEnd)])}
               </Text>
             ) : null}
           </Card>
@@ -253,61 +247,61 @@ function MakeUp({ data, reload }) {
       ) : null}
 
       <Card style={{ gap: 4 }}>
-        <Label>Par année</Label>
+        <Label>{tr("Par année")}</Label>
         {byYear.length ? (
           byYear.map((y, i) => (
-            <ListItem key={y.hijriYear} title={`Ramadan ${y.hijriYear}`} subtitle={`${plural(y.missed)} à rattraper · ${y.madeUp} rattrapé${y.madeUp > 1 ? 's' : ''} · ${y.remaining} restant${y.remaining > 1 ? 's' : ''}`} onPress={() => { setYearKey(y.hijriYear); setTotal(y.missed); setSheet('total'); }} last={i === byYear.length - 1} />
+            <ListItem key={y.hijriYear} title={tr("Ramadan {0}", [y.hijriYear])} subtitle={tr("{0} à rattraper · {1} rattrapé{2} · {3} restant{4}", [plural(y.missed), y.madeUp, y.madeUp > 1 ? 's' : '', y.remaining, y.remaining > 1 ? 's' : ''])} onPress={() => { setYearKey(y.hijriYear); setTotal(y.missed); setSheet('total'); }} last={i === byYear.length - 1} />
           ))
         ) : (
-          <T variant="muted" style={{ paddingVertical: 6 }}>Aucun jour manqué enregistré.</T>
+          <T variant="muted" style={{ paddingVertical: 6 }}>{tr("Aucun jour manqué enregistré.")}</T>
         )}
         <Pressable onPress={() => { setPriorEntry(null); setSheet('prior'); }} accessibilityRole="button" style={s.secondary}>
           <Icon name="history" size={17} color={colors.bordeaux} />
-          <Text style={s.secondaryText}>Ajouter des jours déjà rattrapés</Text>
+          <Text style={s.secondaryText}>{tr("Ajouter des jours déjà rattrapés")}</Text>
         </Pressable>
         {history.length ? (
           <Pressable onPress={() => setSheet('history')} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 8 }}>
-            <Text style={s.link}>Mon historique ({history.length})</Text>
+            <Text style={s.link}>{tr("Mon historique (")}{history.length})</Text>
           </Pressable>
         ) : null}
       </Card>
       <Pressable onPress={() => router.push('/blog/rattraper-ses-jours-de-jeune-guide-pratique')} accessibilityRole="link" style={s.article}>
         <Icon name="info" size={17} color={colors.bordeaux} />
-        <Text style={[s.lineText, { fontFamily: fonts.bold }]}>Rattrapage et fidya : ce qu’il faut savoir</Text>
+        <Text style={[s.lineText, { fontFamily: fonts.bold }]}>{tr("Rattrapage et fidya : ce qu’il faut savoir")}</Text>
         <Icon name="chevronRight" size={16} color={colors.muted} />
       </Pressable>
       {data.fidyaInfo ? <T variant="small" style={{ marginTop: 8 }}>{data.fidyaInfo}</T> : null}
 
       <PriorSheet visible={sheet === 'prior'} onClose={() => setSheet(null)} year={year} years={yearList} onYear={setYearKey} entry={priorEntry} onSaved={reload} />
-      <Sheet visible={sheet === 'madeup'} onClose={() => setSheet(null)} title="Cocher un jour rattrapé" footer={<Button title="Cocher ce jour" onPress={() => run(() => sendOrQueue('POST', '/fasts/made-up', { day: madeUpDay }), 'Qu’Allah l’accepte de toi ! Compteur mis à jour.')} loading={busy} disabled={busy || !madeUpDay} />}>
-        <DateField label="Jour jeûné" value={madeUpDay} onChange={setMadeUpDay} />
-        <T variant="small">La case cochée affiche la date du rattrapage. Un jour seulement programmé n’est jamais compté.</T>
+      <Sheet visible={sheet === 'madeup'} onClose={() => setSheet(null)} title={tr("Cocher un jour rattrapé")} footer={<Button title={tr("Cocher ce jour")} onPress={() => run(() => sendOrQueue('POST', '/fasts/made-up', { day: madeUpDay }), 'Qu’Allah l’accepte de toi ! Compteur mis à jour.')} loading={busy} disabled={busy || !madeUpDay} />}>
+        <DateField label={tr("Jour jeûné")} value={madeUpDay} onChange={setMadeUpDay} />
+        <T variant="small">{tr("La case cochée affiche la date du rattrapage. Un jour seulement programmé n’est jamais compté.")}</T>
       </Sheet>
       <Sheet
         visible={sheet === 'missed'}
         onClose={() => setSheet(null)}
-        title="Jour manqué"
-        footer={<Button title={`Ajouter ${plural(missed.count)}`} onPress={() => run(() => api.post('/fasts/missed', { hijriYear: missed.hijriYear, count: missed.count, reason: missed.reason, ...(missed.day ? { day: missed.day } : {}) }), 'Ajouté au compteur')} loading={busy} disabled={busy || !missed.hijriYear} />}
+        title={tr("Jour manqué")}
+        footer={<Button title={tr("Ajouter {0}", [plural(missed.count)])} onPress={() => run(() => api.post('/fasts/missed', { hijriYear: missed.hijriYear, count: missed.count, reason: missed.reason, ...(missed.day ? { day: missed.day } : {}) }), 'Ajouté au compteur')} loading={busy} disabled={busy || !missed.hijriYear} />}
       >
-        <T variant="fieldLabel">Raison</T>
+        <T variant="fieldLabel">{tr("Raison")}</T>
         <Chips items={MISSED_REASONS} value={missed.reason} onChange={(v) => setMissed((m) => ({ ...m, reason: v }))} />
-        <T variant="fieldLabel">Ramadan</T>
-        <Chips items={[...new Set([...(yearList || []), data.ramadan.current ? data.ramadan.hijriYear : data.ramadan.hijriYear - 1])].sort().map((y) => ({ key: y, label: `Ramadan ${y}` }))} value={missed.hijriYear} onChange={(v) => setMissed((m) => ({ ...m, hijriYear: v }))} scroll />
-        <Stepper label="Nombre de jours" value={missed.count} onChange={(v) => setMissed((m) => ({ ...m, count: v }))} min={1} max={30} />
-        <DateField label="Date (facultatif)" value={missed.day} onChange={(v) => setMissed((m) => ({ ...m, day: v }))} allowClear />
-        <T variant="small">Pendant Ramadan, les jours de règles et de nifas sont ajoutés automatiquement. Les années précédentes se rangent par Ramadan.</T>
+        <T variant="fieldLabel">{tr("Ramadan")}</T>
+        <Chips items={[...new Set([...(yearList || []), data.ramadan.current ? data.ramadan.hijriYear : data.ramadan.hijriYear - 1])].sort().map((y) => ({ key: y, label: tr("Ramadan {0}", [y]) }))} value={missed.hijriYear} onChange={(v) => setMissed((m) => ({ ...m, hijriYear: v }))} scroll />
+        <Stepper label={tr("Nombre de jours")} value={missed.count} onChange={(v) => setMissed((m) => ({ ...m, count: v }))} min={1} max={30} />
+        <DateField label={tr("Date (facultatif)")} value={missed.day} onChange={(v) => setMissed((m) => ({ ...m, day: v }))} allowClear />
+        <T variant="small">{tr("Pendant Ramadan, les jours de règles et de nifas sont ajoutés automatiquement. Les années précédentes se rangent par Ramadan.")}</T>
       </Sheet>
-      <Sheet visible={sheet === 'total'} onClose={() => setSheet(null)} title={`Total · Ramadan ${hijriYear}`} footer={<Button title="Enregistrer" onPress={() => run(() => api.put('/fasts/total', { hijriYear, total }), 'Total mis à jour')} loading={busy} disabled={busy} />}>
-        <T variant="muted">Nombre total de jours à rattraper pour ce Ramadan. Les jours comptés automatiquement pendant tes règles ({year.auto}) sont inclus.</T>
-        <Stepper label="Jours à rattraper" value={total} onChange={setTotal} min={Math.max(year.auto || 0, year.prior || 0)} max={30} />
+      <Sheet visible={sheet === 'total'} onClose={() => setSheet(null)} title={tr("Total · Ramadan {0}", [hijriYear])} footer={<Button title={tr("Enregistrer")} onPress={() => run(() => api.put('/fasts/total', { hijriYear, total }), 'Total mis à jour')} loading={busy} disabled={busy} />}>
+        <T variant="muted">{tr("Nombre total de jours à rattraper pour ce Ramadan. Les jours comptés automatiquement pendant tes règles (")}{year.auto}{tr(") sont inclus.")}</T>
+        <Stepper label={tr("Jours à rattraper")} value={total} onChange={setTotal} min={Math.max(year.auto || 0, year.prior || 0)} max={30} />
       </Sheet>
-      <Sheet visible={sheet === 'time'} onClose={() => setSheet(null)} title="Mon programme" footer={<Button title="Fermer" variant="soft" onPress={() => setSheet(null)} />}>
-        <T variant="fieldLabel">Je jeûne les</T>
+      <Sheet visible={sheet === 'time'} onClose={() => setSheet(null)} title={tr("Mon programme")} footer={<Button title={tr("Fermer")} variant="soft" onPress={() => setSheet(null)} />}>
+        <T variant="fieldLabel">{tr("Je jeûne les")}</T>
         <WeekPicker value={weekdays} onChange={(v) => savePlan(v)} />
-        <TimeField label="Heure du rappel la veille" value={reminderTime} allowUnknown={false} onChange={(t) => t && t !== reminderTime && savePlan(weekdays, t)} hint="21:00 par défaut, pour penser au suhur" />
-        <T variant="small">Pendant tes règles prévues ou en cours, aucun jour n’est placé et aucun rappel ne part.</T>
+        <TimeField label={tr("Heure du rappel la veille")} value={reminderTime} allowUnknown={false} onChange={(t) => t && t !== reminderTime && savePlan(weekdays, t)} hint={tr("21:00 par défaut, pour penser au suhur")} />
+        <T variant="small">{tr("Pendant tes règles prévues ou en cours, aucun jour n’est placé et aucun rappel ne part.")}</T>
       </Sheet>
-      <Sheet visible={sheet === 'history'} onClose={() => setSheet(null)} title="Mon historique">
+      <Sheet visible={sheet === 'history'} onClose={() => setSheet(null)} title={tr("Mon historique")}>
         {history.map((h, i) => (
           <View key={h.key} style={[s.histRow, i === history.length - 1 && { borderBottomWidth: 0 }]}>
             <View style={[s.histCheck, h.kind === 'prior' && { backgroundColor: colors.or }]}>
@@ -315,31 +309,31 @@ function MakeUp({ data, reload }) {
             </View>
             <View style={{ flex: 1 }}>
               {h.kind === 'app' ? (
-                <Text style={s.histTitle}>{longDate(h.day)} <Text style={s.histMeta}>· rattrapé</Text></Text>
+                <Text style={s.histTitle}>{longDate(h.day)} <Text style={s.histMeta}>{tr("· rattrapé")}</Text></Text>
               ) : (
                 <>
-                  <Text style={s.histTitle}>{plural(h.entry.count)} <Text style={s.histMeta}>· hors application · Ramadan {h.entry.hijriYear}</Text></Text>
-                  <Text style={s.histMeta} numberOfLines={2}>{h.entry.dates?.length ? h.entry.dates.map(shortDate).join(', ') : 'Sans date'}</Text>
+                  <Text style={s.histTitle}>{plural(h.entry.count)} <Text style={s.histMeta}>{tr("· hors application · Ramadan")} {h.entry.hijriYear}</Text></Text>
+                  <Text style={s.histMeta} numberOfLines={2}>{h.entry.dates?.length ? h.entry.dates.map(shortDate).join(', ') : tr("Sans date")}</Text>
                 </>
               )}
             </View>
             {h.kind === 'prior' ? (
-              <Pressable onPress={() => { setPriorEntry(h.entry); setYearKey(h.entry.hijriYear); setSheet('prior'); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Corriger" style={s.histBtn}>
+              <Pressable onPress={() => { setPriorEntry(h.entry); setYearKey(h.entry.hijriYear); setSheet('prior'); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={tr("Corriger")} style={s.histBtn}>
                 <Icon name="edit" size={16} color={colors.bordeaux} />
               </Pressable>
             ) : null}
             <Pressable
-              onPress={() => (h.kind === 'app' ? uncheck({ id: h.id, day: h.day }) : confirm('Supprimer cet ajout ?', `${plural(h.entry.count)} hors application · Ramadan ${h.entry.hijriYear}`, () => run(() => api.delete(`/fasts/prior/${h.entry.id}`), 'Ajout supprimé : compteur recalculé')))}
+              onPress={() => (h.kind === 'app' ? uncheck({ id: h.id, day: h.day }) : confirm(tr("Supprimer cet ajout ?"), tr("{0} hors application · Ramadan {1}", [plural(h.entry.count), h.entry.hijriYear]), () => run(() => api.delete(`/fasts/prior/${h.entry.id}`), 'Ajout supprimé : compteur recalculé')))}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="Supprimer"
+              accessibilityLabel={tr("Supprimer")}
               style={s.histBtn}
             >
               <Icon name="trash" size={16} color={colors.muted} />
             </Pressable>
           </View>
         ))}
-        <T variant="small">Tu peux ajouter des jours rattrapés avant d’utiliser Nissali. Un jour seulement programmé n’est jamais compté comme jeûné.</T>
+        <T variant="small">{tr("Tu peux ajouter des jours rattrapés avant d’utiliser Nissali. Un jour seulement programmé n’est jamais compté comme jeûné.")}</T>
       </Sheet>
     </>
   );
@@ -347,7 +341,9 @@ function MakeUp({ data, reload }) {
 
 // --- Volontaires --------------------------------------------------------------------------------------
 
-function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
+const PROGRAM_TITLES = { lundi_jeudi: tr("Lundi et jeudi"), blancs: tr("Jours blancs"), chawwal: tr("6 jours de Chawwal"), arafat: tr("Arafat"), achoura: tr("Achoura"), dates: tr("Dates précises") };
+
+function Voluntary({ fasts, onWhiteLayout, onGoMakeUp, onScrollTo }) {
   const toast = useToast();
   const [year, setYear] = useState(null);
   const v = useApi(`/fasts/voluntary${year ? `?year=${year}` : ''}`);
@@ -356,9 +352,12 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
   const [plan, setPlan] = useState(null);
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [stamp, setStamp] = useState(0);
+  const [action, setAction] = useState(null); // jour programmé touché dans « À venir »
+  const chartY = useRef(null);
   const d = v.data;
   useEffect(() => {
-    if (d && !plan) setPlan({ ...d.plan, reminder: d.reminder });
+    if (d) setPlan({ ...d.plan, reminder: d.reminder });
     if (d && !type) setType(d.todayType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d]);
@@ -378,8 +377,9 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
     setBusy(true);
     try {
       const r = await api.post('/fasts/voluntary', { day, type });
-      toast(r.updated ? 'Type mis à jour' : 'Qu’Allah l’accepte de toi ! Ajouté à ton récap.');
+      toast(r.updated ? tr("Type mis à jour") : tr("Qu’Allah l’accepte de toi ! Ajouté à ton récap."));
       v.reload();
+      setStamp((n) => n + 1);
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -387,19 +387,42 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
     }
   };
   const savePlan = async (patch) => {
-    const next = { ...plan, ...patch };
-    setPlan(next);
+    setPlan({ ...plan, ...patch });
     try {
-      await api.put('/fasts/voluntary/plan', next);
+      // Le serveur garde les champs absents (dates, jours sautés, « Jusqu'à »…).
+      await api.put('/fasts/voluntary/plan', patch);
       v.reload();
     } catch (e) {
       toast(e.message, 'error');
     }
   };
-  const remove = (x) => confirm('Retirer ce jour ?', `${longDate(x.day)} · ${x.label}`, async () => {
+  const remove = (x) => confirm(tr("Retirer ce jour ?"), `${longDate(x.day)} · ${x.label}`, async () => {
     await api.delete(`/fasts/voluntary/${x.id}`).catch((e) => toast(e.message, 'error'));
     v.reload();
   });
+
+  // Programme touché dans « À venir » : modifier, supprimer ce jour, supprimer tout le programme.
+  const kindOf = (x) => ((d.plan?.dates || []).includes(x.day) ? 'dates' : x.type === 'jours_blancs' ? 'blancs' : x.type === 'autre' || x.type === 'lundi_jeudi' ? 'lundi_jeudi' : x.type);
+  const putPlan = async (patch, message) => {
+    setAction(null);
+    try {
+      await api.put('/fasts/voluntary/plan', patch);
+      toast(message);
+      v.reload();
+      setStamp((n) => n + 1);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const skipDay = (x) =>
+    kindOf(x) === 'dates'
+      ? putPlan({ dates: (d.plan.dates || []).filter((y) => y !== x.day) }, 'Jour supprimé')
+      : putPlan({ skip: [...(d.plan.skip || []), x.day] }, 'Jour supprimé');
+  const removeProgram = (x) => {
+    const k = kindOf(x);
+    const patch = k === 'lundi_jeudi' ? { weekdays: [] } : k === 'dates' ? { dates: [] } : { [k]: false };
+    confirm(tr("Supprimer tout le programme ?"), tr("{0} : les jours à venir disparaissent de « À venir ».", [PROGRAM_TITLES[k] || x.label]), () => putPlan(patch, 'Programme supprimé'));
+  };
 
   const white = fasts.whiteDays || {};
   // Cloche d'un jeûne à venir = programmé avec le rappel de la veille.
@@ -415,7 +438,7 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
     const on = bellOn(k);
     if (b.weekday != null) savePlan({ weekdays: on ? plan.weekdays.filter((x) => x !== b.weekday) : [...plan.weekdays, b.weekday], reminder: true });
     else savePlan({ [b.key]: !on, reminder: true });
-    toast(on ? 'Rappel coupé' : 'Rappel la veille activé');
+    toast(on ? tr("Rappel coupé") : tr("Rappel la veille activé"));
   };
 
   return (
@@ -423,17 +446,17 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
       {d.obligatoryRemaining > 0 ? (
         <Pressable onPress={onGoMakeUp} accessibilityRole="button" style={s.rg34}>
           <Icon name="info" size={16} color={colors.bordeaux} />
-          <Text style={s.rg34Text}>{plural(d.obligatoryRemaining)} obligatoire{d.obligatoryRemaining > 1 ? 's' : ''} reste{d.obligatoryRemaining > 1 ? 'nt' : ''} à rattraper</Text>
+          <Text style={s.rg34Text}>{plural(d.obligatoryRemaining)} {tr("obligatoire")}{d.obligatoryRemaining > 1 ? 's' : ''} {tr("reste")}{d.obligatoryRemaining > 1 ? 'nt' : ''} {tr("à rattraper")}</Text>
           <Icon name="chevronRight" size={14} color={colors.bordeaux} />
         </Pressable>
       ) : null}
 
       {/* Prochain jeûne recommandé : jours blancs (grégorien + hégirien), « Les ajouter à mon programme ». */}
       <View onLayout={(e) => onWhiteLayout?.(e.nativeEvent.layout.y)} style={s.sable}>
-        <Text style={s.sableLabel}>PROCHAIN JEÛNE RECOMMANDÉ</Text>
+        <Text style={s.sableLabel}>{tr("PROCHAIN JEÛNE RECOMMANDÉ")}</Text>
         <Row justify="space-between">
-          <Text style={s.cardTitle}>Jours blancs</Text>
-          <Text style={[s.link, { color: colors.orText }]}>{white.inProgress ? 'En cours' : inDays(white.daysUntil)}</Text>
+          <Text style={s.cardTitle}>{tr("Jours blancs")}</Text>
+          <Text style={[s.link, { color: colors.orText }]}>{white.inProgress ? tr("En cours") : inDays(white.daysUntil)}</Text>
         </Row>
         <Row gap={8}>
           {(white.days || []).map((w) => (
@@ -447,61 +470,99 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
         {plan?.blancs ? (
           <View style={[s.addProgram, s.addProgramOn]}>
             <Icon name="check" size={16} color={colors.orText} strokeWidth={2.6} />
-            <Text style={[s.addProgramText, { color: colors.orText }]}>Ajoutés · rappel la veille</Text>
+            <Text style={[s.addProgramText, { color: colors.orText }]}>{tr("Ajoutés · rappel la veille")}</Text>
           </View>
         ) : (
-          <Pressable onPress={() => { savePlan({ blancs: true, reminder: true }); toast('Jours blancs ajoutés à ton programme'); }} accessibilityRole="button" style={s.addProgram}>
-            <Text style={s.addProgramText}>Les ajouter à mon programme</Text>
+          <Pressable onPress={() => { savePlan({ blancs: true, reminder: true }); toast(tr("Jours blancs ajoutés à ton programme")); }} accessibilityRole="button" style={s.addProgram}>
+            <Text style={s.addProgramText}>{tr("Les ajouter à mon programme")}</Text>
           </Pressable>
         )}
         <Pressable onPress={() => router.push('/blog/les-jours-blancs')} accessibilityRole="link">
-          <Text style={s.link}>Pourquoi jeûner les jours blancs ? →</Text>
+          <Text style={s.link}>{tr("Pourquoi jeûner les jours blancs ? →")}</Text>
         </Pressable>
       </View>
       <Gap />
 
-      {/* À venir : chacun avec une cloche pour activer ou couper le rappel de la veille. */}
+      {/* À venir : bouton « + Programmer » ; jours programmés (touche → modifier ou supprimer) et cloches. */}
       <Card style={{ gap: 2 }}>
-        <Text style={s.cardTitle}>À venir</Text>
-        {fasts.supererogatory.map((f, i, arr) => {
+        <Row justify="space-between">
+          <Text style={s.cardTitle}>{tr("À venir")}</Text>
+          <Pressable onPress={() => router.push('/programmer-jeune')} accessibilityRole="button" style={s.program}>
+            <Icon name="plus" size={14} color={colors.white} />
+            <Text style={s.programText}>{tr("Programmer")}</Text>
+          </Pressable>
+        </Row>
+        <Text style={[s.small, { marginBottom: 4 }]}>{tr("Touche la cloche pour un rappel")}</Text>
+        {(d.next || []).slice(0, 4).map((x) => (
+          <Pressable key={`p${x.day}`} onPress={() => setAction(x)} accessibilityRole="button" accessibilityHint={tr("Modifier ou supprimer")} style={s.upRow}>
+            <View style={s.upDate}>
+              <Text style={s.upDay}>{Number(x.day.slice(8))}</Text>
+              <Text style={s.upMonth}>{shortDate(x.day).split(' ').pop().replace('.', '').toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.upTitle}>{longDate(x.day).split(' ')[0]}</Text>
+              <Text style={s.small}>{x.paused ? tr("Règles prévues : jour sauté") : tr("{0} · dans ton programme", [x.label])}</Text>
+            </View>
+            <View style={[s.bell, !x.paused && d.reminder && s.bellOn]}>
+              <Icon name={!x.paused && d.reminder ? 'bell' : 'bellOff'} size={17} color={!x.paused && d.reminder ? colors.white : colors.muted} />
+            </View>
+          </Pressable>
+        ))}
+        {fasts.supererogatory.filter((f) => !(d.next || []).some((x) => x.day === f.day)).map((f, i, arr) => {
           const on = bellOn(f.key);
           return (
             <View key={f.key} style={[s.upRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
+              <View style={s.upDate}>
+                <Text style={s.upDay}>{Number(f.day.slice(8))}</Text>
+                <Text style={s.upMonth}>{shortDate(f.day).split(' ').pop().replace('.', '').toUpperCase()}</Text>
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.upTitle}>{f.label}</Text>
-                <Text style={s.small}>{f.note} · {shortDate(f.day)} · {inDays(f.daysUntil).toLowerCase()}</Text>
+                <Text style={s.small}>{f.note} · {inDays(f.daysUntil).toLowerCase()}</Text>
               </View>
               {BELL[f.key] ? (
-                <Pressable onPress={() => toggleBell(f.key)} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={`Rappel la veille : ${f.label}`} hitSlop={6} style={[s.bell, on && s.bellOn]}>
+                <Pressable onPress={() => toggleBell(f.key)} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={tr("Rappel la veille : {0}", [f.label])} hitSlop={6} style={[s.bell, on && s.bellOn]}>
                   <Icon name={on ? 'bell' : 'bellOff'} size={17} color={on ? colors.white : colors.muted} />
                 </Pressable>
               ) : null}
             </View>
           );
         })}
-        <T variant="small" style={{ marginTop: 6 }}>Un jour programmé n’est jamais compté tout seul ; pendant tes règles prévues, il est en pause et aucun rappel ne part.</T>
+        <T variant="small" style={{ marginTop: 6 }}>{tr("Un jour programmé n’est jamais compté tout seul ; pendant tes règles prévues, il est en pause et aucun rappel ne part.")}</T>
       </Card>
       <Gap />
 
       <Card style={{ gap: 12 }}>
-        <Text style={s.cardTitle}>J’ai jeûné</Text>
+        <Text style={s.cardTitle}>{tr("J’ai jeûné")}</Text>
         <DateField value={day} onChange={pickDay} />
         <View style={s.chips}>
           {VOLUNTARY.map((t) => (
             <Chip key={t.key} label={t.label} selected={type === t.key} onPress={() => setType(t.key)} />
           ))}
         </View>
-        <Button title="Valider" icon="check" onPress={save} loading={busy} disabled={busy || !type || !day} />
-        <Pressable onPress={() => setAll(true)} accessibilityRole="button" style={s.historyLine}>
+        <Button title={tr("Valider")} icon="check" onPress={save} loading={busy} disabled={busy || !type || !day} />
+        <Pressable onPress={() => chartY.current != null && onScrollTo?.(chartY.current)} accessibilityRole="button" style={s.historyLine}>
           <Text style={s.lineText}>
-            <Text style={{ fontFamily: fonts.extra }}>{plural(d.total)}</Text> jeûné{d.total > 1 ? 's' : ''} en {d.year}
+            <Text style={{ fontFamily: fonts.extra }}>{plural(d.total)}</Text> {tr("jeûné")}{d.total > 1 ? 's' : ''} {tr("en")} {d.year}
           </Text>
-          <Text style={s.link}>Historique</Text>
+          <Text style={s.link}>{tr("Voir le graphique")}</Text>
           <Icon name="chevronRight" size={14} color={colors.bordeaux} />
         </Pressable>
       </Card>
+      <Gap />
 
-      <Sheet visible={all} onClose={() => setAll(false)} title={`Historique · ${d.year}`}>
+      <MyFasts stamp={stamp} onLayout={(e) => (chartY.current = e.nativeEvent.layout.y)} />
+      <Pressable onPress={() => setAll(true)} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 10 }}>
+        <Text style={s.link}>{tr("Historique de l’année")}</Text>
+      </Pressable>
+
+      <Sheet visible={Boolean(action)} onClose={() => setAction(null)} title={action ? `${longDate(action.day)} · ${action.label}` : ''}>
+        <Button title={tr("Modifier ce programme")} variant="outline" onPress={() => { const k = kindOf(action); setAction(null); router.push(`/programmer-jeune?type=${k}`); }} />
+        <Button title={tr("Supprimer ce jour")} variant="outline" onPress={() => skipDay(action)} />
+        <Button title={tr("Supprimer tout le programme")} variant="ghost" onPress={() => removeProgram(action)} />
+      </Sheet>
+
+      <Sheet visible={all} onClose={() => setAll(false)} title={tr("Historique · {0}", [d.year])}>
         {d.years.length > 1 ? <Chips items={d.years.map((y) => ({ key: y, label: y }))} value={d.year} onChange={setYear} scroll /> : null}
         {d.recent.length ? (
           d.recent.map((x, i) => (
@@ -513,13 +574,13 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp }) {
               <View style={s.pill}>
                 <Text style={s.pillText}>{x.label}</Text>
               </View>
-              <Pressable onPress={() => remove(x)} accessibilityRole="button" accessibilityLabel="Retirer ce jour" hitSlop={8} style={s.histBtn}>
+              <Pressable onPress={() => remove(x)} accessibilityRole="button" accessibilityLabel={tr("Retirer ce jour")} hitSlop={8} style={s.histBtn}>
                 <Icon name="trash" size={16} color={colors.muted} />
               </Pressable>
             </View>
           ))
         ) : (
-          <T variant="muted">Aucun jeûne surérogatoire noté cette année.</T>
+          <T variant="muted">{tr("Aucun jeûne surérogatoire noté cette année.")}</T>
         )}
       </Sheet>
     </>
@@ -553,7 +614,7 @@ export default function Fasts() {
   return (
     <Screen top={top} onRefresh={reload} scrollRef={scrollRef}>
       <Row justify="space-between" style={{ marginBottom: 14 }}>
-        <T variant="h1" accessibilityRole="header">Jeûnes</T>
+        <T variant="h1" accessibilityRole="header">{tr("Jeûnes")}</T>
         {data.hijri ? (
           <View style={s.hijri}>
             <Text style={s.hijriText}>{data.hijri}</Text>
@@ -563,8 +624,8 @@ export default function Fasts() {
       <OfflineBanner visible={offline} />
       <Segmented
         items={[
-          { key: 'rattraper', label: 'Obligatoires' },
-          { key: 'volontaires', label: 'Surérogatoires' },
+          { key: 'rattraper', label: tr("Obligatoires") },
+          { key: 'volontaires', label: tr("Surérogatoires") },
         ]}
         value={tab}
         onChange={setTab}
@@ -576,6 +637,7 @@ export default function Fasts() {
         <Voluntary
           fasts={data}
           onGoMakeUp={() => setTab('rattraper')}
+          onScrollTo={(y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true })}
           onWhiteLayout={(y) => {
             if (section === 'blancs' && whiteY.current === null) {
               whiteY.current = y;
@@ -586,15 +648,15 @@ export default function Fasts() {
       )}
       <Gap />
       <Pressable onPress={openCalendar} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: 8 }}>
-        <Text style={s.link}>Ramadan {data.ramadan.hijriYear} · calendrier du suhur et de l’iftar →</Text>
+        <Text style={s.link}>{tr("Ramadan")} {data.ramadan.hijriYear} {tr("· calendrier du suhur et de l’iftar →")}</Text>
       </Pressable>
-      <Sheet visible={Boolean(calendar)} onClose={() => setCalendar(null)} title={calendar ? `Ramadan ${calendar.hijriYear}` : ''}>
+      <Sheet visible={Boolean(calendar)} onClose={() => setCalendar(null)} title={calendar ? tr("Ramadan {0}", [calendar.hijriYear]) : ''}>
         {calendar?.days.map((d) => (
           <Row key={d.day} justify="space-between" style={{ paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.line }}>
             <T variant="medium" style={{ width: 54 }}>J{d.hijriDay}</T>
             <T style={{ flex: 1 }}>{shortDate(d.day)}</T>
-            <T variant="small">Suhur {d.suhur}</T>
-            <T variant="bold" style={{ marginLeft: 12 }}>Iftar {d.iftar}</T>
+            <T variant="small">{tr("Suhur")} {d.suhur}</T>
+            <T variant="bold" style={{ marginLeft: 12 }}>{tr("Iftar")} {d.iftar}</T>
           </Row>
         ))}
       </Sheet>
@@ -622,7 +684,12 @@ const s = StyleSheet.create({
   addProgramOn: { backgroundColor: colors.white },
   addProgramText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.white },
   upRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.line },
-  upTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune },
+  upTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune, textTransform: 'capitalize' },
+  upDate: { width: 38, alignItems: 'center' },
+  upDay: { fontFamily: fonts.extra, fontSize: 17, color: colors.prune },
+  upMonth: { fontFamily: fonts.bold, fontSize: 9.5, letterSpacing: 0.6, color: colors.bordeaux },
+  program: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.bordeaux, borderRadius: 999, paddingHorizontal: 12, minHeight: 34 },
+  programText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
   bell: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: colors.lineField, alignItems: 'center', justifyContent: 'center' },
   bellOn: { backgroundColor: colors.bordeaux, borderColor: colors.bordeaux },
   historyLine: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line },

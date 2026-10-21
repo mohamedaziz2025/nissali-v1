@@ -24,8 +24,8 @@ export const DHIKR_CATALOG = [
 ];
 
 export const DHIKR_BY_KEY = new Map(DHIKR_CATALOG.map((d) => [d.key, d]));
-// 4.6 · 5.4 — les 6 plus connus, proposés au départ (dans cet ordre).
-export const DEFAULT_DHIKR = ['subhanallah', 'alhamdulillah', 'allahuakbar', 'astaghfirullah', 'salat_nabi', 'tahlil'];
+// Mise à jour Accueil (page 7) — formules par défaut du mode Temps libre, dans cet ordre.
+export const DEFAULT_DHIKR = ['astaghfirullah', 'subhanallah', 'alhamdulillah', 'allahuakbar', 'tahlil', 'salat_nabi', 'subhanallah_wabihamdihi', 'hawqala'];
 export const MAX_DHIKR = 20;
 
 /** Tasbih après la prière : 33 + 33 + 33, puis la tahlila pour faire 100 (variantes à valider par le comité). */
@@ -36,4 +36,4 @@ export const TASBIH_STEPS = [
   { key: 'tahlila', goal: 1 },
 ];
 
-export const GOAL_CHOICES = [33, 99, 100];
+export const GOAL_CHOICES = [33, 99, 100, 1000];
