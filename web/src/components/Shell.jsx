@@ -30,7 +30,7 @@ const ADMIN_NAV = [
       ['/admin/signalements', 'Signalements', 'flag'],
     ],
   ],
-  ['Contenus', [['/admin/blog', 'Magazine', 'book'], ['/admin/evenements', 'Événements', 'sparkle'], ['/admin/conseils', 'Conseils santé', 'heart'], ['/admin/rappels', 'Dhikr et petit rappel', 'quote']]],
+  ['Contenus', [['/admin/blog', 'Magazine', 'book'], ['/admin/evenements', 'Événements', 'sparkle'], ['/admin/nissaplace', 'Demandes NissaPlace', 'tag'], ['/admin/conseils', 'Conseils santé', 'heart'], ['/admin/rappels', 'Dhikr et petit rappel', 'quote']]],
   ['Référentiel', [['/admin/mosquees', 'Mosquées', 'home'], ['/admin/parametres', 'Paramètres', 'settings'], ['/admin/journal', 'Journal d’audit', 'history']]],
 ];
 
@@ -118,7 +118,7 @@ function Bell({ area }) {
     const t = setInterval(load, 60_000);
     return () => clearInterval(t);
   }, [area]);
-  const count = area === 'admin' ? (data?.tasks ? data.tasks.practitioners + data.tasks.subscriptions + data.tasks.articles + (data.events || 0) : 0) : data?.unread || 0;
+  const count = area === 'admin' ? (data?.tasks ? data.tasks.practitioners + data.tasks.subscriptions + data.tasks.articles + (data.tasks.nissaplace || 0) + (data.events || 0) : 0) : data?.unread || 0;
   const markRead = () => area === 'pro' && data?.unread && api.post('/notifications/read-all').then(() => setData((d) => ({ ...d, unread: 0 })));
   return (
     <div style={{ position: 'relative' }} ref={box}>
@@ -136,6 +136,7 @@ function Bell({ area }) {
                 ['/admin/abonnements', 'Paiements à confirmer', data?.tasks?.subscriptions],
                 ['/admin/blog', 'Articles à valider', data?.tasks?.articles],
                 ['/admin/evenements', 'Événements à valider', data?.events],
+                ['/admin/nissaplace', 'Demandes NissaPlace', data?.tasks?.nissaplace],
               ].map(([href, label, n]) => (
                 <Link key={href} href={href} className="pop-item" onClick={() => setOpen(false)}>
                   <span style={{ flex: 1 }}>{label}</span>

@@ -21,6 +21,7 @@ import {
   Review,
   Service,
   SettingHistory,
+  ShopRequest,
   Subscription,
   User,
 } from '../models/index.js';
@@ -55,7 +56,7 @@ router.get('/stats', async (req, res) => {
   const users = { role: 'user' };
   const since = new Date(now - days * day);
   const prevSince = new Date(now - 2 * days * day);
-  const [total, dau, mau, marketing, practitioners, pendingPractitioners, pendingSubs, bookings, madeUp, articles, pendingArticles] = await Promise.all([
+  const [total, dau, mau, marketing, practitioners, pendingPractitioners, pendingSubs, bookings, madeUp, articles, pendingArticles, pendingShopRequests] = await Promise.all([
     User.countDocuments(users),
     User.countDocuments({ ...users, lastActiveAt: { $gte: new Date(now - day) } }),
     User.countDocuments({ ...users, lastActiveAt: { $gte: new Date(now - 30 * day) } }),
@@ -67,6 +68,7 @@ router.get('/stats', async (req, res) => {
     MadeUpFast.countDocuments(),
     Article.find().sort({ views: -1 }).limit(5).select('title views slug category').lean(),
     Article.countDocuments({ validation: 'a_valider' }),
+    ShopRequest.countDocuments({ status: 'en_attente' }),
   ]);
 
   // Période choisie et période précédente (tendances).
@@ -140,7 +142,7 @@ router.get('/stats', async (req, res) => {
     retention,
     signups: signups.map((s) => ({ month: s._id, count: s.n })),
     practitioners: { validated: practitioners, pending: pendingPractitioners, pendingSubscriptions: pendingSubs, activeSubscriptions: activeSubs.length, mrr },
-    tasks: { practitioners: pendingPractitioners, subscriptions: pendingSubs, articles: pendingArticles },
+    tasks: { practitioners: pendingPractitioners, subscriptions: pendingSubs, articles: pendingArticles, nissaplace: pendingShopRequests },
     bookings,
     fastsMadeUp: madeUp,
     topArticles: articles,

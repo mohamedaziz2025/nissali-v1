@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { CATEGORY_GROUPS } from '../content/categories.js';
 import { requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Notification, Practitioner, PushSubscription, User } from '../models/index.js';
+import { Article, AuditLog, Broadcast, Conversation, Event, EventRegistration, HealthTip, Message, Mosque, Notification, Practitioner, PushSubscription, ShopRequest, User } from '../models/index.js';
 import { audienceFilter, BROADCAST_PAGES, deliverBroadcast, estimateAudience, sensitiveWordsIn } from '../services/broadcasts.js';
 import { COMMISSION_RATE, presentEvent } from '../services/events.js';
 import { bestCity } from '../services/geo.js';
@@ -213,6 +213,34 @@ router.patch('/events/:id/payout', validate(z.object({ payoutStatus: z.enum(['a_
   if (!e) throw notFound();
   await audit(req, `reversement_${req.body.payoutStatus}`, e._id);
   res.json({ ok: true });
+});
+
+// --- NissaPlace : demandes de boutique (lifestyle) ------------------------------------
+
+router.get('/nissaplace-requests', async (req, res) => {
+  const filter = {};
+  if (req.query.status) filter.status = String(req.query.status);
+  const items = await ShopRequest.find(filter).sort({ status: 1, createdAt: -1 }).limit(200).populate({ path: 'user', model: User, select: 'firstName email phone' }).lean();
+  const counts = await ShopRequest.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]);
+  res.json({
+    items: items.map((r) => ({ ...r, id: String(r._id), user: r.user ? { name: r.user.firstName, email: r.user.email, phone: r.user.phone } : null })),
+    counts: Object.fromEntries(counts.map((c) => [c._id, c.n])),
+  });
+});
+
+// Valider ou refuser avec motif : la demandeuse est prévenue.
+router.post('/nissaplace-requests/:id/moderate', validate(z.object({ action: z.enum(['valider', 'refuser']), note: z.string().max(1000).optional() })), async (req, res) => {
+  const r = await ShopRequest.findById(req.params.id);
+  if (!r) throw notFound();
+  const { action, note } = req.body;
+  if (action === 'refuser' && !note?.trim()) throw badRequest('Indique le motif pour la demandeuse');
+  r.status = action === 'valider' ? 'validee' : 'refusee';
+  r.moderationNote = note || undefined;
+  await r.save();
+  const detail = action === 'valider' ? `Ta demande pour « ${r.shopName} » est validée. Notre équipe te recontacte pour la suite.` : `Ta demande pour « ${r.shopName} » n’a pas été retenue : ${note}`;
+  await notify(r.user, { key: `nissaplace-moderation-${r.id}-${Date.now()}`, type: 'nissaplace', title: 'Nissali', body: action === 'valider' ? 'Ta demande NissaPlace est validée' : 'Ta demande NissaPlace : réponse de l’équipe', detail, link: '/lifestyle?tab=nissaplace' });
+  await audit(req, `nissaplace_${action}`, r._id, { note });
+  res.json({ ...r.toObject(), id: r.id });
 });
 
 // --- Mosquées partenaires et leurs horaires -------------------------------------------

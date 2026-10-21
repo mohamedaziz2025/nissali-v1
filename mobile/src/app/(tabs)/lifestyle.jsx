@@ -76,6 +76,51 @@ function Magazine() {
   );
 }
 
+const NISSAPLACE_URL = 'https://nissaplace.fr';
+
+/** 5.11 — NissaPlace : promotion de la marketplace mode et beauté pour femmes, et demande d'ouverture de boutique. */
+function NissaPlace() {
+  const { data } = useApi('/nissaplace/mine');
+  const latest = data?.[0];
+  const open = () => (Platform.OS === 'web' ? Linking.openURL(NISSAPLACE_URL) : WebBrowser.openBrowserAsync(NISSAPLACE_URL)).catch(() => Linking.openURL(NISSAPLACE_URL));
+  return (
+    <>
+      <Card tone="hero" style={{ gap: 10, paddingVertical: 24, marginBottom: 14 }}>
+        <Label color={colors.rose}>Shopping entre sœurs</Label>
+        <T variant="h2" color={colors.white} style={{ fontSize: 24, lineHeight: 30 }}>NissaPlace, la marketplace mode et beauté pour femmes</T>
+        <T color={colors.rose}>Abayas, hijabs, cosmétiques, bijoux… découvre les boutiques de sœurs sur nissaplace.fr.</T>
+      </Card>
+      <Pressable onPress={open} accessibilityRole="button" accessibilityLabel="Visiter NissaPlace.fr" style={s.cta}>
+        <Row gap={8}>
+          <Text style={s.ctaText}>Visiter NissaPlace.fr</Text>
+          <Icon name="external" size={15} color={colors.white} />
+        </Row>
+      </Pressable>
+      <Gap h={14} />
+      <Card tone="soft" style={{ gap: 12 }}>
+        <Row gap={12} align="flex-start">
+          <View style={s.plus}>
+            <Icon name="briefcase" size={18} color={colors.bordeaux} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <T variant="h3">Tu es une sœur avec une boutique ?</T>
+            <T variant="small">Rejoins NissaPlace et propose tes produits aux sœurs de la communauté. Notre équipe étudie chaque demande.</T>
+          </View>
+        </Row>
+        {latest?.status === 'en_attente' ? (
+          <T variant="medium" color={colors.or} style={{ textAlign: 'center' }}>Ta demande « {latest.shopName} » est en cours d’examen.</T>
+        ) : latest?.status === 'validee' ? (
+          <T variant="medium" color={colors.success} style={{ textAlign: 'center' }}>✓ Ta boutique « {latest.shopName} » est validée, notre équipe te recontacte.</T>
+        ) : (
+          <Pressable onPress={() => router.push('/nissaplace/rejoindre')} accessibilityRole="button" style={s.cta}>
+            <Text style={s.ctaText}>Rejoindre NissaPlace</Text>
+          </Pressable>
+        )}
+      </Card>
+    </>
+  );
+}
+
 export function DateBlock({ day, muted }) {
   const [, m, d] = day.split('-').map(Number);
   return (
@@ -231,11 +276,13 @@ function Events() {
   );
 }
 
+const LIFESTYLE_TABS = ['magazine', 'evenements', 'nissaplace'];
+
 export default function Lifestyle() {
   const params = useLocalSearchParams();
-  const [tab, setTab] = useState(params.tab === 'evenements' ? 'evenements' : 'magazine');
+  const [tab, setTab] = useState(LIFESTYLE_TABS.includes(params.tab) ? params.tab : 'magazine');
   useEffect(() => {
-    if (params.tab === 'evenements' || params.tab === 'magazine') setTab(params.tab);
+    if (LIFESTYLE_TABS.includes(params.tab)) setTab(params.tab);
   }, [params.tab]);
   return (
     <Screen title="Lifestyle" top={<BrandBar />}>
@@ -243,12 +290,13 @@ export default function Lifestyle() {
         items={[
           { key: 'magazine', label: 'Magazine' },
           { key: 'evenements', label: 'Événements' },
+          { key: 'nissaplace', label: 'NissaPlace' },
         ]}
         value={tab}
         onChange={setTab}
       />
       <Gap h={16} />
-      {tab === 'magazine' ? <Magazine /> : <Events />}
+      {tab === 'magazine' ? <Magazine /> : tab === 'evenements' ? <Events /> : <NissaPlace />}
     </Screen>
   );
 }

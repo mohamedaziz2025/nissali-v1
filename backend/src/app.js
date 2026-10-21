@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middleware/error.js';
 import adminRoutes from './routes/admin.js';
 import adminContentRoutes from './routes/adminContent.js';
 import eventRoutes from './routes/events.js';
+import nissaplaceRoutes from './routes/nissaplace.js';
 import messageRoutes from './routes/messages.js';
 import mosqueRoutes from './routes/mosques.js';
 import appointmentRoutes from './routes/appointments.js';
@@ -94,6 +95,7 @@ export function createApp() {
   app.use('/api/admin', adminContentRoutes);
   app.use('/api/messages', messageRoutes);
   app.use('/api/events', eventRoutes);
+  app.use('/api/nissaplace', nissaplaceRoutes);
   app.use('/api/mosques', mosqueRoutes);
 
   app.use(notFoundHandler);

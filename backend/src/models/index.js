@@ -31,3 +31,4 @@ export { Conversation, Message } from './Messaging.js';
 export { Event, EventRegistration } from './Event.js';
 export { DhikrDay, DhikrEntry } from './Dhikr.js';
 export { Note, NOTE_TYPES, NOTE_REPEATS } from './Note.js';
+export { ShopRequest } from './ShopRequest.js';
