@@ -101,7 +101,9 @@ const SECTIONS = [
         <p>
           Conformément au RGPD, tu disposes d’un droit d’accès, de rectification, d’effacement, de limitation,
           d’opposition et de portabilité. Tu peux exercer ces droits en écrivant à{' '}
-          <a href="mailto:contact@nissali.fr">contact@nissali.fr</a>. Tu peux également introduire une réclamation
+          <a href="mailto:contact@nissali.fr">contact@nissali.fr</a>. Tu peux aussi supprimer ton compte ou certaines
+          de tes données depuis la page <Link href="/deleteaccount">Supprimer mon compte</Link>. Tu peux également
+          introduire une réclamation
           auprès de la CNIL (<a href="https://www.cnil.fr" target="_blank" rel="noreferrer">cnil.fr</a>).
         </p>
       </>

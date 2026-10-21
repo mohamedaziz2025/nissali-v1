@@ -10,6 +10,7 @@ export function SiteFooter() {
           <Link href="/marketing">Devenir praticienne</Link>
           <Link href="/support">Support</Link>
           <Link href="/privacy">Confidentialité</Link>
+          <Link href="/deleteaccount">Supprimer mon compte</Link>
           <Link href="/connexion">Connexion</Link>
         </nav>
       </div>
