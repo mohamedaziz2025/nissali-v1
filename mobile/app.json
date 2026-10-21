@@ -13,7 +13,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.nissali",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio"]
       },
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true
