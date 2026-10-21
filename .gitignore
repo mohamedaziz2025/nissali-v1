@@ -11,3 +11,7 @@ backend/uploads/*
 !.env.example
 backend/private/
 /Nissali_Cahier_des_charges*.pdf
+
+# Dossiers natifs générés (CNG) : EAS archive depuis la racine du dépôt et ne lit que ce fichier.
+mobile/android
+mobile/ios
