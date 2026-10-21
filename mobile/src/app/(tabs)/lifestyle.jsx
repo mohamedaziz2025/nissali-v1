@@ -76,12 +76,6 @@ function Magazine() {
   );
 }
 
-const NISSAPLACE_CATS = [
-  { key: '', label: 'Tout' },
-  { key: 'mode', label: 'Mode' },
-  { key: 'bien_etre', label: 'Bien-être' },
-];
-
 /** Bannière d'une marque du catalogue : touche-la pour l'ouvrir sur son site (l'achat se fait hors appli). */
 function BrandCard({ b }) {
   const open = () => {
@@ -113,7 +107,9 @@ function NissaPlace() {
     const t = setTimeout(() => setDebounced(q.trim()), 300);
     return () => clearTimeout(t);
   }, [q]);
+  const cats = useApi('/nissaplace/categories');
   const { data, loading, error, offline, reload } = useApi(`/nissaplace/brands?${new URLSearchParams({ ...(debounced ? { q: debounced } : {}), ...(category ? { category } : {}) })}`);
+  const chips = [{ key: '', label: 'Tout' }, ...(cats.data?.items || []).map((c) => ({ key: c.key, label: c.label }))];
   return (
     <>
       <OfflineBanner visible={offline} />
@@ -140,7 +136,7 @@ function NissaPlace() {
       </Card>
       <Field value={q} onChangeText={setQ} placeholder="Rechercher une marque" icon="search" returnKeyType="search" />
       <Gap h={12} />
-      <Chips items={NISSAPLACE_CATS} value={category} onChange={setCategory} scroll />
+      <Chips items={chips} value={category} onChange={setCategory} scroll />
       <Gap h={16} />
       {loading && !data ? <Loader /> : null}
       {error && !data ? <ErrorState error={error} onRetry={reload} /> : null}

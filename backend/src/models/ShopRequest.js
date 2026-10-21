@@ -15,10 +15,6 @@ const shopRequestSchema = new Schema(
     websiteUrl: { type: String, default: '' },
     status: { type: String, enum: ['en_attente', 'validee', 'refusee'], default: 'en_attente', index: true },
     moderationNote: String,
-    // Fiche du catalogue NissaPlace, complétée par l'équipe à la validation : image, catégorie, visibilité.
-    category: { type: String, enum: ['mode', 'bien_etre'], default: 'mode' },
-    imageUrl: { type: String, default: '' },
-    listed: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { ShopRequest, User } from '../models/index.js';
 import { notify } from '../services/notifications.js';
+import { nissaplaceCategories, nissaplaceShops, presentCategory, presentShop } from '../services/nissaplace.js';
 import { conflict } from '../utils/http.js';
 
 const router = Router();
@@ -23,15 +24,24 @@ const requestSchema = z.object({
 
 const present = (r) => ({ ...r, id: String(r._id || r.id) });
 
-// Catalogue des marques NissaPlace : fiches validées et publiées par l'équipe, chacune renvoyant vers son
-// propre site (ou à défaut son Instagram) ; l'achat se fait sur nissaplace.fr, jamais dans l'appli.
+// Catalogue des marques : récupéré en direct depuis nissaplace.fr (boutiques et catégories), jamais saisi
+// à la main ; chaque fiche renvoie vers sa page sur nissaplace.fr où se fait l'achat.
+router.get('/categories', async (_req, res) => {
+  const cats = await nissaplaceCategories();
+  res.json({ items: cats.map(presentCategory) });
+});
+
 router.get('/brands', async (req, res) => {
-  const filter = { status: 'validee', listed: true };
-  if (req.query.category) filter.category = String(req.query.category);
-  const q = String(req.query.q || '').trim();
-  if (q) filter.shopName = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-  const items = await ShopRequest.find(filter).sort({ shopName: 1 }).select('shopName activity category imageUrl websiteUrl instagramUrl').lean();
-  res.json({ items: items.map((r) => ({ id: String(r._id), shopName: r.shopName, activity: r.activity, category: r.category, imageUrl: r.imageUrl, websiteUrl: r.websiteUrl || r.instagramUrl })) });
+  const shops = await nissaplaceShops();
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const category = String(req.query.category || '');
+  const items = shops
+    .filter((sh) => sh.status === 'APPROVED')
+    .filter((sh) => !category || sh.categorySlug === category || sh.categoryId?.slug === category)
+    .filter((sh) => !q || sh.name.toLowerCase().includes(q))
+    .map(presentShop)
+    .sort((a, b) => a.shopName.localeCompare(b.shopName, 'fr'));
+  res.json({ items });
 });
 
 router.get('/mine', async (req, res) => {

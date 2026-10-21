@@ -228,51 +228,22 @@ router.get('/nissaplace-requests', async (req, res) => {
   });
 });
 
-// Valider ou refuser avec motif : la demandeuse est prévenue. Une marque validée est listée dans le
-// catalogue NissaPlace dès qu'elle a une image (complétée ici ou plus tard via l'édition de la fiche).
-router.post(
-  '/nissaplace-requests/:id/moderate',
-  validate(z.object({ action: z.enum(['valider', 'refuser']), note: z.string().max(1000).optional(), imageUrl: z.string().max(500).optional(), category: z.enum(['mode', 'bien_etre']).optional(), websiteUrl: z.string().max(300).optional() })),
-  async (req, res) => {
-    const r = await ShopRequest.findById(req.params.id);
-    if (!r) throw notFound();
-    const { action, note, imageUrl, category, websiteUrl } = req.body;
-    if (action === 'refuser' && !note?.trim()) throw badRequest('Indique le motif pour la demandeuse');
-    r.status = action === 'valider' ? 'validee' : 'refusee';
-    r.moderationNote = note || undefined;
-    if (action === 'valider') {
-      if (imageUrl !== undefined) r.imageUrl = imageUrl;
-      if (category) r.category = category;
-      if (websiteUrl !== undefined) r.websiteUrl = websiteUrl;
-      r.listed = Boolean(r.imageUrl && (r.websiteUrl || r.instagramUrl));
-    } else {
-      r.listed = false;
-    }
-    await r.save();
-    const detail = action === 'valider' ? `Ta demande pour « ${r.shopName} » est validée. Notre équipe te recontacte pour la suite.` : `Ta demande pour « ${r.shopName} » n’a pas été retenue : ${note}`;
-    await notify(r.user, { key: `nissaplace-moderation-${r.id}-${Date.now()}`, type: 'nissaplace', title: 'Nissali', body: action === 'valider' ? 'Ta demande NissaPlace est validée' : 'Ta demande NissaPlace : réponse de l’équipe', detail, link: '/lifestyle?tab=nissaplace' });
-    await audit(req, `nissaplace_${action}`, r._id, { note });
-    res.json({ ...r.toObject(), id: r.id });
-  },
-);
-
-// Édite la fiche du catalogue (image, catégorie, site, visibilité) d'une marque déjà validée.
-router.patch(
-  '/nissaplace-requests/:id',
-  validate(z.object({ imageUrl: z.string().max(500).optional(), category: z.enum(['mode', 'bien_etre']).optional(), websiteUrl: z.string().max(300).optional(), listed: z.boolean().optional() })),
-  async (req, res) => {
-    const r = await ShopRequest.findById(req.params.id);
-    if (!r || r.status !== 'validee') throw notFound();
-    const { imageUrl, category, websiteUrl, listed } = req.body;
-    if (imageUrl !== undefined) r.imageUrl = imageUrl;
-    if (category) r.category = category;
-    if (websiteUrl !== undefined) r.websiteUrl = websiteUrl;
-    r.listed = listed !== undefined ? listed : Boolean(r.imageUrl && (r.websiteUrl || r.instagramUrl));
-    await r.save();
-    await audit(req, 'nissaplace_fiche_modifiee', r._id);
-    res.json({ ...r.toObject(), id: r.id });
-  },
-);
+// Valider ou refuser avec motif : la demandeuse est prévenue. Le catalogue affiché dans l'appli vient en
+// direct de nissaplace.fr : une fois validée, l'équipe l'onboarde elle-même sur le site, qui la fera
+// apparaître automatiquement.
+router.post('/nissaplace-requests/:id/moderate', validate(z.object({ action: z.enum(['valider', 'refuser']), note: z.string().max(1000).optional() })), async (req, res) => {
+  const r = await ShopRequest.findById(req.params.id);
+  if (!r) throw notFound();
+  const { action, note } = req.body;
+  if (action === 'refuser' && !note?.trim()) throw badRequest('Indique le motif pour la demandeuse');
+  r.status = action === 'valider' ? 'validee' : 'refusee';
+  r.moderationNote = note || undefined;
+  await r.save();
+  const detail = action === 'valider' ? `Ta demande pour « ${r.shopName} » est validée. Notre équipe te recontacte pour t’ouvrir ta boutique sur nissaplace.fr.` : `Ta demande pour « ${r.shopName} » n’a pas été retenue : ${note}`;
+  await notify(r.user, { key: `nissaplace-moderation-${r.id}-${Date.now()}`, type: 'nissaplace', title: 'Nissali', body: action === 'valider' ? 'Ta demande NissaPlace est validée' : 'Ta demande NissaPlace : réponse de l’équipe', detail, link: '/lifestyle?tab=nissaplace' });
+  await audit(req, `nissaplace_${action}`, r._id, { note });
+  res.json({ ...r.toObject(), id: r.id });
+});
 
 // --- Mosquées partenaires et leurs horaires -------------------------------------------
 
