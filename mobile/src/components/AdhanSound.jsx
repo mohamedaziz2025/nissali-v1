@@ -36,7 +36,7 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
   const test = async () => {
     setTesting(true);
     try {
-      const r = await testAdhan(10);
+      const r = await testAdhan(10, prefs.voice);
       if (!r.ok) {
         setAccess(await notificationAccess());
         toast('Autorise les notifications de Nissali pour entendre l’adhan', 'error');
@@ -132,7 +132,7 @@ export function AdhanSoundSheet({ visible, onClose, paused }) {
           : Platform.OS === 'ios'
             ? 'Appli fermée ou téléphone verrouillé, ton iPhone joue l’adhan avec la notification : les 30 premières secondes (limite d’Apple). Le bouton latéral ne doit pas être sur silencieux (orange) ; en mode Concentration, autorise les notifications urgentes de Nissali. Touche la notification pour l’écouter en entier.'
             : 'Appli fermée ou téléphone verrouillé, ton téléphone joue l’adhan en entier avec la notification, au volume « Alarme » : il est entendu même en mode vibreur. Canal « Adhan » réglable dans les paramètres Android ; en mode Ne pas déranger, Android peut le couper.'}
-        {SYSTEM_ADHAN ? ' Hors de l’appli, la voix est celle de Mishary Rashid Alafasy ; la voix choisie ici est jouée quand Nissali est ouverte.' : ''}
+        {SYSTEM_ADHAN ? ' Hors de l’appli, ton téléphone joue la voix choisie avec la notification (en entier sur Android, 30 premières secondes sur iPhone). L’adhan court garde la voix par défaut.' : ''}
       </T>
     </Sheet>
   );

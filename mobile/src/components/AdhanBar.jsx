@@ -16,8 +16,8 @@ const handled = new Set(); // notifications déjà ouvertes au démarrage // une
 
 function fromNotification(notification) {
   const data = notification?.request?.content?.data;
-  if (data?.kind !== 'prayer' || !data.adhanUrl) return null;
-  return { url: data.adhanUrl, label: data.adhanLabel, prayer: data.prayerLabel, time: data.time, at: data.at, system: data.systemAdhan || null };
+  if (data?.kind !== 'prayer' || !data.adhanVoice) return null;
+  return { key: data.adhanVoice, label: data.adhanLabel, prayer: data.prayerLabel, time: data.time, at: data.at, system: data.systemAdhan || null };
 }
 
 export default function AdhanBar() {

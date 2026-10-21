@@ -15,7 +15,7 @@ if (Platform.OS !== 'web') {
     handleNotification: async (n) => {
       const data = n?.request?.content?.data || {};
       const inApp = data.kind === 'message' || Boolean(data.notificationId);
-      const adhan = data.kind === 'prayer' && Boolean(data.adhanUrl); // l'adhan remplace le son de la notification
+      const adhan = data.kind === 'prayer' && Boolean(data.adhanVoice); // l'adhan local remplace le son de la notification
       // Test de l'adhan : le son du téléphone est joué même appli ouverte.
       if (data.kind === 'adhanTest') return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false };
       return { shouldShowBanner: !inApp, shouldShowList: true, shouldPlaySound: !inApp && !adhan, shouldSetBadge: false };
@@ -26,19 +26,47 @@ if (Platform.OS !== 'web') {
 const DISCREET = { title: 'Nissali', body: 'Petit rappel du jour' };
 
 // Adhan joué par le système du téléphone (appli fermée ou téléphone verrouillé) : son de notification intégré
-// à l'appli compilée (EAS). En entier sur Android (canal « Adhan », volume Alarme), 30 premières secondes
+// à l'appli compilée (EAS). En entier sur Android (un canal par voix, volume Alarme), 30 premières secondes
 // sur iPhone (limite d'Apple).
 // Expo Go n'accepte pas de son personnalisé : la notification y garde le son standard.
 export const SYSTEM_ADHAN = Platform.OS !== 'web' && Constants.executionEnvironment !== 'storeClient';
-const ADHAN_SOUND = Platform.OS === 'ios' ? 'adhan_ios.caf' : 'adhan_full.mp3';
+// Fichiers de assets/sounds, déclarés dans app.json › expo-notifications › sounds (copiés dans l'appli au build).
+const ADHAN_SOUNDS = {
+  a9: { android: 'adhan_full.mp3', ios: 'adhan_a9_30.caf' },
+  a7: { android: 'adhan_a7.mp3', ios: 'adhan_a7_30.caf' },
+  a4: { android: 'adhan_a4.mp3', ios: 'adhan_a4_30.caf' },
+  a11: { android: 'adhan_a11.mp3', ios: 'adhan_a11_30.caf' },
+  a1: { android: 'adhan_a1.mp3', ios: 'adhan_a1_30.caf' },
+  a2: { android: 'adhan_a2.mp3', ios: 'adhan_a2_30.caf' },
+};
+// Voix inconnue (nouvelle voix côté API) : la voix par défaut, jamais le silence.
+const voiceOf = (v) => (ADHAN_SOUNDS[v] ? v : 'a9');
+const voiceChannel = (v) => `adhan_voix_${voiceOf(v)}`;
 // iPhone : « urgente » (Time Sensitive), l'adhan passe aussi en mode Concentration (pas en mode silencieux).
 const URGENT = Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' } : {};
-// Android : canal joué sur le volume « Alarme » (entendu même en mode vibreur). Un canal ne change plus
-// une fois créé : nouvel identifiant, l'ancien canal « adhan » (volume des notifications) est supprimé.
-const ADHAN_CHANNEL = 'adhan_alarme';
+// Android : un canal par voix, joué sur le volume « Alarme » (entendu même en mode vibreur). Le son d'un canal
+// ne change plus une fois créé : on change d'identifiant en changeant de voix et on supprime les anciens canaux.
 const ADHAN_SHORT_CHANNEL = 'adhan_court';
 const SILENT_CHANNEL = 'prieres_silencieux';
-const ADHAN_SHORT_SOUND = Platform.OS === 'ios' ? 'adhan_ios.caf' : 'adhan_short.wav';
+const isAdhanChannel = (id) => id === 'adhan' || id === 'adhan_alarme' || id.startsWith('adhan_voix_');
+
+async function ensureAdhanChannel(voice) {
+  if (Platform.OS !== 'android' || !SYSTEM_ADHAN) return;
+  const id = voiceChannel(voice);
+  for (const c of await Notifications.getNotificationChannelsAsync().catch(() => [])) {
+    if (isAdhanChannel(c.id) && c.id !== id) await Notifications.deleteNotificationChannelAsync(c.id).catch(() => {});
+  }
+  await Notifications.setNotificationChannelAsync(id, {
+    name: 'Adhan',
+    description: 'L’adhan de la voix choisie, à l’heure de la prière',
+    importance: Notifications.AndroidImportance.MAX,
+    sound: ADHAN_SOUNDS[voiceOf(voice)].android,
+    audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM, contentType: Notifications.AndroidAudioContentType.SONIFICATION },
+    enableVibrate: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+}
+
 const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
 
 export async function ensurePermission() {
@@ -48,17 +76,7 @@ export async function ensurePermission() {
     await Notifications.setNotificationChannelAsync('prieres', { name: 'Prières', importance: Notifications.AndroidImportance.HIGH });
     await Notifications.setNotificationChannelAsync('annonces', { name: 'Annonces et messages', importance: Notifications.AndroidImportance.HIGH });
     if (SYSTEM_ADHAN) {
-      await Notifications.deleteNotificationChannelAsync('adhan').catch(() => {});
-      await Notifications.setNotificationChannelAsync(ADHAN_CHANNEL, {
-        name: 'Adhan',
-        description: 'L’adhan en entier à l’heure de chaque prière, même appli fermée ou téléphone en vibreur',
-        importance: Notifications.AndroidImportance.MAX,
-        sound: 'adhan_full.mp3',
-        audioAttributes: { usage: Notifications.AndroidAudioUsage.ALARM, contentType: Notifications.AndroidAudioContentType.SONIFICATION },
-        enableVibrate: true,
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      });
-      // 4.5 · 4.2 — « Adhan court » : les 29 premières secondes.
+      // 4.5 · 4.2 — « Adhan court » : les 29 premières secondes, dans la voix par défaut (Android).
       await Notifications.setNotificationChannelAsync(ADHAN_SHORT_CHANNEL, {
         name: 'Adhan court',
         description: 'Le début de l’adhan à l’heure de la prière',
@@ -103,6 +121,8 @@ export async function rescheduleAll(today, user) {
 
   const prefs = user.notificationPrefs || {};
   const prayerPrefs = user.prayerSettings || {};
+  const voice = voiceOf(prayerPrefs.adhanVoice);
+  await ensureAdhanChannel(voice);
 
   // Prières (API Aladhan, à la position de l'utilisatrice) : à l'heure de chaque prière, sauf pendant
   // les règles (RG-15) où l'option dhikr la remplace. Rappels de dhikr : matin, soir et vendredi.
@@ -135,10 +155,10 @@ export async function rescheduleAll(today, user) {
           const content = {
             title: `${label} · ${time}`,
             body: offset ? `${label} ${when}` : adhan ? `C’est l’heure de ${label} · l’adhan retentit` : `C’est l’heure de ${label}`,
-            ...(system ? { sound: sound === 'court' ? ADHAN_SHORT_SOUND : ADHAN_SOUND, ...URGENT } : sound === 'silencieux' ? { sound: false } : {}),
-            data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanUrl: adhan.url, adhanLabel: adhan.label } : {}), ...(system ? { systemAdhan: Platform.OS === 'ios' || sound === 'court' ? 'extrait' : 'complet' } : {}) },
+            ...(system ? { sound: ADHAN_SOUNDS[voice][Platform.OS === 'ios' ? 'ios' : 'android'], ...URGENT } : sound === 'silencieux' ? { sound: false } : {}),
+            data: { kind: 'prayer', prayer: p, prayerLabel: label, time, at: instant, ...(adhan ? { adhanVoice: voice, adhanLabel: adhan.label } : {}), ...(system ? { systemAdhan: Platform.OS === 'ios' || sound === 'court' ? 'extrait' : 'complet' } : {}) },
           };
-          await schedule(date, content, system ? (sound === 'court' ? ADHAN_SHORT_CHANNEL : ADHAN_CHANNEL) : sound === 'silencieux' ? SILENT_CHANNEL : 'prieres');
+          await schedule(date, content, system ? (sound === 'court' ? ADHAN_SHORT_CHANNEL : voiceChannel(voice)) : sound === 'silencieux' ? SILENT_CHANNEL : 'prieres');
         }
         // Vendredi, mosquée choisie : rappel de la Jumu'a à l'heure publiée par la mosquée.
         if (!paused && t.jumua?.times?.length) {
@@ -219,19 +239,21 @@ export async function notificationAccess() {
 
 /**
  * Test de l'adhan joué par le téléphone : une notification dans quelques secondes, avec le même son
- * qu'à l'heure de la prière. Verrouille le téléphone pour l'entendre comme en vrai.
+ * (et la même voix) qu'à l'heure de la prière. Verrouille le téléphone pour l'entendre comme en vrai.
  */
-export async function testAdhan(seconds = 10) {
+export async function testAdhan(seconds = 10, voice = 'a9') {
   if (!(await ensurePermission())) return { ok: false, reason: 'permission' };
+  const v = voiceOf(voice);
+  await ensureAdhanChannel(v);
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Test de l’adhan',
       body: SYSTEM_ADHAN ? 'Voici l’adhan tel qu’il retentira à l’heure de la prière.' : 'Dans l’appli installée, l’adhan retentit à la place de ce son.',
-      sound: SYSTEM_ADHAN ? ADHAN_SOUND : true,
+      sound: SYSTEM_ADHAN ? ADHAN_SOUNDS[v][Platform.OS === 'ios' ? 'ios' : 'android'] : true,
       ...(SYSTEM_ADHAN ? URGENT : {}),
       data: { kind: 'adhanTest' },
     },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, channelId: SYSTEM_ADHAN ? ADHAN_CHANNEL : 'prieres' },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, channelId: SYSTEM_ADHAN ? voiceChannel(v) : 'prieres' },
   });
   return { ok: true };
 }

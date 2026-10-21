@@ -73,7 +73,17 @@
         {
           "color": "#7A1F35",
           "sounds": [
-            "./assets/sounds/adhan_ios.caf",
+            "./assets/sounds/adhan_a1_30.caf",
+            "./assets/sounds/adhan_a2_30.caf",
+            "./assets/sounds/adhan_a4_30.caf",
+            "./assets/sounds/adhan_a7_30.caf",
+            "./assets/sounds/adhan_a9_30.caf",
+            "./assets/sounds/adhan_a11_30.caf",
+            "./assets/sounds/adhan_a1.mp3",
+            "./assets/sounds/adhan_a2.mp3",
+            "./assets/sounds/adhan_a4.mp3",
+            "./assets/sounds/adhan_a7.mp3",
+            "./assets/sounds/adhan_a11.mp3",
             "./assets/sounds/adhan_full.mp3",
             "./assets/sounds/adhan_short.wav"
           ]

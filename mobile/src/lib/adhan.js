@@ -1,6 +1,16 @@
-// Adhan à l'heure de la prière : enregistrements Aladhan (cdn.aladhan.com), lus avec expo-audio.
+// Adhan à l'heure de la prière : enregistrements fournis avec l'appli, lus avec expo-audio.
 // Déclenché par la notification de prière (appli ouverte, ou notification touchée).
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+
+// Voix de /prayers/adhans : les mêmes fichiers que les notifications, aucun téléchargement.
+const FILES = {
+  a9: require('../../assets/sounds/adhan_full.mp3'),
+  a7: require('../../assets/sounds/adhan_a7.mp3'),
+  a4: require('../../assets/sounds/adhan_a4.mp3'),
+  a11: require('../../assets/sounds/adhan_a11.mp3'),
+  a1: require('../../assets/sounds/adhan_a1.mp3'),
+  a2: require('../../assets/sounds/adhan_a2.mp3'),
+};
 
 let player = null;
 let current = null;
@@ -27,16 +37,16 @@ export function stopAdhan() {
   emit();
 }
 
-/** Joue l'adhan ({ url, label, prayer, time }). Un seul à la fois. */
+/** Joue l'adhan de la voix choisie ({ key, label, prayer, time }). Un seul à la fois. */
 export async function playAdhan(adhan) {
-  if (!adhan?.url) return;
+  if (!adhan) return;
   stopAdhan();
   try {
     await setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'duckOthers' });
   } catch {
     // web : pas de mode audio
   }
-  player = createAudioPlayer({ uri: adhan.url });
+  player = createAudioPlayer(FILES[adhan.key] || FILES.a9);
   player.addListener('playbackStatusUpdate', (status) => {
     if (status.didJustFinish) stopAdhan();
   });
