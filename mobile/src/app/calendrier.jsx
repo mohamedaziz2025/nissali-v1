@@ -86,7 +86,11 @@ export default function MyCalendar() {
           { key: 'annee', label: tr("Année") },
         ]}
         value={view}
-        onChange={setView}
+        onChange={(v) => {
+          // Vue Année : l'année du mois affiché (date du serveur), pas celle de l'horloge du téléphone.
+          if (v === 'annee') setYear(Number((month || data.today).slice(0, 4)));
+          setView(v);
+        }}
       />
       <Gap h={14} />
       {view === 'mois' ? (

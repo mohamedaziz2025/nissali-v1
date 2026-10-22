@@ -384,7 +384,7 @@ router.get('/day/:day', async (req, res) => {
     hijri: toHijri(d, adj)?.label || null,
     cycleDay: cycle ? diffDays(d, cycle.start) + 1 : null,
     phase: phase ? { key: phase, label: PHASES[phase].label } : null,
-    period: period ? { id: period.id, kind: period.kind, day: diffDays(d, period.start) + 1, start: period.start, flow: (period.flows || []).find((f) => f.day === d)?.level || null } : null,
+    period: period ? { id: period.id, kind: period.kind, day: diffDays(d, period.start) + 1, start: period.start, end: period.end || null, flow: (period.flows || []).find((f) => f.day === d)?.level || null } : null,
     log: log ? { mood: log.mood || null, symptoms: log.symptoms || [], energy: log.energy ?? null, sleepHours: log.sleepHours ?? null, weight: log.weight ?? null } : null,
     notes: notes.filter((n) => n.day === d).map((n) => ({ id: n.noteId, text: n.text, time: n.time, type: n.type, repeatLabel: n.repeatLabel, repeat: n.repeat })),
     fast,

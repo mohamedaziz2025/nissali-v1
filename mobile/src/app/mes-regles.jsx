@@ -11,7 +11,7 @@ import { monthGrid, PREDICTED } from '../components/Calendar';
 import Icon from '../components/Icon';
 import { ErrorState, Loader, useToast } from '../components/ui';
 import { api } from '../lib/api';
-import { addDays, monthLabel, shiftMonth, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
+import { addDays, dayMonth, monthLabel, shiftMonth, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { colors, fonts } from '../theme';
 
@@ -45,6 +45,28 @@ export default function EditPeriods() {
   const todayY = useRef(null);
   const centered = useRef(false);
   const leaving = useRef(false);
+  const [ready, setReady] = useState(false);
+
+  // Ouverture centrée sur le mois en cours (et non sur le premier mois affiché, 12 mois en arrière). La liste reste
+  // invisible jusque-là ; filet de sécurité : elle s'affiche quoi qu'il arrive après un court délai.
+  const centerOnToday = () => {
+    if (todayY.current == null || centered.current || !scrollRef.current) return;
+    centered.current = true;
+    const y = Math.max(0, todayY.current - 160);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y, animated: false });
+      setReady(true);
+    });
+  };
+  useEffect(() => {
+    if (!data) return undefined;
+    const t = setTimeout(() => {
+      centerOnToday();
+      setReady(true);
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(data)]);
 
   const today = data?.today;
   const fromMonth = today ? shiftMonth(today.slice(0, 7), -12) : null;
@@ -151,15 +173,18 @@ export default function EditPeriods() {
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 70 }}
-        onContentSizeChange={() => {
-          if (todayY.current != null && !centered.current) {
-            scrollRef.current?.scrollTo({ y: Math.max(0, todayY.current - 160), animated: false });
-            centered.current = true;
-          }
-        }}
+        style={{ opacity: ready ? 1 : 0 }}
+        onContentSizeChange={centerOnToday}
       >
         {months.map((m) => (
-          <View key={m} onLayout={(e) => { if (m === today.slice(0, 7)) todayY.current = e.nativeEvent.layout.y; }}>
+          <View
+            key={m}
+            onLayout={(e) => {
+              if (m !== today.slice(0, 7)) return;
+              todayY.current = e.nativeEvent.layout.y;
+              centerOnToday();
+            }}
+          >
             <Text style={s.month}>{monthLabel(m).split(' ')[0]}{m.slice(0, 4) !== today.slice(0, 4) ? ` ${m.slice(0, 4)}` : ''}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
               {monthGrid(m).map((d, i) => {
@@ -168,12 +193,14 @@ export default function EditPeriods() {
                 const isLocked = locked.has(d);
                 const on = current.has(d) || isLocked;
                 const pred = future && predicted.has(d);
-                const disabled = future || isLocked || d < from;
+                // Règles prévues (pointillés) : touchables, mais un jour à venir ne se coche que le jour venu
+                // (la pause des prières suit les jours réellement notés). Au-delà des prévisions : grisé.
+                const disabled = (future && !pred) || isLocked || d < from;
                 return (
                   <Pressable
                     key={d}
                     disabled={disabled}
-                    onPress={() => toggle(d)}
+                    onPress={() => (pred ? toast(tr("Règles prévues le {0} : tu pourras cocher ce jour le moment venu.", [dayMonth(d)])) : toggle(d))}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: on, disabled }}
                     accessibilityLabel={`${Number(d.slice(8))} ${monthLabel(m)}${pred ? tr(", règles prévues") : ''}`}

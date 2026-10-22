@@ -109,7 +109,28 @@ export async function request(method, path, body, { timeout = 15000, raw = false
     throw new ApiError(tr(data?.error || 'Une erreur est survenue'), res.status, data);
   }
   if (data && typeof data.today === 'string') syncToday(data.today);
+  if (method !== 'GET') notifyChange(path);
   return data;
+}
+
+// --- Écrans à rafraîchir après une saisie ------------------------------------
+// Une saisie de règles (onglet Cycle, « Mes règles », feuilles début/fin…) ou de jeûne change aussi l'accueil, le
+// calendrier, les jeûnes et la carte « Mes jeûnes » : les écrans encore ouverts derrière sont prévenus et rechargent leurs données aussitôt.
+
+const changeListeners = new Set();
+const CYCLE_WRITES = /^\/(cycle|pregnancy|fasts)(\/|\?|$)/;
+const CYCLE_READS = /^\/(today|cycle|fasts|pregnancy|health-log)(\/|\?|$)/;
+
+function notifyChange(path) {
+  if (!CYCLE_WRITES.test(path)) return;
+  for (const fn of changeListeners) fn(path);
+}
+
+/** Appelle `fn` après chaque saisie qui change le cycle, si `readPath` en dépend. Renvoie la désinscription. */
+export function onDataChange(readPath, fn) {
+  if (!CYCLE_READS.test(readPath || '')) return () => {};
+  changeListeners.add(fn);
+  return () => changeListeners.delete(fn);
 }
 
 const cacheKey = (path) => `nissali.cache.${path}`;

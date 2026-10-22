@@ -15,7 +15,7 @@ import { sendOrQueue } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { addDays, cap, dayMonth, diffDays, longDate, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
-import { colors, fonts, MOODS, tnum } from '../../theme';
+import { colors, fonts, MOODS, space, tnum } from '../../theme';
 
 import { tr } from '../../lib/i18n';
 const LETTERS = FMT_WEEKDAYS_SHORT;
@@ -187,7 +187,7 @@ export default function Cycle() {
   );
 
   return (
-    <Screen onRefresh={reload}>
+    <Screen onRefresh={reload} topColor={colors.blush}>
       <OfflineBanner visible={base.offline} />
       <View
         style={s.hero}
@@ -198,6 +198,9 @@ export default function Cycle() {
           touchX.current = null;
         }}
       >
+        {/* Ronds décoratifs de l'en-tête rose (maquette 6.1) */}
+        <View pointerEvents="none" style={[s.deco, { width: 260, height: 260, borderRadius: 130, top: -70, right: -110 }]} />
+        <View pointerEvents="none" style={[s.deco, { width: 220, height: 220, borderRadius: 110, top: 150, left: -120 }]} />
         <Row justify="space-between">
           <View style={{ width: 40 }} />
           <Text style={s.heroDate}>{day === today ? tr("Aujourd’hui · {0}", [dayMonth(today)]) : cap(longDate(day))}</Text>
@@ -222,10 +225,10 @@ export default function Cycle() {
           </Pressable>
         </View>
         <View style={s.actions}>
-          {action('drop', 'Mes règles', () => router.push('/mes-regles'), true)}
-          {action('plus', 'Symptômes', () => router.push(`/sante?day=${day > today ? today : day}`))}
-          {action('sparkle', 'Humeur', () => router.push(`/sante?day=${day > today ? today : day}`))}
-          {action('edit', 'Note', () => router.push(`/notes/nouvelle?day=${day}`))}
+          {action('drop', tr("Mes règles"), () => router.push('/mes-regles'), true)}
+          {action('plus', tr("Symptômes"), () => router.push(`/sante?day=${day > today ? today : day}`))}
+          {action('smile', tr("Humeur"), () => router.push(`/sante?day=${day > today ? today : day}`))}
+          {action('edit', tr("Note"), () => router.push(`/notes/nouvelle?day=${day}`))}
         </View>
       </View>
       <Gap />
@@ -320,7 +323,9 @@ export default function Cycle() {
 }
 
 const s = StyleSheet.create({
-  hero: { backgroundColor: colors.blush, borderRadius: 28, padding: 16, paddingTop: 14, gap: 12 },
+  // En-tête rose d'un bord à l'autre de l'écran, coins arrondis en bas seulement.
+  hero: { backgroundColor: colors.blush, marginHorizontal: -space.gutter, marginTop: -12, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingHorizontal: space.gutter + 2, paddingTop: 14, paddingBottom: 20, gap: 12, overflow: 'hidden' },
+  deco: { position: 'absolute', backgroundColor: 'rgba(233,185,193,0.22)' },
   heroDate: { fontFamily: fonts.bold, fontSize: 15, color: colors.prune },
   calBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   week: { flexDirection: 'row', justifyContent: 'space-between' },

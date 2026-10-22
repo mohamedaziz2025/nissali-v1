@@ -43,7 +43,7 @@ export function Label({ children, color = colors.bordeaux, style, numberOfLines 
 
 // --- Écran --------------------------------------------------------------------
 
-export function Screen({ children, title, right, subtitle, onRefresh, refreshing = false, scroll = true, back, padded = true, footer, contentStyle, scrollRef, top }) {
+export function Screen({ children, title, right, subtitle, onRefresh, refreshing = false, scroll = true, back, padded = true, footer, contentStyle, scrollRef, top, topColor }) {
   const insets = useSafeAreaInsets();
   const header = (title || back) && (
     <View style={styles.header}>
@@ -83,6 +83,8 @@ export function Screen({ children, title, right, subtitle, onRefresh, refreshing
   );
   return (
     <KeyboardAvoidingView style={[styles.screen, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Bande sous l'heure et la batterie, de la couleur de l'en-tête (en-tête rose de l'onglet Cycle) */}
+      {topColor ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: topColor }} /> : null}
       {body}
       {footer}
     </KeyboardAvoidingView>
@@ -495,10 +497,10 @@ export const styles = StyleSheet.create({
   offline: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.orSoft, borderRadius: 16, padding: 12, marginBottom: 14 },
   listItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, minHeight: 56 },
 
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(62,18,32,0.35)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.veil },
   sheetWrap: { flex: 1, justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.ivoire, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingTop: 10 },
-  grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: colors.line, marginBottom: 12 },
+  grabber: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.rose, marginBottom: 12 },
 
   toast: { position: 'absolute', left: 20, right: 20, backgroundColor: colors.prune, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 18 },
   toastText: { color: colors.white, fontFamily: fonts.medium, fontSize: 15, textAlign: 'center' },

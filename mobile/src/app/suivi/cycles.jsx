@@ -65,11 +65,11 @@ export default function MyCycles() {
       <Row gap={10} align="stretch">
         <View style={[s.stat, { backgroundColor: colors.bordeaux }]}>
           <Text style={[s.statLabel, { color: colors.onBordeaux }]}>{tr("Cycle moyen")}</Text>
-          <Text style={[s.statValue, { color: colors.white }, tnum]}>{cycleAvg ? `${cycleAvg} jours` : '—'}</Text>
+          <Text style={[s.statValue, { color: colors.white }, tnum]}>{cycleAvg ? tr("{0} jours", [cycleAvg]) : '—'}</Text>
         </View>
         <View style={[s.stat, { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line }]}>
           <Text style={s.statLabel}>{tr("Règles en moyenne")}</Text>
-          <Text style={[s.statValue, tnum]}>{periodAvg ? `${periodAvg} jours` : '—'}</Text>
+          <Text style={[s.statValue, tnum]}>{periodAvg ? tr("{0} jours", [periodAvg]) : '—'}</Text>
         </View>
       </Row>
       <Gap h={12} />
@@ -95,12 +95,12 @@ export default function MyCycles() {
       <Gap h={8} />
       <View style={s.list}>
         {current ? (
-          <CycleRow title={tr("Cycle en cours")} dates={`depuis le ${shortDay(current.start)} · Jour ${currentDay}`} length={cycleAvg || 28} periodLength={current.end ? diffDays(current.end, current.start) + 1 : currentDay} current last={!done.length} />
+          <CycleRow title={tr("Cycle en cours")} dates={tr("depuis le {0} · Jour {1}", [shortDay(current.start), currentDay])} length={cycleAvg || 28} periodLength={current.end ? diffDays(current.end, current.start) + 1 : currentDay} current last={!done.length} />
         ) : null}
         {done.map((c, i) => (
           <CycleRow
-            key={c.start}
-            title={`${c.length} jours`}
+            key={`${c.start}-${i}`}
+            title={tr("{0} jours", [c.length])}
             dates={`${shortDay(c.start)} – ${shortDay(c.end)}`}
             length={c.length}
             periodLength={c.periodLength || 0}

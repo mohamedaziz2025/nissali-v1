@@ -226,7 +226,7 @@ export function usePeriodActions(onChange) {
         </View>
         <T variant="small">{tr("Des traces seules ne comptent pas comme le début des règles.")}</T>
         <View style={s.box}>
-          <Icon name="bellOff" size={15} color={colors.orText} />
+          <Icon name="pause" size={15} color={colors.orText} strokeWidth={2.4} />
           <Text style={s.boxText}>{tr("Rappels de prière en silence (horaires toujours affichés), aucune prière comptée comme manquée, prévisions recalculées.")}</Text>
         </View>
       </Sheet>

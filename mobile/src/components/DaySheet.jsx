@@ -13,7 +13,7 @@ import Icon from './Icon';
 import { Button, Loader, Sheet, T } from './ui';
 
 import { tr } from '../lib/i18n';
-const FLOW = { traces: 'traces', leger: 'flux léger', moyen: 'flux moyen', abondant: 'flux abondant' };
+const FLOW = { traces: tr("traces"), leger: tr("flux léger"), moyen: tr("flux moyen"), abondant: tr("flux abondant") };
 
 function Line({ icon, color = colors.bordeaux, title, value, onPress }) {
   const Comp = onPress ? Pressable : View;
@@ -78,14 +78,14 @@ export default function DaySheet({ day, onClose, onStartPeriod, periodLength = 5
       {error ? <T variant="muted">{error.message}</T> : null}
       {d ? (
         <>
-          <Text style={s.meta}>{[d.cycleDay ? `Jour ${d.cycleDay} du cycle` : null, hijri].filter(Boolean).join(' · ')}</Text>
+          <Text style={s.meta}>{[d.cycleDay ? tr("Jour {0} du cycle", [d.cycleDay]) : null, hijri].filter(Boolean).join(' · ')}</Text>
 
           {d.period ? (
             <View style={s.banner}>
               <BloodDrops count={FLOW_DROPS[d.period.flow] || 1} color={colors.white} size={13} />
               <View style={{ flex: 1 }}>
                 <Text style={s.bannerTitle}>{d.period.kind === 'nifas' ? tr("Nifas") : tr("Règles notées")}{d.period.flow ? ` · ${FLOW[d.period.flow]}` : ''}</Text>
-                <Text style={s.bannerSub}>{d.period.kind === 'nifas' ? tr("Jour {0}", [d.period.day]) : tr("Fin prévue vers le {0}", [dayMonth(expectedEnd)])}</Text>
+                <Text style={s.bannerSub}>{d.period.kind === 'nifas' ? tr("Jour {0}", [d.period.day]) : d.period.end ? tr("Terminées le {0}", [dayMonth(d.period.end)]) : tr("Fin prévue vers le {0}", [dayMonth(expectedEnd)])}</Text>
               </View>
               <Pressable onPress={() => go(d.period.kind === 'nifas' ? '/grossesse' : '/mes-regles')} accessibilityRole="button" style={s.modify}>
                 <Text style={s.modifyText}>{tr("Modifier")}</Text>
@@ -111,8 +111,8 @@ export default function DaySheet({ day, onClose, onStartPeriod, periodLength = 5
             <>
               <Text style={s.section}>{tr("CE JOUR-LÀ")}</Text>
               <View style={{ gap: 8 }}>
-                {hayd ? <Line icon="bellOff" color={colors.orText} title={tr("Prières en pause")} value="horaires affichés" /> : null}
-                {d.fast ? <Line icon="moon" color={colors.orText} title={d.fast.label} value={d.fast.status === 'fait' ? 'Jeûné' : 'Prévu'} onPress={() => go('/jeunes')} /> : null}
+                {hayd ? <Line icon="pause" color={colors.orText} title={tr("Prières en pause")} value={tr("horaires affichés")} /> : null}
+                {d.fast ? <Line icon="moon" color={colors.orText} title={d.fast.label} value={d.fast.status === 'fait' ? tr("Jeûné") : tr("Prévu")} onPress={() => go('/jeunes')} /> : null}
                 {d.notes.map((n) => (
                   <Line key={n.id} icon="note" color={colors.or} title={n.text} value={[n.time, n.repeat && n.repeat !== 'once' ? n.repeatLabel : null].filter(Boolean).join(' · ') || null} onPress={() => go(`/notes/nouvelle?id=${n.id}`)} />
                 ))}
