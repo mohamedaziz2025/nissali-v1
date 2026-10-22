@@ -38,7 +38,10 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+ios/
+android/
+
+# store listing assets (screenshots, feature graphic) — not part of a build
+store/
 /store
 store.config.json

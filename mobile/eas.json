@@ -5,7 +5,9 @@
   "build": {
     "base": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.nissali.fr/api"
+        "EXPO_PUBLIC_API_URL": "https://api.nissali.fr/api",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "648902820048-bqnbbh29909hcj9vova42cioi8181pvt.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "648902820048-soel9jt1grrg0upsjof0hihhqcbdj9q9.apps.googleusercontent.com"
       },
       "channel": "base"
     },
