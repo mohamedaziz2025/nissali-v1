@@ -1,8 +1,10 @@
 // Traduction des contenus en base, en trois langues (français, anglais, arabe), par le script
 // `npm run translate:content` (et la tâche de nuit). Chaque texte est enregistré dans sa langue d'origine
 // (détectée) et dans les deux autres : si la limite DeepL est atteinte, ce qui est déjà en base reste disponible.
+// Sans DeepL, rien ne casse : la langue manquante reçoit le texte d'origine (en attente) puis est retraduite plus tard.
 // Les données privées (notes, messages, journal de santé, fiches clientes) ne sont jamais envoyées à DeepL.
 import { GHUSL_STEPS, HEALTH_ALERTS, PHASES } from '../content/phases.js';
+import { env } from '../config/env.js';
 import { Article, ArticleCategory, Broadcast, Category, DhikrEntry, Event, HealthTip, Notification, Plan, Practitioner, Reminder, Review, Service, Setting, Translation } from '../models/index.js';
 import { deeplTranslate, hashText, isArabicOnly, LANGS, QuotaError } from './deepl.js';
 
@@ -80,55 +82,92 @@ function batches(items, size = (x) => x.text.length) {
 async function save(rows) {
   if (!rows.length) return;
   await Translation.bulkWrite(
-    rows.map((r) => ({ updateOne: { filter: { hash: r.hash, lang: r.lang }, update: { $set: r }, upsert: true } })),
+    rows.map((r) => ({ updateOne: { filter: { hash: r.hash, lang: r.lang }, update: { $set: { pending: false, ...r } }, upsert: true } })),
     { ordered: false },
   );
 }
 
+const ARABIC_LETTERS = /[\u0600-\u06FF]/g;
+const LATIN_LETTERS = /[A-Za-zÀ-ÿ]/g;
+/** Langue probable sans DeepL : arabe si l'écriture arabe domine, sinon français (langue de saisie du back-office). */
+const guessLang = (text) => ((text.match(ARABIC_LETTERS) || []).length > (text.match(LATIN_LETTERS) || []).length ? 'ar' : 'fr');
+
+/**
+ * Sans DeepL, chaque langue manquante reçoit le texte d'origine, marqué `pending` : la base a toujours les
+ * trois langues, et ces lignes seront retraduites au prochain passage où DeepL répond.
+ */
+async function fillPending(todo, texts, existing) {
+  const rows = [];
+  for (const h of todo) {
+    const e = existing.get(h);
+    const { text, origin } = texts.get(h);
+    for (const lang of LANGS) {
+      if (e?.langs.has(lang) || e?.pending.has(lang)) continue;
+      // Langue d'origine connue (détectée par DeepL) : c'est le vrai texte, pas une copie en attente.
+      const real = e?.source === lang;
+      rows.push({ hash: h, lang, text, origin, pending: !real, ...(real ? { source: lang } : {}) });
+    }
+  }
+  if (!rows.length) return 0;
+  await Translation.bulkWrite(
+    rows.map((r) => ({ updateOne: { filter: { hash: r.hash, lang: r.lang }, update: { $set: r }, upsert: true } })),
+    { ordered: false },
+  );
+  return rows.length;
+}
+
 /**
  * Enregistre les traductions manquantes. Options : { dryRun, log }.
- * Retourne { texts, done, translated, characters, stopped }.
+ * Ne lève pas d'erreur si DeepL manque ou ne répond pas : les langues manquantes sont alors enregistrées avec
+ * le texte d'origine (en attente). Retourne { texts, done, translated, pending, characters, stopped }.
  */
 export async function translateContent({ dryRun = false, log = () => {} } = {}) {
   const texts = await collectTexts();
   const hashes = [...texts.keys()];
+  // Langues réellement traduites (les copies en attente ne comptent pas) et langue d'origine détectée.
   const existing = new Map();
-  for (const r of await Translation.find({ hash: { $in: hashes } }).select('hash lang source').lean()) {
-    const e = existing.get(r.hash) || { langs: new Set(), source: null };
-    e.langs.add(r.lang);
-    if (r.source) e.source = r.source;
+  for (const r of await Translation.find({ hash: { $in: hashes } }).select('hash lang source pending').lean()) {
+    const e = existing.get(r.hash) || { langs: new Set(), pending: new Set(), source: null };
+    if (r.pending) e.pending.add(r.lang);
+    else {
+      e.langs.add(r.lang);
+      if (r.source) e.source = r.source;
+    }
     existing.set(r.hash, e);
   }
+  const entry = (h) => {
+    if (!existing.has(h)) existing.set(h, { langs: new Set(), pending: new Set(), source: null });
+    return existing.get(h);
+  };
   const todo = hashes.filter((h) => LANGS.some((l) => !existing.get(h)?.langs.has(l)));
   const characters = todo.reduce((n, h) => n + texts.get(h).text.length, 0);
   log(`${texts.size} textes, ${texts.size - todo.length} déjà en 3 langues, ${todo.length} à traduire (≈ ${characters} caractères par langue)`);
-  if (dryRun || !todo.length) return { texts: texts.size, done: texts.size - todo.length, translated: 0, characters, stopped: false };
+  const result = { texts: texts.size, done: texts.size - todo.length, translated: 0, pending: 0, characters, stopped: false };
+  if (dryRun || !todo.length) return result;
 
-  let translated = 0;
   try {
+    if (!env.deeplKey) throw new Error('DEEPL_API_KEY absente');
     // 1. Langue d'origine inconnue : la traduction vers l'anglais la détecte.
     const unknown = todo.filter((h) => !existing.get(h)?.source).map((h) => ({ hash: h, ...texts.get(h) }));
+    let n = 0;
     for (const batch of batches(unknown)) {
       const res = await deeplTranslate(batch.map((b) => b.text), 'en');
       const rows = [];
       batch.forEach((b, i) => {
         // Mots isolés (« Hijama », « Premium »…) : la détection est peu fiable ; les contenus sont saisis en français.
         const source = LANGS.includes(res[i].detected) ? res[i].detected : 'fr';
-        const e = existing.get(b.hash) || { langs: new Set(), source };
+        const e = entry(b.hash);
         e.source = source;
-        if (LANGS.includes(source)) {
-          rows.push({ hash: b.hash, lang: source, text: b.text, source, origin: b.origin });
-          e.langs.add(source);
-        }
+        rows.push({ hash: b.hash, lang: source, text: b.text, source, origin: b.origin });
+        e.langs.add(source);
         if (source !== 'en') {
           rows.push({ hash: b.hash, lang: 'en', text: res[i].text, source, origin: b.origin });
           e.langs.add('en');
         }
-        existing.set(b.hash, e);
       });
       await save(rows);
-      translated += batch.length;
-      log(`  langue détectée et anglais : ${translated}/${unknown.length}`);
+      n += batch.length;
+      log(`  langue détectée et anglais : ${n}/${unknown.length}`);
     }
     // 2. Langues encore manquantes, groupées par langue d'origine.
     for (const lang of LANGS) {
@@ -136,26 +175,26 @@ export async function translateContent({ dryRun = false, log = () => {} } = {}) 
       for (const h of todo) {
         const e = existing.get(h);
         if (!e || e.langs.has(lang)) continue;
-        const key = e.source || 'auto';
-        groups.set(key, [...(groups.get(key) || []), { hash: h, ...texts.get(h) }]);
+        groups.set(e.source, [...(groups.get(e.source) || []), { hash: h, ...texts.get(h) }]);
       }
       for (const [source, items] of groups) {
-        let n = 0;
+        let done = 0;
         for (const batch of batches(items)) {
-          const res = await deeplTranslate(batch.map((b) => b.text), lang, { source: LANGS.includes(source) || source.length === 2 ? source : undefined });
-          await save(batch.map((b, i) => ({ hash: b.hash, lang, text: res[i].text, source: existing.get(b.hash).source, origin: b.origin })));
+          const res = await deeplTranslate(batch.map((b) => b.text), lang, { source });
+          await save(batch.map((b, i) => ({ hash: b.hash, lang, text: res[i].text, source, origin: b.origin })));
           batch.forEach((b) => existing.get(b.hash).langs.add(lang));
-          n += batch.length;
-          log(`  ${lang} (depuis ${source}) : ${n}/${items.length}`);
+          done += batch.length;
+          log(`  ${lang} (depuis ${source}) : ${done}/${items.length}`);
         }
       }
     }
   } catch (err) {
-    if (err instanceof QuotaError) {
-      log(`Arrêt : ${err.message}. Les traductions déjà faites sont enregistrées ; relance le script le mois prochain.`);
-      return { texts: texts.size, done: texts.size - todo.length, translated, characters, stopped: true };
-    }
-    throw err;
+    // Quota atteint, clé absente ou invalide, DeepL injoignable : on ne s'arrête pas sur une erreur.
+    result.stopped = true;
+    log(`DeepL indisponible (${err instanceof QuotaError ? 'quota atteint' : err.message}) : les langues manquantes sont enregistrées avec le texte d'origine, en attente de traduction.`);
   }
-  return { texts: texts.size, done: texts.size - todo.length, translated: todo.length, characters, stopped: false };
+  result.translated = todo.filter((h) => LANGS.every((l) => existing.get(h)?.langs.has(l))).length;
+  result.pending = await fillPending(todo, texts, existing);
+  if (result.pending) log(`${result.pending} lignes en attente de traduction (texte d'origine en attendant).`);
+  return result;
 }

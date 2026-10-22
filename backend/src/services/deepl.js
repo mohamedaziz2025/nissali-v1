@@ -70,6 +70,7 @@ export async function deeplTranslate(texts, lang, { source } = {}) {
 
 /** Caractères restants ce mois-ci. */
 export async function deeplUsage() {
+  if (!env.deeplKey) throw new Error('DEEPL_API_KEY manquante dans .env');
   const host = env.deeplKey.endsWith(':fx') ? 'https://api-free.deepl.com' : 'https://api.deepl.com';
   const res = await fetch(`${host}/v2/usage`, { headers: { Authorization: `DeepL-Auth-Key ${env.deeplKey}` } });
   if (!res.ok) throw new Error(`DeepL ${res.status}`);
