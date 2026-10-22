@@ -91,13 +91,13 @@ export function MoodLine({ days, moodOf, inPeriod, width, keyName }) {
   return (
     <View>
       <Svg width={width} height={h}>
-        {days.map((d, i) => (inPeriod(d) ? <Rect key={`p${d}`} x={x(i) - step / 2} y={0} width={Math.max(step, 4)} height={h} fill={colors.blush} /> : null))}
+        {days.map((d, i) => (inPeriod(d) ? <Rect key={`p${d}-${i}`} x={x(i) - step / 2} y={0} width={Math.max(step, 4)} height={h} fill={colors.blush} /> : null))}
         {[0, 1, 2, 3, 4].map((l) => (
           <Line key={l} x1={left} x2={width - right} y1={y(l)} y2={y(l)} stroke={colors.line} strokeWidth={1} />
         ))}
         {path ? <Path d={path} stroke={colors.bordeaux} strokeWidth={2} fill="none" strokeLinejoin="round" /> : null}
         {n <= 31
-          ? pts.filter((p) => p.lvl != null).map((p) => <Circle key={p.d} cx={x(p.i)} cy={y(p.lvl)} r={4} fill={colors.white} stroke={colors.bordeaux} strokeWidth={2} />)
+          ? pts.filter((p) => p.lvl != null).map((p) => <Circle key={`${p.d}-${p.i}`} cx={x(p.i)} cy={y(p.lvl)} r={4} fill={colors.white} stroke={colors.bordeaux} strokeWidth={2} />)
           : null}
       </Svg>
       {MOODS.map((m) => (

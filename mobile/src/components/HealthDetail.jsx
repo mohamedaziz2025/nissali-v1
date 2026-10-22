@@ -42,7 +42,7 @@ export function LastDays({ title, today, render, onPress }) {
       </Row>
       <View style={s.list}>
         {days.map((d, i) => (
-          <Pressable key={d} onPress={() => onPress(d)} accessibilityRole="button" accessibilityLabel={tr("{0}, modifier", [dayTitle(d)])} style={({ pressed }) => [s.row, i === days.length - 1 && { borderBottomWidth: 0 }, pressed && { opacity: 0.7 }]}>
+          <Pressable key={`${d}-${i}`} onPress={() => onPress(d)} accessibilityRole="button" accessibilityLabel={tr("{0}, modifier", [dayTitle(d)])} style={({ pressed }) => [s.row, i === days.length - 1 && { borderBottomWidth: 0 }, pressed && { opacity: 0.7 }]}>
             <Text style={s.rowDay} numberOfLines={1}>{dayTitle(d)}</Text>
             {render(d)}
             <Icon name="chevronRight" size={14} color={colors.muted} />

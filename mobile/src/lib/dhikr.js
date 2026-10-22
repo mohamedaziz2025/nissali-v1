@@ -75,4 +75,10 @@ export function useDhikrData() {
   return { ...res, counts: { ...(res.data?.counts || {}), ...local }, refreshLocal };
 }
 
+/** Objectif 0 = « Sans objectif » : on compte librement, jamais « atteint ». */
+export const hasGoal = (goal) => goal > 0;
+export const isReached = (count, goal) => hasGoal(goal) && count >= goal;
+/** Remplissage de l'anneau : selon l'objectif, ou un tour tous les 33 sans objectif. */
+export const ringProgress = (count, goal) => (hasGoal(goal) ? count / goal : (count % 33) / 33);
+
 export const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;

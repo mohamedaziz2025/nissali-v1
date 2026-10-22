@@ -154,7 +154,7 @@ const userSchema = new Schema(
     dhikr: {
       list: { type: [{ _id: false, key: String, goal: Number }], default: undefined },
       // RG-48 — dhikr personnels (« Personnel ») : vus par elle seule, jamais publiés ni relus par le comité.
-      custom: { type: [{ _id: false, key: String, name: String, arabic: String, goal: Number }], default: [] },
+      custom: { type: [{ _id: false, key: String, name: String, arabic: String, meaning: String, goal: Number }], default: [] },
       haptics: { type: Boolean, default: true },
       reminder: { type: Boolean, default: false },
       reminderTime: { type: String, default: '20:30' },

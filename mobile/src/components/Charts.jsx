@@ -23,7 +23,8 @@ export function ColumnChart({ data, width, height = 170, unit = ' j', label }) {
   const band = w / data.length;
   const bar = Math.min(24, band * 0.6);
   const y = (v) => PAD.top + (1 - (v - min) / (max - min)) * h;
-  const ticks = [0, Math.round(max / 2), Math.round(max)];
+  // Graduations sans doublon (petites valeurs : 0, 1, 1 donnait deux enfants React avec la même clé).
+  const ticks = [...new Set([0, Math.round(max / 2), Math.round(max)])];
   const onPress = (e) => {
     const i = Math.floor((e.nativeEvent.locationX - PAD.left) / band);
     if (i >= 0 && i < data.length) setSelected(i);
@@ -32,7 +33,7 @@ export function ColumnChart({ data, width, height = 170, unit = ' j', label }) {
     <Pressable onPress={onPress} accessibilityRole="image" accessibilityLabel={`${label} : ${data.map((d) => `${d.value}${unit}`).join(', ')}`}>
       <Svg width={width} height={height}>
         {ticks.map((t) => (
-          <Line key={t} x1={PAD.left} x2={width - 8} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={1} />
+          <Line key={`l${t}`} x1={PAD.left} x2={width - 8} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={1} />
         ))}
         {ticks.map((t) => (
           <SvgText key={`t${t}`} x={PAD.left - 6} y={y(t) + 4} fontSize={11} fill={INK} textAnchor="end" fontFamily={fonts.body}>
@@ -45,7 +46,7 @@ export function ColumnChart({ data, width, height = 170, unit = ' j', label }) {
           const bottom = y(0);
           const r = 4;
           const path = `M${cx - bar / 2},${bottom} L${cx - bar / 2},${top + r} Q${cx - bar / 2},${top} ${cx - bar / 2 + r},${top} L${cx + bar / 2 - r},${top} Q${cx + bar / 2},${top} ${cx + bar / 2},${top + r} L${cx + bar / 2},${bottom} Z`;
-          return <Path key={d.start} d={path} fill={i === selected ? colors.bordeaux : colors.rose} />;
+          return <Path key={`${d.start}-${i}`} d={path} fill={i === selected ? colors.bordeaux : colors.rose} />;
         })}
         {selected != null && data[selected] ? (
           <SvgText x={PAD.left + band * selected + band / 2} y={y(data[selected].value) - 8} fontSize={12.5} fill={colors.prune} textAnchor="middle" fontFamily={fonts.bold}>

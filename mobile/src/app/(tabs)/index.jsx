@@ -61,8 +61,10 @@ function CardHead({ title, right }) {
  * badge « En pause pendant tes règles » et ligne « Rappels de prière · Coupés · Régler » ; ou une seule ligne
  * si elle l'a choisi dans Prières et adhan.
  */
-function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
+function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings, afterPrayer }) {
   const [now, setNow] = useState(Date.now());
+  // Prière cochée à l'instant : proposer le tasbih « Après la prière » pendant 30 minutes.
+  const [checkedAt, setCheckedAt] = useState(null);
   const adhan = useAdhanPrefs();
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 30_000);
@@ -137,7 +139,10 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
               {...(paused
                 ? { accessibilityLabel: `${PRAYER_LABELS[p]} ${t[p]}` }
                 : {
-                    onPress: () => onToggle(p, !done),
+                    onPress: () => {
+                      if (!done) setCheckedAt(Date.now());
+                      onToggle(p, !done);
+                    },
                     accessibilityRole: 'checkbox',
                     accessibilityState: { checked: Boolean(done) },
                     accessibilityLabel: `${PRAYER_LABELS[p]} ${t[p]}${done ? ', accomplie' : ''}${next ? ', prochaine prière' : ''}`,
@@ -162,6 +167,16 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
         </Text>
       ) : null}
       {jumua?.today && !paused ? <Text style={[s.small, { textAlign: 'center' }]}>{tr("Vendredi · Jumu’a à")} {jumua.times.join(' et ')}</Text> : null}
+
+      {/* Mise à jour Accueil · Dhikr — depuis la carte Prières, l'écran Dhikr s'ouvre sur « Après la prière ». */}
+      {!paused && (afterPrayer || (checkedAt && now - checkedAt < 30 * 60_000)) ? (
+        <Pressable onPress={() => router.push('/dhikr/animation?mode=apres')} accessibilityRole="button" style={({ pressed }) => [s.tasbihRow, pressed && { opacity: 0.85 }]}>
+          <Icon name="beads" size={17} color={colors.bordeaux} />
+          <Text style={s.tasbihText} numberOfLines={1}>{tr("Tasbih après la prière")}</Text>
+          <Text style={[s.footState, tnum]}>33 · 33 · 33 · 1</Text>
+          <Icon name="chevronRight" size={15} color={colors.bordeaux} />
+        </Pressable>
+      ) : null}
 
       {paused ? (
         <Pressable onPress={settings} accessibilityRole="button" accessibilityLabel={tr("Rappels de prière {0}. Régler", [(prayers.remindersDuringPeriod ? tr("gardés") : tr("coupés"))])} style={s.footRow}>
@@ -440,7 +455,7 @@ export default function Today() {
       ) : null}
 
       {/* 1 · Prières */}
-      <PrayersCard prayers={prayers} ramadan={data.ramadan} onToggle={togglePrayer} onAdhanSettings={() => setAdhanOpen(true)} />
+      <PrayersCard prayers={prayers} ramadan={data.ramadan} onToggle={togglePrayer} onAdhanSettings={() => setAdhanOpen(true)} afterPrayer={justAfterPrayer(prayers.timings, data.time)} />
       <Gap />
 
       {/* 2 · Dhikr : « Après la prière » par défaut dans les 30 min qui suivent une prière */}
@@ -520,6 +535,8 @@ export default function Today() {
 }
 
 const s = StyleSheet.create({
+  tasbihRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.blush, borderRadius: 14, paddingHorizontal: 12, minHeight: 44 },
+  tasbihText: { flex: 1, fontFamily: fonts.bold, fontSize: 13.5, color: colors.bordeaux },
   card: { backgroundColor: colors.white, borderRadius: 24, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.line },
   cardTitle: { fontFamily: fonts.extra, fontSize: 19, letterSpacing: -0.4, color: colors.prune },
   surtitle: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.2, color: colors.orText },

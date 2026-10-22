@@ -9,7 +9,7 @@ import { colors, fonts, tnum } from '../theme';
 import Icon from './Icon';
 
 import { tr } from '../lib/i18n';
-const SIZE = 92;
+const SIZE = 104;
 const STROKE = 8;
 
 function CounterRing({ progress, reached, children }) {
@@ -79,7 +79,7 @@ const s = StyleSheet.create({
   streakText: { fontFamily: fonts.bold, fontSize: 12, color: colors.orText },
   body: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   disc: { width: SIZE - 22, height: SIZE - 22, borderRadius: (SIZE - 22) / 2, backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center' },
-  count: { fontFamily: fonts.extra, fontSize: 26, color: colors.white, letterSpacing: -0.5 },
+  count: { fontFamily: fonts.extra, fontSize: 26, lineHeight: 30, color: colors.white, letterSpacing: -0.5 },
   titleToday: { fontFamily: fonts.semi, fontSize: 15, letterSpacing: 0, color: colors.muted },
   continue: { fontFamily: fonts.extra, fontSize: 16, color: colors.prune },
   names: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted },

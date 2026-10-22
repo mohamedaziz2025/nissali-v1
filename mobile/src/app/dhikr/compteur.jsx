@@ -15,7 +15,7 @@ import Icon from '../../components/Icon';
 import { ErrorState, Loader, Row, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { plural, saveCount, useDhikrData } from '../../lib/dhikr';
+import { isReached, plural, saveCount, useDhikrData } from '../../lib/dhikr';
 import { colors, fonts } from '../../theme';
 
 import { tr } from '../../lib/i18n';
@@ -72,8 +72,8 @@ export default function Counter() {
     setGoal((g) => (tasbihMode ? current.goal : g ?? current.goal));
     // Objectif déjà atteint aujourd'hui : un nouveau tour commence (l'anneau repart de 0).
     const already = counts[current.key] || 0;
-    setBase((b) => (b !== null ? b : tasbihMode || already >= current.goal ? already : 0));
-    if (streakBase.current === null) streakBase.current = { streak: data.streak, reachedToday: data.list.some((d) => (counts[d.key] || 0) >= d.goal) };
+    setBase((b) => (b !== null ? b : tasbihMode || isReached(already, current.goal) ? already : 0));
+    if (streakBase.current === null) streakBase.current = { streak: data.streak, reachedToday: data.list.some((d) => isReached(counts[d.key] || 0, d.goal)) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curKey, data]);
 
@@ -81,7 +81,9 @@ export default function Counter() {
   if (error && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><ErrorState error={error} /></View>;
   if (!current) return <View style={[s.screen, { paddingTop: insets.top }]}><ErrorState error={{ message: 'Dhikr introuvable' }} /></View>;
 
-  const target = goal || current.goal;
+  // Objectif 0 (« Sans objectif » enregistré) : compteur libre, comme Infinity.
+  const chosen = goal ?? current.goal;
+  const target = chosen > 0 ? chosen : Infinity;
   const endless = target === Infinity;
   const inRound = Math.max(0, count - (base || 0));
   const left = Math.max(0, target - inRound);
@@ -92,7 +94,7 @@ export default function Counter() {
     saveCount(data.day, k, n).catch(() => {});
   };
 
-  const reachedCountWith = (k, n) => data.list.filter((d) => ((d.key === k ? n : all[d.key]) || 0) >= d.goal).length;
+  const reachedCountWith = (k, n) => data.list.filter((d) => isReached((d.key === k ? n : all[d.key]) || 0, d.goal)).length;
 
   const tap = () => {
     if (done) return;

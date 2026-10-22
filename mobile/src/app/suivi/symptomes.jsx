@@ -69,8 +69,8 @@ export default function SymptomsDetail() {
               </Pressable>
               {open === k ? (
                 <View style={s.dates}>
-                  {ds.map((day) => (
-                    <Pressable key={day} onPress={() => setEdit(day)} accessibilityRole="button" accessibilityLabel={tr("{0}, modifier", [shortDay(day)])} style={s.date}>
+                  {ds.map((day, j) => (
+                    <Pressable key={`${k}-${day}-${j}`} onPress={() => setEdit(day)} accessibilityRole="button" accessibilityLabel={tr("{0}, modifier", [shortDay(day)])} style={s.date}>
                       <Text style={s.dateText}>{shortDay(day)}</Text>
                     </Pressable>
                   ))}

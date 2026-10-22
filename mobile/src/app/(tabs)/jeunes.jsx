@@ -540,7 +540,7 @@ function Voluntary({ fasts, onWhiteLayout, onGoMakeUp, onScrollTo }) {
             <Chip key={t.key} label={t.label} selected={type === t.key} onPress={() => setType(t.key)} />
           ))}
         </View>
-        <Button title={tr("Valider")} icon="check" onPress={save} loading={busy} disabled={busy || !type || !day} />
+        <Button title={tr("Valider ce jour de jeûne")} icon="check" onPress={save} loading={busy} disabled={busy || !type || !day} />
         <Pressable onPress={() => chartY.current != null && onScrollTo?.(chartY.current)} accessibilityRole="button" style={s.historyLine}>
           <Text style={s.lineText}>
             <Text style={{ fontFamily: fonts.extra }}>{plural(d.total)}</Text> {tr("jeûné")}{d.total > 1 ? 's' : ''} {tr("en")} {d.year}

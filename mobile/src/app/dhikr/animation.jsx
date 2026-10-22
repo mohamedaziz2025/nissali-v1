@@ -5,19 +5,41 @@ import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import Icon from '../../components/Icon';
 import { Button, Chip, ErrorState, Field, Label, Loader, Row, Sheet, T } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { saveCount, useDhikrData } from '../../lib/dhikr';
+import { isReached, saveCount, useDhikrData } from '../../lib/dhikr';
 import { colors, fonts, tnum } from '../../theme';
 
 import { tr } from '../../lib/i18n';
-const TASBIH_LABELS = { 1: tr("Étape 1 sur 4"), 2: tr("Étape 2 sur 4"), 3: tr("Étape 3 sur 4"), 4: tr("Étape 4 sur 4") };
 const GOAL_PRESETS = [33, 99, 100, 1000];
+// Objectif atteint : 12 petites perles bordeaux et or qui jaillissent du rond.
+const PEARLS = Array.from({ length: 12 }, (_, i) => ({ angle: (i / 12) * 2 * Math.PI, color: i % 2 ? colors.or : colors.bordeaux }));
+
+function Pearls({ burst, radius }) {
+  return PEARLS.map((p, i) => (
+    <Animated.View
+      key={i}
+      pointerEvents="none"
+      style={[
+        s.pearl,
+        {
+          backgroundColor: p.color,
+          opacity: burst.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] }),
+          transform: [
+            { translateX: burst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(p.angle) * radius] }) },
+            { translateY: burst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(p.angle) * radius] }) },
+            { scale: burst.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0.4, 1.1, 0.6] }) },
+          ],
+        },
+      ]}
+    />
+  ));
+}
 
 function BigRing({ progress, size, reached, children, scale, pulse }) {
   const stroke = 14;
@@ -50,8 +72,8 @@ export default function DhikrAnimation() {
   const [libreBase, setLibreBase] = useState({});
   const [apresBase, setApresBase] = useState(null);
   const live = useRef({});
-  const [goalOverride, setGoalOverride] = useState({}); // « Sans objectif » : préférence locale, non envoyée au serveur
   const [goalSheet, setGoalSheet] = useState(false);
+  const [goalDraft, setGoalDraft] = useState(33);
   const [addSheet, setAddSheet] = useState(false);
   const [create, setCreate] = useState({ name: '', arabic: '', meaning: '', goal: 33 });
   const [busy, setBusy] = useState(false);
@@ -62,6 +84,7 @@ export default function DhikrAnimation() {
   const halo = useRef(new Animated.Value(0)).current;
   const ripple = useRef(new Animated.Value(0)).current;
   const phraseShift = useRef(new Animated.Value(0)).current;
+  const burst = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
@@ -77,8 +100,9 @@ export default function DhikrAnimation() {
   const curKey = current?.key;
   const baseOf = (k) => (mode === 'apres' ? apresBase?.[k] ?? dayCount(k) : libreBase[k] || 0);
   const count = curKey ? Math.max(0, dayCount(curKey) - baseOf(curKey)) : 0;
-  const goal = mode === 'libre' && curKey && goalOverride[curKey] ? goalOverride[curKey] : current?.goal;
-  const endless = goal === Infinity;
+  const goal = current?.goal;
+  // Objectif 0 = « Sans objectif » (enregistré sur le serveur).
+  const endless = goal === 0;
   const target = endless ? 0 : goal || 33;
   const reached = !endless && count >= target;
   const total = Object.keys({ ...all, ...live.current }).reduce((n, k) => n + dayCount(k), 0);
@@ -93,6 +117,22 @@ export default function DhikrAnimation() {
     if (data && mode === 'apres' && !apresBase) startTasbih();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, mode]);
+
+  // Objectif atteint : halo doré qui pulse doucement tant que l'objectif reste atteint.
+  useEffect(() => {
+    if (!reached || reduceMotion) {
+      halo.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(halo, { toValue: 0.55, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(halo, { toValue: 0.2, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reached, reduceMotion, halo]);
 
   if (loading && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><Loader /></View>;
   if (error && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><ErrorState error={error} /></View>;
@@ -118,11 +158,8 @@ export default function DhikrAnimation() {
 
   const celebrate = () => {
     if (reduceMotion) return;
-    halo.setValue(0);
-    Animated.sequence([
-      Animated.timing(halo, { toValue: 1, duration: 260, useNativeDriver: true }),
-      Animated.timing(halo, { toValue: 0.5, duration: 900, useNativeDriver: true }),
-    ]).start();
+    burst.setValue(0);
+    Animated.timing(burst, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   };
 
   const tap = () => {
@@ -156,13 +193,13 @@ export default function DhikrAnimation() {
       // ignoré : préférence visuelle seulement
     }
   };
-  const saveGoal = async (g) => {
+  const openGoal = () => {
+    setGoalDraft(endless ? Infinity : target);
+    setGoalSheet(true);
+  };
+  const saveGoal = async (choice) => {
     setGoalSheet(false);
-    if (g === Infinity) {
-      setGoalOverride((o) => ({ ...o, [curKey]: Infinity }));
-      return;
-    }
-    setGoalOverride((o) => { const n = { ...o }; delete n[curKey]; return n; });
+    const g = choice === Infinity ? 0 : choice;
     if (!current?.personal) {
       await api.put('/dhikr/list', { list: list.map((d) => (d.key === curKey ? { key: d.key, goal: g } : { key: d.key, goal: d.goal })) }).catch(() => {});
     } else {
@@ -172,17 +209,36 @@ export default function DhikrAnimation() {
   };
   const createPhrase = async () => {
     setBusy(true);
-    const endlessGoal = create.goal === Infinity;
     try {
-      const r = await api.post('/dhikr/custom', { name: create.name.trim(), arabic: create.arabic.trim() || null, goal: endlessGoal ? 1000 : create.goal });
-      if (endlessGoal) setGoalOverride((o) => ({ ...o, [r.key]: Infinity }));
+      const r = await api.post('/dhikr/custom', { name: create.name.trim(), arabic: create.arabic.trim() || null, meaning: create.meaning.trim() || null, goal: create.goal === Infinity ? 0 : create.goal });
       setCreate({ name: '', arabic: '', meaning: '', goal: 33 });
       setAddSheet(false);
       await reload();
       setActiveKey(r.key);
+    } catch (e) {
+      Alert.alert(tr("Ajout impossible"), e.message);
     } finally {
       setBusy(false);
     }
+  };
+
+  // Appui long sur une phrase personnelle : modifier son objectif ou la supprimer.
+  const managePastille = (d) => {
+    if (!d.personal) return;
+    setActiveKey(d.key);
+    Alert.alert(d.name, null, [
+      { text: tr("Modifier l’objectif"), onPress: () => { setGoalDraft(d.goal || Infinity); setGoalSheet(true); } },
+      {
+        text: tr("Supprimer"),
+        style: 'destructive',
+        onPress: async () => {
+          await api.delete(`/dhikr/custom/${d.key}`).catch(() => {});
+          setActiveKey(null);
+          reload();
+        },
+      },
+      { text: tr("Annuler"), style: 'cancel' },
+    ]);
   };
 
   const selectPastille = (key) => {
@@ -234,12 +290,12 @@ export default function DhikrAnimation() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pastilles} style={s.pastilleScroll}>
           {list.map((d) => {
             const c = Math.max(0, dayCount(d.key) - (libreBase[d.key] || 0));
-            const ok = c >= d.goal;
+            const ok = isReached(c, d.goal);
             const on = d.key === (current?.key);
             return (
-              <Pressable key={d.key} onPress={() => selectPastille(d.key)} accessibilityRole="button" accessibilityState={{ selected: on }} style={[s.pastille, on && s.pastilleOn, ok && !on && s.pastilleDone]}>
+              <Pressable key={d.key} onPress={() => selectPastille(d.key)} onLongPress={() => managePastille(d)} accessibilityRole="button" accessibilityState={{ selected: on }} style={[s.pastille, on && s.pastilleOn, ok && !on && s.pastilleDone]}>
                 {ok ? <Icon name="check" size={13} color={on ? colors.white : colors.orText} strokeWidth={2.6} /> : null}
-                <Text style={[s.pastilleText, on && { color: colors.white }, ok && !on && { color: colors.orText }]} numberOfLines={1}>{d.name} {ok ? '' : `${c}/${d.goal}`}</Text>
+                <Text style={[s.pastilleText, on && { color: colors.white }, ok && !on && { color: colors.orText }]} numberOfLines={1}>{d.name} {ok ? '' : d.goal ? `${c}/${d.goal}` : c || ''}</Text>
               </Pressable>
             );
           })}
@@ -268,7 +324,8 @@ export default function DhikrAnimation() {
             <View>
               <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, s.ripple, { borderRadius: ringSize / 2 }, rippleStyle]} />
               <BigRing progress={endless ? (count % 33) / 33 : count / target} reached={reached} size={ringSize} scale={scale} pulse={halo}>
-                <View style={[s.disc, { width: ringSize - 56, height: ringSize - 56, borderRadius: (ringSize - 56) / 2 }]}>
+                <Pearls burst={burst} radius={ringSize * 0.62} />
+                <View style={[s.disc, { width: ringSize - 56, height: ringSize - 56, borderRadius: (ringSize - 56) / 2 }, reached && { backgroundColor: colors.or }]}>
                   <Text style={s.count} adjustsFontSizeToFit numberOfLines={1}>{count}</Text>
                   {endless ? <Text style={s.of}>{tr("sans objectif")}</Text> : <Text style={s.of}>/ {target}</Text>}
                 </View>
@@ -276,7 +333,7 @@ export default function DhikrAnimation() {
               <Animated.Text pointerEvents="none" style={[s.plusOne, plusOneStyle]}>+1</Animated.Text>
             </View>
           </Pressable>
-          <Text style={s.hint}>{mode === 'apres' ? (TASBIH_LABELS[step + 1] + ' · on passe tout seul à la suivante') : tr("Touche le rond pour compter")}</Text>
+          <Text style={s.hint}>{mode === 'apres' ? tr("Étape {0} sur {1} · on passe tout seul à la suivante", [step + 1, steps.length || 4]) : tr("Touche le rond pour compter")}</Text>
         </Animated.View>
       ) : (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -290,9 +347,9 @@ export default function DhikrAnimation() {
           <Text style={s.footBtnText}>{tr("Recommencer")}</Text>
         </Pressable>
         {mode === 'libre' ? (
-          <Pressable onPress={() => setGoalSheet(true)} accessibilityRole="button" style={s.footBtn}>
-            <Icon name="sliders" size={17} color={colors.bordeaux} />
-            <Text style={s.footBtnText}>{tr("Objectif")}</Text>
+          <Pressable onPress={openGoal} accessibilityRole="button" style={[s.footBtn, s.footBtnSoft]}>
+            <Icon name="target" size={17} color={colors.bordeaux} />
+            <Text style={s.footBtnText}>{endless ? tr("Sans objectif") : tr("Objectif {0}", [target])}</Text>
           </Pressable>
         ) : null}
         {Platform.OS !== 'web' ? (
@@ -302,14 +359,24 @@ export default function DhikrAnimation() {
         ) : null}
       </Row>
 
-      <Sheet visible={goalSheet} onClose={() => setGoalSheet(false)} title={tr("Objectif pour {0}", [current?.name || ''])}>
+      <Sheet visible={goalSheet} onClose={() => setGoalSheet(false)} title={tr("Objectif pour {0}", [current?.name || ''])} footer={<Button title={tr("Enregistrer")} onPress={() => saveGoal(goalDraft)} />}>
         <T variant="small">{tr("Remis à zéro chaque jour.")}</T>
         <Row gap={8} style={{ flexWrap: 'wrap' }}>
           {GOAL_PRESETS.map((g) => (
-            <Chip key={g} label={String(g)} selected={target === g} onPress={() => saveGoal(g)} />
+            <Chip key={g} label={String(g)} selected={goalDraft === g} onPress={() => setGoalDraft(g)} />
           ))}
-          <Chip label={tr("Sans objectif")} selected={endless} onPress={() => saveGoal(Infinity)} />
+          <Chip label={tr("Sans objectif")} selected={goalDraft === Infinity} onPress={() => setGoalDraft(Infinity)} />
         </Row>
+        {/* Nombre précis : − / + */}
+        <View style={s.stepper}>
+          <Pressable onPress={() => setGoalDraft((g) => Math.max(1, (g === Infinity ? 33 : g) - 1))} onLongPress={() => setGoalDraft((g) => Math.max(1, (g === Infinity ? 33 : g) - 10))} accessibilityRole="button" accessibilityLabel={tr("Moins")} style={s.stepBtn}>
+            <Text style={s.stepBtnText}>−</Text>
+          </Pressable>
+          <Text style={[s.stepValue, tnum]}>{goalDraft === Infinity ? '∞' : goalDraft}</Text>
+          <Pressable onPress={() => setGoalDraft((g) => Math.min(10000, (g === Infinity ? 33 : g) + 1))} onLongPress={() => setGoalDraft((g) => Math.min(10000, (g === Infinity ? 33 : g) + 10))} accessibilityRole="button" accessibilityLabel={tr("Plus")} style={s.stepBtn}>
+            <Text style={s.stepBtnText}>+</Text>
+          </Pressable>
+        </View>
       </Sheet>
 
       <Sheet
@@ -321,6 +388,7 @@ export default function DhikrAnimation() {
         <T variant="muted">{tr("Une invocation, un verset, une phrase qui te fait du bien.")}</T>
         <Field label={tr("Ma phrase")} value={create.name} onChangeText={(v) => setCreate((c2) => ({ ...c2, name: v.slice(0, 80) }))} />
         <Field label={tr("En arabe (facultatif)")} value={create.arabic} onChangeText={(v) => setCreate((c2) => ({ ...c2, arabic: v }))} />
+        <Field label={tr("Ce que ça veut dire (facultatif)")} value={create.meaning} onChangeText={(v) => setCreate((c2) => ({ ...c2, meaning: v.slice(0, 200) }))} />
         <Label>{tr("Objectif")}</Label>
         <Row gap={8} style={{ flexWrap: 'wrap' }}>
           {GOAL_PRESETS.map((g) => (
@@ -339,11 +407,11 @@ const s = StyleSheet.create({
   topTitle: { fontFamily: fonts.extra, fontSize: 19, color: colors.prune },
   totalBadge: { backgroundColor: colors.sable, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   totalBadgeText: { fontFamily: fonts.bold, fontSize: 12, color: colors.orText },
-  tabs: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: 999, padding: 4, marginTop: 14, borderWidth: 1, borderColor: colors.line },
-  tab: { flex: 1, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  tabOn: { backgroundColor: colors.bordeaux },
+  tabs: { flexDirection: 'row', backgroundColor: colors.line, borderRadius: 16, padding: 4, marginTop: 14 },
+  tab: { flex: 1, minHeight: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  tabOn: { backgroundColor: colors.white, shadowColor: colors.prune, shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   tabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.muted },
-  tabTextOn: { color: colors.white },
+  tabTextOn: { color: colors.bordeaux },
   steps: { flexDirection: 'row', gap: 8, marginTop: 14, justifyContent: 'center' },
   stepBar: { minWidth: 46, height: 30, borderRadius: 999, paddingHorizontal: 12, backgroundColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
@@ -371,6 +439,12 @@ const s = StyleSheet.create({
   plusOne: { position: 'absolute', alignSelf: 'center', top: '42%', fontFamily: fonts.extra, fontSize: 24, color: colors.or },
   hint: { fontFamily: fonts.medium, fontSize: 13, color: colors.muted, marginTop: 14, textAlign: 'center' },
   footBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, borderRadius: 999, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line },
+  footBtnSoft: { backgroundColor: colors.blush, borderColor: colors.blush },
+  pearl: { position: 'absolute', width: 9, height: 9, borderRadius: 5, alignSelf: 'center', top: '50%', left: '50%', marginLeft: -4.5, marginTop: -4.5 },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.creme, borderRadius: 18, padding: 10 },
+  stepBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  stepBtnText: { fontFamily: fonts.bold, fontSize: 22, color: colors.bordeaux },
+  stepValue: { fontFamily: fonts.extra, fontSize: 30, color: colors.bordeaux },
   footBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.bordeaux },
   footIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   footIconOn: { backgroundColor: colors.prune, borderColor: colors.prune },

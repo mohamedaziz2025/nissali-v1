@@ -20,13 +20,16 @@ function datesLabel(days) {
   const month = monthOf(days[days.length - 1].day);
   const sameMonth = days.every((d) => monthOf(d.day) === month);
   if (sameMonth) return tr("les {0} et {1} {2}", [nums.slice(0, -1).join(', '), nums[nums.length - 1], month]);
-  return `les ${days.map((d) => `${dayOf(d.day)} ${monthOf(d.day)}`).join(', ')}`;
+  return tr("les {0}", [days.map((d) => `${dayOf(d.day)} ${monthOf(d.day)}`).join(', ')]);
 }
 
 export default function WhiteDaysCard({ whiteDays, inPeriod, today, onChanged }) {
   const toast = useToast();
   if (!whiteDays?.days?.length) return null;
   const { daysUntil, inProgress, days, fastedToday } = whiteDays;
+  // Pendant les jours blancs : 1er, 2e ou 3e jour.
+  const rank = Math.max(0, days.findIndex((d) => d.day === today));
+  const todayLabel = [tr("Aujourd’hui, 1er jour blanc"), tr("Aujourd’hui, 2e jour blanc"), tr("Aujourd’hui, 3e jour blanc")][rank] || tr("Aujourd’hui, 1er jour blanc");
 
   const jeuner = async () => {
     try {
@@ -58,7 +61,7 @@ export default function WhiteDaysCard({ whiteDays, inPeriod, today, onChanged })
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={s.surtitle}>{tr("JOURS BLANCS")}</Text>
-        <Text style={s.title}>{inProgress ? tr("Aujourd’hui, 1er jour blanc") : tr("Dans {0} jour{1}", [daysUntil, daysUntil > 1 ? 's' : ''])}</Text>
+        <Text style={s.title}>{inProgress ? todayLabel : tr("Dans {0} jour{1}", [daysUntil, daysUntil > 1 ? 's' : ''])}</Text>
         <Text style={s.sub}>{inProgress ? tr("Jeûne recommandé jusqu’au {0} {1}", [dayOf(days[days.length - 1].day), monthOf(days[days.length - 1].day)]) : tr("Jeûne recommandé {0}", [datesLabel(days)])}</Text>
       </View>
       {inProgress ? (

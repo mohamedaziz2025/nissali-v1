@@ -9,7 +9,7 @@ import Icon from '../../components/Icon';
 import { Button, Chip, ErrorState, Field, Label, Loader, OfflineBanner, Ring, Row, Screen, Sheet, T, Toggle, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { plural, useDhikrData } from '../../lib/dhikr';
+import { hasGoal, isReached, plural, ringProgress, useDhikrData } from '../../lib/dhikr';
 import { colors, fonts, tnum } from '../../theme';
 
 import { tr } from '../../lib/i18n';
@@ -44,11 +44,12 @@ function WeekDots({ week, todayReached }) {
 }
 
 function DhikrCard({ d, onPress, onLongPress }) {
-  const reached = d.count >= d.goal;
+  const reached = isReached(d.count, d.goal);
+  const free = !hasGoal(d.goal);
   return (
-    <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={350} accessibilityRole="button" accessibilityLabel={tr("{0}, {1} sur {2}{3}{4}", [d.name, d.count, d.goal, (reached ? tr(", objectif atteint") : ''), (d.personal ? tr(", personnel") : '')])} accessibilityHint={tr("Appui long pour l’objectif, l’ordre ou le retirer")} style={({ pressed }) => [s.row, pressed && { opacity: 0.85 }]}>
-      <Ring progress={d.count / d.goal} size={50} stroke={4} color={reached ? colors.or : colors.bordeaux} track={colors.line}>
-        {reached ? <Icon name="check" size={20} color={colors.or} strokeWidth={2.8} /> : <Text style={[s.ringText, tnum]}>{Math.round(Math.min(1, d.count / d.goal) * 100)}%</Text>}
+    <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={350} accessibilityRole="button" accessibilityLabel={tr("{0}, {1} sur {2}{3}{4}", [d.name, d.count, free ? tr("sans objectif") : d.goal, (reached ? tr(", objectif atteint") : ''), (d.personal ? tr(", personnel") : '')])} accessibilityHint={tr("Appui long pour l’objectif, l’ordre ou le retirer")} style={({ pressed }) => [s.row, pressed && { opacity: 0.85 }]}>
+      <Ring progress={ringProgress(d.count, d.goal)} size={50} stroke={4} color={reached ? colors.or : colors.bordeaux} track={colors.line}>
+        {reached ? <Icon name="check" size={20} color={colors.or} strokeWidth={2.8} /> : <Text style={[s.ringText, tnum]}>{free ? '∞' : `${Math.round(Math.min(1, d.count / d.goal) * 100)}%`}</Text>}
       </Ring>
       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
         <Row gap={6}>
@@ -60,7 +61,7 @@ function DhikrCard({ d, onPress, onLongPress }) {
           ) : null}
         </Row>
         {d.meaning ? <Text style={s.rowMeta} numberOfLines={1}>{d.meaning}</Text> : null}
-        <Text style={[s.rowCount, tnum]}>{d.count} / {d.goal}</Text>
+        <Text style={[s.rowCount, tnum]}>{free ? tr("{0} · sans objectif", [d.count]) : `${d.count} / ${d.goal}`}</Text>
       </View>
       {d.arabic ? <Text style={s.arabic} numberOfLines={1}>{d.arabic}</Text> : null}
     </Pressable>
@@ -84,7 +85,9 @@ export default function Dhikr() {
 
   const list = data.list.map((d) => ({ ...d, count: counts[d.key] || 0 }));
   const total = Object.values(counts).reduce((n, c) => n + c, 0);
-  const reachedCount = list.filter((d) => d.count >= d.goal).length;
+  const reachedCount = list.filter((d) => isReached(d.count, d.goal)).length;
+  // Les dhikr « sans objectif » ne comptent pas dans les objectifs du jour.
+  const withGoal = list.filter((d) => hasGoal(d.goal));
   const settings = user?.dhikr || data.settings || {};
   const max = data.max || 20;
   const full = list.length >= max;
@@ -172,12 +175,12 @@ export default function Dhikr() {
           <Text style={[s.heroTotal, tnum]} adjustsFontSizeToFit numberOfLines={1}>{total}</Text>
           <Text style={s.heroUnit}>{tr("dhikr")}</Text>
         </Row>
-        <View style={s.segments} accessibilityLabel={tr("{0} objectifs atteints sur {1}", [reachedCount, list.length])}>
-          {list.map((d) => (
-            <View key={d.key} style={[s.segment, d.count >= d.goal && { backgroundColor: colors.orClair }]} />
+        <View style={s.segments} accessibilityLabel={tr("{0} objectifs atteints sur {1}", [reachedCount, withGoal.length])}>
+          {withGoal.map((d) => (
+            <View key={d.key} style={[s.segment, isReached(d.count, d.goal) && { backgroundColor: colors.orClair }]} />
           ))}
         </View>
-        <Text style={s.heroSub}>{reachedCount} {tr("objectif")}{reachedCount > 1 ? 's' : ''} {tr("atteint")}{reachedCount > 1 ? 's' : ''} {tr("sur")} {list.length}</Text>
+        <Text style={s.heroSub}>{reachedCount} {tr("objectif")}{reachedCount > 1 ? 's' : ''} {tr("atteint")}{reachedCount > 1 ? 's' : ''} {tr("sur")} {withGoal.length}</Text>
         <WeekDots week={data.week} todayReached={reachedCount > 0} />
         {data.inPeriod ? <Text style={s.heroNote}>{tr("Pendant tes règles, ta série n’est jamais cassée : le dhikr reste recommandé, rien n’est imposé.")}</Text> : null}
       </View>
@@ -207,14 +210,14 @@ export default function Dhikr() {
       </Row>
       <View style={{ gap: 10 }}>
         {list.map((d) => (
-          <DhikrCard key={d.key} d={d} onPress={() => router.push(`/dhikr/compteur?key=${d.key}`)} onLongPress={() => setEdit({ key: d.key, goal: d.goal, name: d.name, arabic: d.arabic, personal: d.personal, free: !data.goalChoices.includes(d.goal) })} />
+          <DhikrCard key={d.key} d={d} onPress={() => router.push(`/dhikr/compteur?key=${d.key}`)} onLongPress={() => setEdit({ key: d.key, goal: d.goal, name: d.name, arabic: d.arabic, personal: d.personal, free: d.goal !== 0 && !data.goalChoices.includes(d.goal) })} />
         ))}
       </View>
       <T variant="small" style={{ marginTop: 12 }}>{tr("Appui long sur un dhikr : objectif, ordre (le même que sur l’accueil) ou le retirer. Les compteurs repartent à zéro chaque jour à minuit.")}</T>
       <T variant="small" style={{ marginTop: 6 }}>{tr("Textes arabes, phonétique et sens validés par le comité religieux. Les dhikr « Personnel » ne sont vus que par toi.")}</T>
 
       {/* Appui long : objectif, ordre, retirer (et texte pour un dhikr personnel) */}
-      <Sheet visible={Boolean(edit)} onClose={() => setEdit(null)} title={edit?.personal ? tr("Mon dhikr") : edit?.name || ''} footer={<Button title={tr("Enregistrer")} disabled={!edit?.goal || (edit?.personal && (edit.name || '').trim().length < 2)} onPress={saveEdit} />}>
+      <Sheet visible={Boolean(edit)} onClose={() => setEdit(null)} title={edit?.personal ? tr("Mon dhikr") : edit?.name || ''} footer={<Button title={tr("Enregistrer")} disabled={(edit?.free && !edit?.goal) || (edit?.personal && (edit.name || '').trim().length < 2)} onPress={saveEdit} />}>
         {edit?.personal ? (
           <>
             <Field label={tr("Texte")} value={edit.name} onChangeText={(v) => setEdit((e) => ({ ...e, name: v.slice(0, 80) }))} />
@@ -226,6 +229,7 @@ export default function Dhikr() {
           {data.goalChoices.map((g) => (
             <Chip key={g} label={String(g)} selected={!edit?.free && edit?.goal === g} onPress={() => setEdit((e) => ({ ...e, goal: g, free: false }))} />
           ))}
+          <Chip label={tr("Sans objectif")} selected={!edit?.free && edit?.goal === 0} onPress={() => setEdit((e) => ({ ...e, goal: 0, free: false }))} />
           <Chip label={tr("Autre nombre")} selected={Boolean(edit?.free)} onPress={() => setEdit((e) => ({ ...e, free: true }))} />
         </Row>
         {edit?.free ? <Field label={tr("Nombre")} keyboardType="number-pad" value={edit.goal ? String(edit.goal) : ''} onChangeText={(v) => setEdit((e) => ({ ...e, goal: Math.min(10000, Number(v.replace(/\D/g, '')) || 0) }))} /> : null}
@@ -247,6 +251,7 @@ export default function Dhikr() {
             {data.goalChoices.map((g) => (
               <Chip key={g} label={String(g)} selected={create.goal === g} onPress={() => setCreate((c) => ({ ...c, goal: g }))} />
             ))}
+            <Chip label={tr("Sans objectif")} selected={create.goal === 0} onPress={() => setCreate((c) => ({ ...c, goal: 0 }))} />
           </Row>
           <Button title={tr("Créer")} small loading={busy} disabled={full || create.name.trim().length < 2 || busy} onPress={createDhikr} />
           <T variant="small">{tr("Il apparaît avec la mention « Personnel ». Vu par toi seule, jamais publié.")}</T>

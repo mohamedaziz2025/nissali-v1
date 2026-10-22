@@ -64,6 +64,20 @@ const ICONS = {
       <Path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
     </>
   ),
+  target: (
+    <>
+      <Circle cx="12" cy="12" r="8.5" />
+      <Circle cx="12" cy="12" r="4.5" />
+      <Path d="M12 12h.01" />
+    </>
+  ),
+  pause: <Path d="M9 6.5v11M15 6.5v11" />,
+  smile: (
+    <>
+      <Circle cx="12" cy="12" r="8.5" />
+      <Path d="M8.6 14.2c.8 1.2 2 1.9 3.4 1.9s2.6-.7 3.4-1.9M9.3 10h.01M14.7 10h.01" />
+    </>
+  ),
   stop: <Rect x="7" y="7" width="10" height="10" rx="2" />,
   user: (
     <>

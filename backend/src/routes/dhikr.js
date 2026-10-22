@@ -27,7 +27,7 @@ async function dhikrToday(user) {
 /** Fiche d'un dhikr : bibliothèque (back-office) ou dhikr personnel de l'utilisatrice (RG-48). */
 function entryOf(user, cat, key) {
   const own = (user.dhikr?.custom || []).find((c) => c.key === key);
-  if (own) return { key, arabic: own.arabic || '', name: own.name, meaning: '', goal: own.goal, personal: true };
+  if (own) return { key, arabic: own.arabic || '', name: own.name, meaning: own.meaning || '', goal: own.goal, personal: true };
   return cat.byKey.get(key) || null;
 }
 
@@ -37,15 +37,18 @@ export function dhikrList(user, cat) {
   return list.filter((d) => entryOf(user, cat, d.key));
 }
 
+// Objectif 0 = « Sans objectif » : on compte librement, le dhikr n'est jamais « atteint » (ni série, ni segment doré).
+const isReached = (count, goal) => goal > 0 && count >= goal;
+
 function recompute(doc, user, cat) {
   const list = dhikrList(user, cat);
   let total = 0;
   const reached = [];
   for (const [key, count] of doc.counts) {
     total += count;
-    const goal = list.find((d) => d.key === key)?.goal || entryOf(user, cat, key)?.goal || 33;
+    const goal = list.find((d) => d.key === key)?.goal ?? entryOf(user, cat, key)?.goal ?? 33;
     doc.goals.set(key, goal);
-    if (count >= goal && list.some((d) => d.key === key)) reached.push(key);
+    if (isReached(count, goal) && list.some((d) => d.key === key)) reached.push(key);
   }
   doc.total = total;
   doc.reached = reached;
@@ -91,14 +94,14 @@ router.get('/', async (req, res) => {
   const counts = today?.counts || {};
   const list = dhikrList(req.user, cat).map(({ key, goal }) => {
     const count = counts[key] || 0;
-    return card(entryOf(req.user, cat, key), { goal, count, reached: count >= goal });
+    return card(entryOf(req.user, cat, key), { goal, count, reached: isReached(count, goal) });
   });
   res.json({
     day,
     total: today?.total || 0,
     dailyGoal: req.user.dhikr?.dailyGoal || 250,
     reachedCount: list.filter((d) => d.reached).length,
-    goalsCount: list.length,
+    goalsCount: list.filter((d) => d.goal > 0).length,
     streak,
     inPeriod,
     week,
@@ -135,7 +138,7 @@ router.put(
 // Mes dhikr du jour : ordre, ajouts (bibliothèque ou dhikr personnels) et objectifs (33, 99, 100 ou libre). Max 20.
 router.put(
   '/list',
-  validate(z.object({ list: z.array(z.object({ key: z.string().max(40), goal: z.number().int().min(1).max(10000) })).min(1, 'Garde au moins un dhikr').max(MAX_DHIKR, `${MAX_DHIKR} dhikr au maximum dans ta liste`) })),
+  validate(z.object({ list: z.array(z.object({ key: z.string().max(40), goal: z.number().int().min(0).max(10000) })).min(1, 'Garde au moins un dhikr').max(MAX_DHIKR, `${MAX_DHIKR} dhikr au maximum dans ta liste`) })),
   async (req, res) => {
     const cat = await dhikrCatalog();
     const seen = new Set();
@@ -147,19 +150,20 @@ router.put(
   },
 );
 
-// RG-48 — Créer mon dhikr : texte libre (2 à 80 caractères), arabe facultatif, objectif (33 par défaut).
+// RG-48 — Créer mon dhikr : texte libre (2 à 80 caractères), arabe et sens facultatifs, objectif (33 par défaut).
 // Il s'ajoute à la liste du jour avec la mention « Personnel ».
 const customSchema = z.object({
   name: z.string().trim().min(2, 'Au moins 2 caractères').max(80, '80 caractères au maximum'),
   arabic: z.string().trim().max(200).optional().nullable(),
-  goal: z.number().int().min(1).max(10000).default(33),
+  meaning: z.string().trim().max(200).optional().nullable(),
+  goal: z.number().int().min(0).max(10000).default(33), // 0 = sans objectif
 });
 router.post('/custom', validate(customSchema), async (req, res) => {
   const cat = await dhikrCatalog();
   const list = dhikrList(req.user, cat);
   if (list.length >= MAX_DHIKR) throw badRequest(`${MAX_DHIKR} dhikr au maximum dans ta liste : retires-en un d’abord.`);
   const key = `perso_${randomBytes(5).toString('hex')}`;
-  req.user.set('dhikr.custom', [...(req.user.dhikr?.custom || []), { key, name: req.body.name, arabic: req.body.arabic || '', goal: req.body.goal }]);
+  req.user.set('dhikr.custom', [...(req.user.dhikr?.custom || []), { key, name: req.body.name, arabic: req.body.arabic || '', meaning: req.body.meaning || '', goal: req.body.goal }]);
   req.user.set('dhikr.list', [...list.map(({ key: k, goal }) => ({ key: k, goal })), { key, goal: req.body.goal }]);
   await req.user.save();
   res.status(201).json({ key, list: dhikrList(req.user, cat) });
@@ -168,9 +172,10 @@ router.patch('/custom/:key', validate(customSchema.partial()), async (req, res) 
   const custom = req.user.dhikr?.custom || [];
   const c = custom.find((x) => x.key === req.params.key);
   if (!c) throw notFound('Dhikr introuvable');
-  for (const k of ['name', 'arabic', 'goal']) if (req.body[k] !== undefined) c[k] = req.body[k] || (k === 'arabic' ? '' : c[k]);
-  req.user.set('dhikr.custom', custom.map((x) => (x.key === c.key ? { key: c.key, name: c.name, arabic: c.arabic, goal: c.goal } : x)));
-  if (req.body.goal) req.user.set('dhikr.list', (req.user.dhikr?.list || []).map((d) => (d.key === c.key ? { key: d.key, goal: req.body.goal } : d)));
+  for (const k of ['name', 'arabic', 'meaning']) if (req.body[k] !== undefined) c[k] = req.body[k] || (k === 'name' ? c[k] : '');
+  if (req.body.goal !== undefined) c.goal = req.body.goal;
+  req.user.set('dhikr.custom', custom.map((x) => (x.key === c.key ? { key: c.key, name: c.name, arabic: c.arabic, meaning: c.meaning || '', goal: c.goal } : x)));
+  if (req.body.goal !== undefined) req.user.set('dhikr.list', (req.user.dhikr?.list || []).map((d) => (d.key === c.key ? { key: d.key, goal: req.body.goal } : d)));
   await req.user.save();
   res.json({ ok: true });
 });

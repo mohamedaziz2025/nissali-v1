@@ -208,7 +208,7 @@ function DailyLog({ day, onDirty }) {
           <T variant="small">{tr("Arrondie à 0,05 °C. Une hausse durable de température ou un test positif affine l’estimation de ton ovulation.")}</T>
       </Card>
 
-      <Field label={tr("Notes")} value={log.notes || ''} onChangeText={set('notes')} multiline placeholder={tr("Ce que tu veux retenir de ta journée")} />
+      <Field label={tr("Notes")} value={log.notes || ''} onChangeText={(v) => set('notes')(v.slice(0, 1000))} multiline placeholder={tr("Ce que tu veux retenir de ta journée")} />
       <Button title={tr("Enregistrer")} onPress={save} loading={busy} disabled={!dirty || busy} />
       <T variant="small" style={{ textAlign: 'center' }}>{tr("Données de santé chiffrées, jamais affichées dans les notifications.")}</T>
     </View>
