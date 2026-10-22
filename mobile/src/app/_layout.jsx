@@ -6,6 +6,7 @@ import {
   Cairo_700Bold,
   Cairo_800ExtraBold,
 } from '@expo-google-fonts/cairo';
+import { Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
 import { Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import {
   PlusJakartaSans_400Regular,
@@ -45,6 +46,7 @@ export default function RootLayout() {
     Cairo_700Bold,
     Cairo_800ExtraBold,
     Poppins_600SemiBold,
+    Fraunces_600SemiBold,
     Amiri_700Bold,
   });
 

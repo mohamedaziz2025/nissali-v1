@@ -44,6 +44,7 @@ export const fonts = {
   bold: UI.bold,
   extra: UI.extra,
   logo: 'Poppins_600SemiBold',
+  serif: 'Fraunces_600SemiBold', // « Nissali » en grand sur l'écran de bienvenue
   arabic: 'Amiri_700Bold',
 };
 
