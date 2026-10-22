@@ -65,7 +65,7 @@ export function AccountSheet({ visible, onClose }) {
         <SpaceRow
           icon="briefcase"
           title={tr("Espace pro")}
-          subtitle={`${practitioner.displayName} · ${(practitioner.status === 'validee' ? `formule ${(practitioner.plan?.name || tr("Découverte"))}` : tr("en cours de validation"))}`}
+          subtitle={`${practitioner.displayName} · ${(practitioner.status === 'validee' ? `formule ${practitioner.plan?.name || tr("Découverte")}` : tr("en cours de validation"))}`}
           active={current === 'pro'}
           badge={practitioner.pendingBookings || null}
           onPress={() => choose('pro')}

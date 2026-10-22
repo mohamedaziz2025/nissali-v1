@@ -124,7 +124,7 @@ export default function ClientFile() {
         <Stat label={tr("Fréquence")} value={st.averageGapDays ? `${st.averageGapDays} j` : '—'} hint={tr("{0} abs. · {1} annul.", [st.noShows, st.cancellations])} />
       </Row>
       <Gap />
-      <Chips items={STATUSES} value={data.status} onChange={(v) => run(() => api.patch(`/pro/clients/${id}`, { status: v }), 'Statut mis à jour')} scroll />
+      <Chips items={STATUSES} value={data.status} onChange={(v) => run(() => api.patch(`/pro/clients/${id}`, { status: v }), tr("Statut mis à jour"))} scroll />
       <Gap />
       <Segmented
         items={[
@@ -155,7 +155,7 @@ export default function ClientFile() {
                 run(async () => {
                   await api.post(`/pro/clients/${id}/notes`, { kind: note.kind, title: note.title || undefined, content: note.content });
                   setNote({ kind: 'seance', title: '', content: '' });
-                }, 'Note ajoutée')
+                }, tr("Note ajoutée"))
               }
             />
           </Card>
@@ -190,13 +190,13 @@ export default function ClientFile() {
           <Button
             title={tr("Enregistrer")}
             loading={busy}
-            onPress={() => run(() => api.patch(`/pro/clients/${id}`, { profile: info.profile, tags: tags.split(',').map((t) => t.trim()).filter(Boolean) }), 'Informations enregistrées')}
+            onPress={() => run(() => api.patch(`/pro/clients/${id}`, { profile: info.profile, tags: tags.split(',').map((t) => t.trim()).filter(Boolean) }), tr("Informations enregistrées"))}
           />
           <Button
             title={data.consent?.given ? tr("Consentement recueilli ✓ (retirer)") : tr("La cliente consent à la conservation de sa fiche")}
             variant={data.consent?.given ? 'soft' : 'outline'}
             small
-            onPress={() => run(() => api.patch(`/pro/clients/${id}`, { consent: !data.consent?.given }), 'Consentement mis à jour')}
+            onPress={() => run(() => api.patch(`/pro/clients/${id}`, { consent: !data.consent?.given }), tr("Consentement mis à jour"))}
           />
         </Card>
       ) : null}
@@ -209,7 +209,7 @@ export default function ClientFile() {
           <Field label={tr("Allergies et contre-indications")} value={info.care.allergies || ''} onChangeText={setP('care', 'allergies')} />
           <Field label={tr("Traitements en cours")} value={info.care.treatments || ''} onChangeText={setP('care', 'treatments')} />
           <Field label={tr("Objectifs de l’accompagnement")} value={info.care.goals || ''} onChangeText={setP('care', 'goals')} multiline />
-          <Button title={tr("Enregistrer")} loading={busy} onPress={() => run(() => api.patch(`/pro/clients/${id}`, { care: info.care }), 'Suivi enregistré')} />
+          <Button title={tr("Enregistrer")} loading={busy} onPress={() => run(() => api.patch(`/pro/clients/${id}`, { care: info.care }), tr("Suivi enregistré"))} />
         </Card>
       ) : null}
 

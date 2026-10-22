@@ -52,7 +52,7 @@ function Bubble({ m, first, last, otherName, maxWidth, onLongPress, onOpenImage,
   }
   return (
     <View style={{ alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: grouped.length ? 14 : 0 }}>
-      <Pressable onLongPress={() => onLongPress(m)} delayLongPress={280} onPress={m.image ? () => onOpenImage(m) : undefined} accessibilityRole={m.image ? 'imagebutton' : 'text'} accessibilityLabel={`${(mine ? tr("Toi") : otherName)} : ${m.text || 'photo'}`} accessibilityHint={tr("Appui long pour réagir ou répondre")}>
+      <Pressable onLongPress={() => onLongPress(m)} delayLongPress={280} onPress={m.image ? () => onOpenImage(m) : undefined} accessibilityRole={m.image ? 'imagebutton' : 'text'} accessibilityLabel={`${mine ? tr("Toi") : otherName} : ${m.text || 'photo'}`} accessibilityHint={tr("Appui long pour réagir ou répondre")}>
         <View style={[s.bubble, mine ? s.mine : s.other, corner, { maxWidth }, m.image && !m.text && s.photoOnly, m.pending && { opacity: 0.6 }]}>
           <ReplyQuote reply={m.reply} mine={mine} otherName={otherName} />
           {m.image ? (

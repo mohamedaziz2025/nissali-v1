@@ -63,7 +63,7 @@ export default function Notifications() {
           <View key={g.key} style={{ marginBottom: 18, gap: 10 }}>
             <Text style={s.group}>{g.label}</Text>
             {g.items.map((n) => (
-              <Pressable key={n.id} onPress={() => open(n)} accessibilityRole="button" accessibilityLabel={`${(n.read ? '' : tr("Non lue. "))}${n.title !== 'Nissali' ? `${n.title}. ` : ''}${n.detail || n.body}`} style={({ pressed }) => [s.card, n.read && s.cardRead, pressed && { opacity: 0.85 }]}>
+              <Pressable key={n.id} onPress={() => open(n)} accessibilityRole="button" accessibilityLabel={`${n.read ? '' : tr("Non lue. ")}${n.title !== 'Nissali' ? `${n.title}. ` : ''}${n.detail || n.body}`} style={({ pressed }) => [s.card, n.read && s.cardRead, pressed && { opacity: 0.85 }]}>
                 <View style={[s.icon, n.read && { backgroundColor: colors.white }]}>
                   <Icon name={ICONS[n.type] || 'bell'} size={17} color={colors.bordeaux} />
                 </View>

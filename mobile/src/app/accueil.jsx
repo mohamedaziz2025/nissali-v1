@@ -11,7 +11,7 @@ import { ChoiceCard, NumberWheel, SignupShell } from '../components/Signup';
 import { Checkbox, Loader, T, Toggle } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { addDays, dayMonth, longDate, toDay } from '../lib/format';
+import { addDays, dayMonth, longDate, today as serverToday } from '../lib/format';
 import { ensurePermission } from '../lib/notifications';
 import { readJson, writeJson } from '../lib/storage';
 import { colors, fonts, PRAYER_LABELS } from '../theme';
@@ -25,7 +25,7 @@ export default function Onboarding() {
   const { user, setSession } = useAuth();
   const { width } = useWindowDimensions();
   const married = user?.situation === 'mariee';
-  const today = toDay(new Date());
+  const today = serverToday();
   const [a, setA] = useState({ lastPeriod: null, unknownLast: false, month: today.slice(0, 7), cycleLength: 28, periodLength: 5, unknownLengths: false, goal: married ? null : 'suivre', pro: null, prayers: true, essentials: true, submitted: false });
   const [key, setKey] = useState('regles');
   const [loaded, setLoaded] = useState(false);
@@ -114,7 +114,7 @@ export default function Onboarding() {
 
   const cycleSteps = steps.filter((k) => ['regles', 'durees', 'objectif'].includes(k));
   const lastSteps = steps.filter((k) => ['praticienne', 'notifications', 'pret'].includes(k));
-  const section = cycleSteps.includes(key) ? { section: 'Ton cycle', index: cycleSteps.indexOf(key) + 1, count: cycleSteps.length } : { section: 'Dernière étape', index: lastSteps.indexOf(key) + 1, count: lastSteps.length };
+  const section = cycleSteps.includes(key) ? { section: tr("Ton cycle"), index: cycleSteps.indexOf(key) + 1, count: cycleSteps.length } : { section: tr("Dernière étape"), index: lastSteps.indexOf(key) + 1, count: lastSteps.length };
 
   const valid = {
     regles: a.unknownLast || Boolean(a.lastPeriod),
@@ -196,7 +196,7 @@ export default function Onboarding() {
           <Icon name="sun" size={20} color={colors.bordeaux} />
           <View style={{ flex: 1 }}>
             <Text style={s.readyLabel}>{tr("Prochaine prière à")} {summary.prayers?.city || user?.city?.name}</Text>
-            <Text style={s.readyValue}>{summary.prayers?.next ? `${PRAYER_LABELS[summary.prayers.next.key]} · ${summary.prayers.next.time || summary.prayers.tomorrowFajr || ''}${(summary.prayers.next.tomorrow ? tr(" (demain)") : '')}` : '—'}</Text>
+            <Text style={s.readyValue}>{summary.prayers?.next ? `${PRAYER_LABELS[summary.prayers.next.key]} · ${summary.prayers.next.time || summary.prayers.tomorrowFajr || ''}${summary.prayers.next.tomorrow ? tr(" (demain)") : ''}` : '—'}</Text>
           </View>
         </View>
         <Pressable onPress={() => router.push('/horaires')} accessibilityRole="link" style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
@@ -212,7 +212,7 @@ export default function Onboarding() {
     objectif: [tr("Ton objectif"), tr("Tu pourras le changer dans ton profil.")],
     praticienne: [tr("Es-tu aussi praticienne ?"), tr("Tu peux proposer tes services dans Nissali, maintenant ou plus tard.")],
     notifications: [tr("Tes notifications"), tr("Le bouton ci-dessous demande l’autorisation du téléphone.")],
-    pret: [`C’est prêt, ${user?.firstName || ''} !`, 'Voici ce qui t’attend.'],
+    pret: [tr("C’est prêt, {0} !", [user?.firstName || '']), tr("Voici ce qui t’attend.")],
   }[key];
 
   if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.ivoire }} />;

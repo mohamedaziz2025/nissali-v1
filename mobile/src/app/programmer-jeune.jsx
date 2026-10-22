@@ -70,7 +70,7 @@ function MultiCalendar({ today, value, onChange }) {
           const info = byDay.get(d);
           const period = info?.period === 'prevue' || info?.period === 'reelle';
           return (
-            <Pressable key={d} disabled={past} onPress={() => toggle(d)} accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: past }} accessibilityLabel={`${chipDay(d, true)}${(period ? tr(", règles prévues") : '')}`} style={{ width: cell, height: cell, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable key={d} disabled={past} onPress={() => toggle(d)} accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: past }} accessibilityLabel={`${chipDay(d, true)}${period ? tr(", règles prévues") : ''}`} style={{ width: cell, height: cell, alignItems: 'center', justifyContent: 'center' }}>
               <View style={[s.day, { width: cell - 8, height: cell - 8, borderRadius: cell }, period && !on && { backgroundColor: colors.blush }, on && { backgroundColor: colors.or }]}>
                 <Text style={[s.dayNum, past && { color: colors.caseVide }, period && !on && { color: colors.bordeaux }, on && { color: colors.white, fontFamily: fonts.extra }]}>{Number(d.slice(8))}</Text>
               </View>

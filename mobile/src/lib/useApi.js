@@ -1,8 +1,12 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { getCached } from './api';
 
-/** Lecture d'une ressource, rechargée à chaque retour sur l'écran, avec repli hors connexion. */
+/**
+ * Lecture d'une ressource, rechargée à chaque retour sur l'écran et au retour de l'appli au premier plan
+ * (le jour a pu changer : jour des règles, prières…), avec repli hors connexion.
+ */
 export function useApi(path, { enabled = true } = {}) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -31,6 +35,8 @@ export function useApi(path, { enabled = true } = {}) {
   useFocusEffect(
     useCallback(() => {
       load();
+      const sub = AppState.addEventListener('change', (st) => st === 'active' && load());
+      return () => sub.remove();
     }, [load]),
   );
 

@@ -57,12 +57,12 @@ export default function PrayerSettings() {
     setSoundFor(null);
   };
   const followLocation = async (on) => {
-    if (!on) return patch({ followLocation: false }, 'Horaires calculés pour ta ville enregistrée');
+    if (!on) return patch({ followLocation: false }, tr("Horaires calculés pour ta ville enregistrée"));
     const session = await syncLocation(user, { ask: true, force: true });
     if (session) {
       await setSession(session);
       toast(tr("Horaires à ta position : {0}", [session.user.city?.name]));
-    } else await patch({ followLocation: true }, 'Autorise la localisation dans les réglages du téléphone');
+    } else await patch({ followLocation: true }, tr("Autorise la localisation dans les réglages du téléphone"));
   };
   const place = (src.mode === 'mosquee' && prayers.data?.source?.label) || user.city?.name || '—';
 
@@ -103,7 +103,7 @@ export default function PrayerSettings() {
           );
         })}
         <Text style={s.label}>{tr("Me prévenir")}</Text>
-        <Segment items={OFFSETS} value={ps.notifyOffset || 0} onChange={(v) => patch({ notifyOffset: v }, v ? `Rappel ${v} min avant` : 'Rappel à l’heure')} />
+        <Segment items={OFFSETS} value={ps.notifyOffset || 0} onChange={(v) => patch({ notifyOffset: v }, v ? tr("Rappel {0} min avant", [v]) : tr("Rappel à l’heure"))} />
         <Pressable onPress={() => setVoiceOpen(true)} accessibilityRole="button" style={[s.row, { marginTop: 4 }]}>
           <Icon name="volume" size={18} color={colors.bordeaux} />
           <Text style={[s.rowTitle, { flex: 1 }]}>{tr("Voix de l’adhan et test")}</Text>
@@ -119,7 +119,7 @@ export default function PrayerSettings() {
         }}
       >
         <Text style={s.label}>{tr("Sur l’accueil")}</Text>
-        <Segment items={[{ key: 'horaires', label: tr("Afficher les horaires") }, { key: 'ligne', label: tr("Réduire en une ligne") }]} value={ps.periodHome || 'horaires'} onChange={(v) => patch({ periodHome: v }, 'Accueil mis à jour')} />
+        <Segment items={[{ key: 'horaires', label: tr("Afficher les horaires") }, { key: 'ligne', label: tr("Réduire en une ligne") }]} value={ps.periodHome || 'horaires'} onChange={(v) => patch({ periodHome: v }, tr("Accueil mis à jour"))} />
         <Toggle label={tr("Garder les rappels de prière")} hint={tr("Sans adhan, avec un texte neutre « Petit rappel »")} value={Boolean(ps.keepRemindersDuringPeriod)} onChange={(v) => patch({ keepRemindersDuringPeriod: v })} />
         <Toggle label={tr("Garder le rappel de dhikr")} hint={tr("Le dhikr reste recommandé pendant les règles")} value={ps.keepDhikrDuringPeriod !== false} onChange={(v) => patch({ keepDhikrDuringPeriod: v })} />
         <Toggle label={tr("Un dhikr à l’heure de chaque prière")} hint={tr("À la place du rappel de prière, si les rappels sont coupés")} value={Boolean(ps.dhikrDuringPeriod)} onChange={(v) => patch({ dhikrDuringPeriod: v })} />
@@ -145,7 +145,7 @@ export default function PrayerSettings() {
         })}
         <T variant="small">{tr("Sur iPhone, l’adhan joué appli fermée dure 30 secondes au plus (limite d’Apple).")}</T>
       </Sheet>
-      <Sheet visible={Boolean(adjust)} onClose={() => setAdjust(null)} title={tr("Ajuster mes horaires")} footer={<Pressable onPress={() => { patch({ adjustments: adjust }, 'Horaires ajustés'); setAdjust(null); }} accessibilityRole="button" style={s.save}><Text style={s.saveText}>{tr("Enregistrer")}</Text></Pressable>}>
+      <Sheet visible={Boolean(adjust)} onClose={() => setAdjust(null)} title={tr("Ajuster mes horaires")} footer={<Pressable onPress={() => { patch({ adjustments: adjust }, tr("Horaires ajustés")); setAdjust(null); }} accessibilityRole="button" style={s.save}><Text style={s.saveText}>{tr("Enregistrer")}</Text></Pressable>}>
         {PRAYERS.map((p) => (
           <Stepper key={p} label={PRAYER_LABELS[p]} value={adjust?.[p] || 0} onChange={(v) => setAdjust((d) => ({ ...d, [p]: v }))} min={-30} max={30} suffix=" min" />
         ))}

@@ -190,7 +190,7 @@ function FeaturedEvent({ e }) {
     if (!e.ticketUrl) return open();
     (Platform.OS === 'web' ? Linking.openURL(e.ticketUrl) : WebBrowser.openBrowserAsync(e.ticketUrl)).catch(() => Linking.openURL(e.ticketUrl));
   };
-  const action = e.free ? (e.registered ? 'Voir mon inscription' : 'Je m’inscris') : e.ticketUrl ? (/billetweb\.fr/i.test(e.ticketUrl) ? 'Réserver sur Billetweb' : 'Réserver ma place') : 'Billetterie à venir';
+  const action = e.free ? (e.registered ? tr("Voir mon inscription") : tr("Je m’inscris")) : e.ticketUrl ? (/billetweb\.fr/i.test(e.ticketUrl) ? tr("Réserver sur Billetweb") : tr("Réserver ma place")) : tr("Billetterie à venir");
   return (
     <View style={s.featured}>
       <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`${e.title}, ${e.free ? 'gratuit' : euros(e.price)}`} style={({ pressed }) => pressed && { opacity: 0.95 }}>

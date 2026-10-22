@@ -1,5 +1,5 @@
 // Identité visuelle Nissali — fiche technique du design (cahier V4.1, partie 4.11).
-import { language, tr } from './lib/i18n';
+import { isRTL, tr } from './lib/i18n';
 export const colors = {
   bordeaux: '#7A1E35', // boutons, blocs forts, actif, prochaine prière, compteur de dhikr
   prune: '#2A1218', // encre : textes, puces choisies
@@ -28,35 +28,21 @@ export const colors = {
   danger: '#B3261E', // suppression uniquement
 };
 
-// Plus Jakarta Sans partout ; Poppins SemiBold seulement pour le mot « nissali » du logo ; Amiri pour l'arabe.
-// En arabe, l'interface passe en Cairo (la police latine n'a pas de glyphes arabes) : le logo reste en Poppins
-// et les textes religieux en Amiri, dans tous les cas.
-const UI = language === 'ar'
-  ? {
-      display: 'Cairo_800ExtraBold',
-      title: 'Cairo_800ExtraBold',
-      titleSemi: 'Cairo_700Bold',
-      italic: 'Cairo_500Medium',
-      body: 'Cairo_400Regular',
-      medium: 'Cairo_500Medium',
-      semi: 'Cairo_600SemiBold',
-      bold: 'Cairo_700Bold',
-      extra: 'Cairo_800ExtraBold',
-    }
-  : {
-      display: 'PlusJakartaSans_800ExtraBold',
-      title: 'PlusJakartaSans_800ExtraBold',
-      titleSemi: 'PlusJakartaSans_700Bold',
-      italic: 'PlusJakartaSans_500Medium_Italic',
-      body: 'PlusJakartaSans_400Regular',
-      medium: 'PlusJakartaSans_500Medium',
-      semi: 'PlusJakartaSans_600SemiBold',
-      bold: 'PlusJakartaSans_700Bold',
-      extra: 'PlusJakartaSans_800ExtraBold',
-    };
-
+// Plus Jakarta Sans partout ; Poppins SemiBold seulement pour le mot « nissali » du logo ; Amiri pour l'arabe des
+// textes religieux. Interface en arabe : Cairo (Plus Jakarta Sans n'a pas de lettres arabes) ; le logo ne change pas.
+const UI = isRTL
+  ? { regular: 'Cairo_400Regular', medium: 'Cairo_500Medium', mediumItalic: 'Cairo_500Medium', semi: 'Cairo_600SemiBold', bold: 'Cairo_700Bold', extra: 'Cairo_800ExtraBold' }
+  : { regular: 'PlusJakartaSans_400Regular', medium: 'PlusJakartaSans_500Medium', mediumItalic: 'PlusJakartaSans_500Medium_Italic', semi: 'PlusJakartaSans_600SemiBold', bold: 'PlusJakartaSans_700Bold', extra: 'PlusJakartaSans_800ExtraBold' };
 export const fonts = {
-  ...UI,
+  display: UI.extra,
+  title: UI.extra,
+  titleSemi: UI.bold,
+  italic: UI.mediumItalic,
+  body: UI.regular,
+  medium: UI.medium,
+  semi: UI.semi,
+  bold: UI.bold,
+  extra: UI.extra,
   logo: 'Poppins_600SemiBold',
   arabic: 'Amiri_700Bold',
 };

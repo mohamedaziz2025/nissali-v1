@@ -10,9 +10,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { DhikrDay, Period } from '../models/index.js';
 import { nowFor } from '../services/context.js';
-import { userTimings } from '../services/prayerSource.js';
 import { dhikrCatalog } from '../services/dhikrCatalog.js';
-import { getSettings } from '../services/settings.js';
 import { addDays, weekday } from '../utils/dates.js';
 import { badRequest, notFound } from '../utils/http.js';
 
@@ -21,16 +19,9 @@ router.use(requireAuth);
 
 const WEEK_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-/** Journée de dhikr en cours : avant Fajr, c'est encore la veille (RG-38). */
+/** Journée de dhikr en cours : la journée civile, remise à 0 à minuit (heure locale, mise à jour Accueil page 6). */
 async function dhikrToday(user) {
-  const { today, time } = nowFor(user);
-  try {
-    const { timings } = await userTimings(user, await getSettings(), today);
-    if (timings?.fajr && time < timings.fajr) return addDays(today, -1);
-  } catch {
-    // horaires indisponibles : la journée civile
-  }
-  return today;
+  return nowFor(user).today;
 }
 
 /** Fiche d'un dhikr : bibliothèque (back-office) ou dhikr personnel de l'utilisatrice (RG-48). */

@@ -32,7 +32,7 @@ export const noteDate = (day) => {
 export function NoteRow({ n, onPress, compact, last }) {
   const d = parseDay(n.day);
   return (
-    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${n.text}, ${noteDate(n.day)}${n.time ? ` à ${n.time}` : ''}, ${n.repeatLabel}${(n.paused ? tr(", en pause") : '')}`} style={({ pressed }) => [s.row, !last && s.rowLine, pressed && { opacity: 0.8 }, n.paused && { opacity: 0.55 }]}>
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${n.text}, ${noteDate(n.day)}${n.time ? ` à ${n.time}` : ''}, ${n.repeatLabel}${n.paused ? tr(", en pause") : ''}`} style={({ pressed }) => [s.row, !last && s.rowLine, pressed && { opacity: 0.8 }, n.paused && { opacity: 0.55 }]}>
       {compact ? (
         <View style={s.bar} />
       ) : (

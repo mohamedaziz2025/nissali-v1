@@ -164,6 +164,20 @@ async function dailyMaintenance() {
   }
 }
 
+let translating = false;
+async function translationJob() {
+  if (translating) return;
+  translating = true;
+  try {
+    const { translateContent } = await import('../services/contentTranslation.js');
+    await translateContent({ log: (m) => console.log(`[jobs] traduction · ${m}`) });
+  } catch (e) {
+    console.error('[jobs] traduction', e);
+  } finally {
+    translating = false;
+  }
+}
+
 export function startScheduler() {
   cron.schedule('*/10 * * * *', () => notificationsJob().catch((e) => console.error('[jobs]', e)));
   cron.schedule('* * * * *', () => prayerPushJob().catch((e) => console.error('[jobs] prières', e)));
@@ -172,6 +186,10 @@ export function startScheduler() {
   // Jumu'a des mosquées partenaires depuis Mawaqit (si MAWAQIT_API_TOKEN est défini), chaque nuit.
   cron.schedule('40 3 * * *', () => syncAllJumua().catch((e) => console.error('[jobs] mawaqit', e)));
   cron.schedule('15 3 * * *', () => dailyMaintenance().catch((e) => console.error('[jobs] maintenance', e)));
+  // Contenus en trois langues (même script que `npm run translate:content`) : toutes les heures et au démarrage,
+  // seul ce qui manque est traduit. Sans DeepL, les langues manquantes reçoivent le texte d'origine en attendant.
+  cron.schedule('45 * * * *', () => translationJob());
+  setTimeout(() => translationJob(), 30_000);
   setTimeout(() => dailyMaintenance().catch(() => {}), 10_000);
   console.log('[jobs] tâches planifiées démarrées');
 }

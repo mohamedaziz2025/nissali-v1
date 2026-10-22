@@ -40,7 +40,7 @@ export default function QiblaScreen() {
         const p = await currentPosition({ ask: true, precise: true });
         if (cancelled) return;
         if (!p) {
-          setError('Direction calculée depuis ta ville enregistrée. Autorise la localisation pour une qibla à ta position exacte.');
+          setError(tr("Direction calculée depuis ta ville enregistrée. Autorise la localisation pour une qibla à ta position exacte."));
           return;
         }
         setPos(p);
@@ -52,7 +52,7 @@ export default function QiblaScreen() {
         setSource(r.qibla.source === 'aladhan' ? 'aladhan' : 'gps');
         if (r.place?.name) setPlace(r.place.name);
       } catch (e) {
-        if (!cancelled) setError(e.message || 'Position indisponible');
+        if (!cancelled) setError(e.message || tr("Position indisponible"));
       }
     })();
     return () => {

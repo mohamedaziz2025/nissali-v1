@@ -198,7 +198,7 @@ export default function Counter() {
             <Text style={s.doneArabic}>بَارَكَ ٱللَّٰهُ فِيكِ</Text>
             <Text style={s.doneSub}>{tr("Barak Allahu fiki")}</Text>
             <Text style={[s.doneSub, { marginTop: 6 }]}>
-              {tasbihMode ? tr("{0} dhikr aujourd’hui", [dayTotal]) : `${done.count} ${current.name}${(done.reached ? tr(" · ton {0} objectif du jour", [done.reached === 1 ? '1er' : `${done.reached}e`]) : '')}`}
+              {tasbihMode ? tr("{0} dhikr aujourd’hui", [dayTotal]) : `${done.count} ${current.name}${done.reached ? tr(" · ton {0} objectif du jour", [done.reached === 1 ? '1er' : `${done.reached}e`]) : ''}`}
             </Text>
             {done.streak ? (
               <View style={s.streak}>

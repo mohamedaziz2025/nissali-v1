@@ -26,6 +26,8 @@ export const env = {
   },
   // 3.1 / RG-01 — connexion Apple et Google : audiences acceptées des jetons d'identité (séparées par des virgules).
   // Apple : identifiant du bundle iOS. Google : identifiant client OAuth « Web » (webClientId de l'appli).
+  // Traduction des contenus (DeepL) : utilisée seulement par le script `npm run translate:content`, jamais par l'API.
+  deeplKey: process.env.DEEPL_API_KEY || '',
   appleAudiences: (process.env.APPLE_AUDIENCES || 'app.nissali').split(',').map((s) => s.trim()).filter(Boolean),
   googleClientIds: (process.env.GOOGLE_CLIENT_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
   defaultCountryCode: process.env.DEFAULT_COUNTRY_CODE || '33',

@@ -103,7 +103,7 @@ export default function InAppNotifier() {
           <Icon name={ICON[banner.type] || 'bell'} size={20} color={colors.bordeaux} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.title} numberOfLines={1}>{banner.type === 'annonce' && banner.title !== 'Nissali' ? banner.title : banner.type === 'message' ? tr("Nouveau message") : tr("Nissali")}</Text>
+          <Text style={s.title} numberOfLines={1}>{banner.type === 'annonce' && banner.title !== 'Nissali' ? banner.title : banner.type === 'message' ? tr("Nouveau message") : 'Nissali'}</Text>
           <Text style={s.body} numberOfLines={2}>{banner.detail || banner.body}</Text>
         </View>
         {banner.imageUrl ? <Image source={{ uri: assetUrl(banner.imageUrl) }} style={s.thumb} /> : null}

@@ -158,9 +158,9 @@ export default function BecomePractitioner() {
     return (
       <SignupShell section="Profil praticienne" index={4} count={4} title={tr("Dossier envoyé")} subtitle={tr("Merci ! L’équipe vérifie ta pièce d’identité sous 48 h.")} onNext={leave} nextLabel={fromSignup ? tr("Continuer mon inscription") : tr("Retour à mon profil")}>
         {[
-          ['check', 'Profil rempli', true],
-          ['clock', 'Vérification (48 h)', false],
-          ['star', 'Fiche en ligne', false],
+          ['check', tr("Profil rempli"), true],
+          ['clock', tr("Vérification (48 h)"), false],
+          ['star', tr("Fiche en ligne"), false],
         ].map(([icon, label, done], i) => (
           <View key={label} style={s.timeline}>
             <View style={[s.dot, done && s.dotDone]}>
@@ -192,7 +192,7 @@ export default function BecomePractitioner() {
         {d.specialty === 'autre' ? <Field label={tr("Ton métier")} value={d.otherSpecialty} onChangeText={(v) => set('otherSpecialty')(v.slice(0, 40))} placeholder={tr("3 à 40 caractères")} hint={tr("Masqué sur ta fiche jusqu’à validation par l’équipe")} /> : null}
         <T variant="fieldLabel">{tr("Où reçois-tu ?")}</T>
         <View style={s.chips}>
-          {[['visio', 'En visio'], ['domicile', 'À domicile'], ['cabinet', 'En cabinet']].map(([k, l]) => (
+          {[['visio', tr("En visio")], ['domicile', tr("À domicile")], ['cabinet', tr("En cabinet")]].map(([k, l]) => (
             <Chip key={k} label={l} selected={d.places[k]} onPress={() => setD((x) => ({ ...x, places: { ...x.places, [k]: !x.places[k] } }))} />
           ))}
         </View>
@@ -284,8 +284,8 @@ export default function BecomePractitioner() {
         </View>
         {cat?.disclaimer ? <T variant="small">{tr("Mention ajoutée sur ta fiche : «")} {cat.disclaimer} ».</T> : null}
         {[
-          [1, 'Métier, lieux et ville', `${d.specialty === 'autre' ? d.otherSpecialty : cat?.label} · ${d.city}`],
-          [2, 'Présentation et tarif', `${d.service.name} · ${d.service.durationMinutes} min · ${price} €`],
+          [1, tr("Métier, lieux et ville"), `${d.specialty === 'autre' ? d.otherSpecialty : cat?.label} · ${d.city}`],
+          [2, tr("Présentation et tarif"), tr("{0} · {1} min · {2} €", [d.service.name, d.service.durationMinutes, price])],
           [3, 'Justificatifs', `${Object.values(docs).filter(Boolean).length} document(s)`],
         ].map(([n, label, value]) => (
           <Pressable key={n} onPress={() => setStep(n)} accessibilityRole="button" style={s.recap}>

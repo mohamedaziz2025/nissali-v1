@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api } from '../lib/api';
-import { shortDate, toDay } from '../lib/format';
+import { shortDate, today as serverToday } from '../lib/format';
 import { colors, fonts } from '../theme';
 import { DateField } from './forms';
 import Icon from './Icon';
@@ -30,13 +30,13 @@ const confirm = (title, message, action) => confirmAction(title, message, 'Suppr
  */
 export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved, day: presetDay }) {
   const toast = useToast();
-  const [day, setDay] = useState(toDay(new Date()));
+  const [day, setDay] = useState(serverToday());
   const [text, setText] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!visible) return;
-    setDay(entry?.day || presetDay || toDay(new Date()));
+    setDay(entry?.day || presetDay || serverToday());
     setText(entry ? kg(entry.weight) : lastWeight != null ? kg(lastWeight) : '');
     setError(null);
   }, [visible, entry, lastWeight, presetDay]);
@@ -49,8 +49,8 @@ export function WeightSheet({ visible, onClose, entry, lastWeight, onSaved, day:
   };
   const save = async (confirmed = false) => {
     // Saisie invalide : message, sans effacer ce qui a été tapé.
-    if (!Number.isFinite(value)) return setError('Indique ton poids en kg, par exemple 64,2');
-    if (value < 25 || value > 300) return setError('Poids invalide : entre 25 et 300 kg');
+    if (!Number.isFinite(value)) return setError(tr("Indique ton poids en kg, par exemple 64,2"));
+    if (value < 25 || value > 300) return setError(tr("Poids invalide : entre 25 et 300 kg"));
     // Mise à jour Cycle · 6.8 — écart de plus de 5 kg avec la pesée précédente : on demande confirmation.
     if (!confirmed && lastWeight != null && Math.abs(value - lastWeight) > 5) {
       return confirmAction(tr("Tu confirmes ?"), tr("{0} kg, soit plus de 5 kg d’écart avec ta pesée précédente ({1} kg).", [kg(value), kg(lastWeight)]), 'Confirmer', () => save(true));

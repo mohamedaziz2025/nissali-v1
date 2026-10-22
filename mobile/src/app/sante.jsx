@@ -11,7 +11,7 @@ import Icon from '../components/Icon';
 import { Button, Card, Chips, Field, Loader, Row, Screen, T, Toggle, useToast } from '../components/ui';
 import { api, sendOrQueue } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { addDays, longDate, toDay, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
+import { addDays, longDate, today as serverToday, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
 import { colors, fonts, MOODS, SYMPTOMS, tnum } from '../theme';
 
 import { tr } from '../lib/i18n';
@@ -216,7 +216,7 @@ function DailyLog({ day, onDirty }) {
 }
 
 export default function Health() {
-  const today = toDay(new Date());
+  const today = serverToday();
   const params = useLocalSearchParams();
   const navigation = useNavigation();
   const [day, setDay] = useState(typeof params.day === 'string' && params.day <= today ? params.day : today);

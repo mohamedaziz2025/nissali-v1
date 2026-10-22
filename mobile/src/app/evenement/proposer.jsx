@@ -10,7 +10,7 @@ import { DateField, TimeField } from '../../components/forms';
 import Icon from '../../components/Icon';
 import { Button, Checkbox, Field, Gap, Loader, Row, Screen, Segmented, Stepper, T, useToast } from '../../components/ui';
 import { api, assetUrl, uploadImage } from '../../lib/api';
-import { addDays, toDay } from '../../lib/format';
+import { addDays, today as serverToday } from '../../lib/format';
 import { shrinkImage } from '../../lib/image';
 import { colors, fonts } from '../../theme';
 
@@ -46,7 +46,7 @@ export default function ProposeEvent() {
   const [loading, setLoading] = useState(Boolean(id));
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [f, setF] = useState({ title: '', description: '', programme: '', day: addDays(toDay(new Date()), 14), time: '14:00', endTime: '', name: '', address: '', city: '', capacity: 20, paid: false, price: '10', ticketUrl: '', imageUrl: null, photos: [], commission: false });
+  const [f, setF] = useState({ title: '', description: '', programme: '', day: addDays(serverToday(), 14), time: '14:00', endTime: '', name: '', address: '', city: '', capacity: 20, paid: false, price: '10', ticketUrl: '', imageUrl: null, photos: [], commission: false });
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function ProposeEvent() {
       </Section>
 
       <Section title={tr("Date et lieu")} icon="calendar">
-        <DateField label={tr("Date")} value={f.day} onChange={set('day')} minDay={toDay(new Date())} maxDay={addDays(toDay(new Date()), 365)} />
+        <DateField label={tr("Date")} value={f.day} onChange={set('day')} minDay={serverToday()} maxDay={addDays(serverToday(), 365)} />
         <TimeField label={tr("Début")} value={f.time} onChange={set('time')} allowUnknown={false} />
         <TimeField label={tr("Fin (facultatif)")} value={f.endTime} onChange={set('endTime')} />
         <Field label={tr("Lieu")} value={f.name} onChangeText={set('name')} placeholder={tr("Nom de la salle, du café…")} />

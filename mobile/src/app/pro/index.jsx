@@ -44,7 +44,7 @@ export default function ProHome() {
             <T variant="small">
               {me.data?.included?.length
                 ? me.data.included.join(' · ')
-                : `${(data.plan?.features?.maxServices ? tr("{0} prestation(s)", [data.plan.features.maxServices]) : tr("Prestations illimitées"))} · ${(data.plan?.features?.video ? tr("visio incluse") : tr("sans visio"))} · ${(data.plan?.features?.crm ? tr("fiches clientes") : tr("sans fiches clientes"))}`}
+                : `${data.plan?.features?.maxServices ? tr("{0} prestation(s)", [data.plan.features.maxServices]) : tr("Prestations illimitées")} · ${data.plan?.features?.video ? tr("visio incluse") : tr("sans visio")} · ${data.plan?.features?.crm ? tr("fiches clientes") : tr("sans fiches clientes")}`}
             </T>
           </>
         )}

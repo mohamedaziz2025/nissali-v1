@@ -108,10 +108,10 @@ function MakeUp({ data, reload }) {
   };
   const savePlan = (days, time = reminderTime) => {
     setWeekdays(days);
-    return run(() => api.put('/fasts/plan', { active: days.length > 0, perWeek: Math.max(1, days.length), weekdays: days.length ? days : [1, 4], reminderTime: time }), days.length ? 'Programme enregistré' : 'Programme mis en pause');
+    return run(() => api.put('/fasts/plan', { active: days.length > 0, perWeek: Math.max(1, days.length), weekdays: days.length ? days : [1, 4], reminderTime: time }), days.length ? tr("Programme enregistré") : tr("Programme mis en pause"));
   };
-  const fastedToday = () => run(() => sendOrQueue('POST', '/fasts/made-up', { day: data.today }), 'Qu’Allah l’accepte de toi ! Compteur mis à jour.');
-  const uncheck = (b) => confirm(tr("Décocher ce jour ?"), tr("Rattrapage du {0}", [longDate(b.day)]), () => run(() => api.delete(`/fasts/made-up/${b.id}`), 'Case décochée'), 'Décocher');
+  const fastedToday = () => run(() => sendOrQueue('POST', '/fasts/made-up', { day: data.today }), tr("Qu’Allah l’accepte de toi ! Compteur mis à jour."));
+  const uncheck = (b) => confirm(tr("Décocher ce jour ?"), tr("Rattrapage du {0}", [longDate(b.day)]), () => run(() => api.delete(`/fasts/made-up/${b.id}`), tr("Case décochée")), 'Décocher');
   const toggleReminder = async (v) => {
     try {
       await setSession(await api.patch('/me', { notificationPrefs: { fastMakeup: v } }));
@@ -162,7 +162,7 @@ function MakeUp({ data, reload }) {
             </View>
             <Text style={s.heroSmall}>
               {counter.madeUp} {tr("rattrapé")}{counter.madeUp > 1 ? 's' : ''} {tr("sur")} {counter.missed}
-              {counter.remaining && data.rhythm ? ` · ${(data.rhythm.alert ? data.rhythm.label : tr("conseil : {0}{1}", [data.rhythm.label[0].toLowerCase(), data.rhythm.label.slice(1)]))}` : ''}
+              {counter.remaining && data.rhythm ? ` · ${data.rhythm.alert ? data.rhythm.label : tr("conseil : {0}{1}", [data.rhythm.label[0].toLowerCase(), data.rhythm.label.slice(1)])}` : ''}
             </Text>
           </View>
         ) : null}
@@ -273,7 +273,7 @@ function MakeUp({ data, reload }) {
       {data.fidyaInfo ? <T variant="small" style={{ marginTop: 8 }}>{data.fidyaInfo}</T> : null}
 
       <PriorSheet visible={sheet === 'prior'} onClose={() => setSheet(null)} year={year} years={yearList} onYear={setYearKey} entry={priorEntry} onSaved={reload} />
-      <Sheet visible={sheet === 'madeup'} onClose={() => setSheet(null)} title={tr("Cocher un jour rattrapé")} footer={<Button title={tr("Cocher ce jour")} onPress={() => run(() => sendOrQueue('POST', '/fasts/made-up', { day: madeUpDay }), 'Qu’Allah l’accepte de toi ! Compteur mis à jour.')} loading={busy} disabled={busy || !madeUpDay} />}>
+      <Sheet visible={sheet === 'madeup'} onClose={() => setSheet(null)} title={tr("Cocher un jour rattrapé")} footer={<Button title={tr("Cocher ce jour")} onPress={() => run(() => sendOrQueue('POST', '/fasts/made-up', { day: madeUpDay }), tr("Qu’Allah l’accepte de toi ! Compteur mis à jour."))} loading={busy} disabled={busy || !madeUpDay} />}>
         <DateField label={tr("Jour jeûné")} value={madeUpDay} onChange={setMadeUpDay} />
         <T variant="small">{tr("La case cochée affiche la date du rattrapage. Un jour seulement programmé n’est jamais compté.")}</T>
       </Sheet>
@@ -281,7 +281,7 @@ function MakeUp({ data, reload }) {
         visible={sheet === 'missed'}
         onClose={() => setSheet(null)}
         title={tr("Jour manqué")}
-        footer={<Button title={tr("Ajouter {0}", [plural(missed.count)])} onPress={() => run(() => api.post('/fasts/missed', { hijriYear: missed.hijriYear, count: missed.count, reason: missed.reason, ...(missed.day ? { day: missed.day } : {}) }), 'Ajouté au compteur')} loading={busy} disabled={busy || !missed.hijriYear} />}
+        footer={<Button title={tr("Ajouter {0}", [plural(missed.count)])} onPress={() => run(() => api.post('/fasts/missed', { hijriYear: missed.hijriYear, count: missed.count, reason: missed.reason, ...(missed.day ? { day: missed.day } : {}) }), tr("Ajouté au compteur"))} loading={busy} disabled={busy || !missed.hijriYear} />}
       >
         <T variant="fieldLabel">{tr("Raison")}</T>
         <Chips items={MISSED_REASONS} value={missed.reason} onChange={(v) => setMissed((m) => ({ ...m, reason: v }))} />
@@ -291,7 +291,7 @@ function MakeUp({ data, reload }) {
         <DateField label={tr("Date (facultatif)")} value={missed.day} onChange={(v) => setMissed((m) => ({ ...m, day: v }))} allowClear />
         <T variant="small">{tr("Pendant Ramadan, les jours de règles et de nifas sont ajoutés automatiquement. Les années précédentes se rangent par Ramadan.")}</T>
       </Sheet>
-      <Sheet visible={sheet === 'total'} onClose={() => setSheet(null)} title={tr("Total · Ramadan {0}", [hijriYear])} footer={<Button title={tr("Enregistrer")} onPress={() => run(() => api.put('/fasts/total', { hijriYear, total }), 'Total mis à jour')} loading={busy} disabled={busy} />}>
+      <Sheet visible={sheet === 'total'} onClose={() => setSheet(null)} title={tr("Total · Ramadan {0}", [hijriYear])} footer={<Button title={tr("Enregistrer")} onPress={() => run(() => api.put('/fasts/total', { hijriYear, total }), tr("Total mis à jour"))} loading={busy} disabled={busy} />}>
         <T variant="muted">{tr("Nombre total de jours à rattraper pour ce Ramadan. Les jours comptés automatiquement pendant tes règles (")}{year.auto}{tr(") sont inclus.")}</T>
         <Stepper label={tr("Jours à rattraper")} value={total} onChange={setTotal} min={Math.max(year.auto || 0, year.prior || 0)} max={30} />
       </Sheet>
@@ -323,7 +323,7 @@ function MakeUp({ data, reload }) {
               </Pressable>
             ) : null}
             <Pressable
-              onPress={() => (h.kind === 'app' ? uncheck({ id: h.id, day: h.day }) : confirm(tr("Supprimer cet ajout ?"), tr("{0} hors application · Ramadan {1}", [plural(h.entry.count), h.entry.hijriYear]), () => run(() => api.delete(`/fasts/prior/${h.entry.id}`), 'Ajout supprimé : compteur recalculé')))}
+              onPress={() => (h.kind === 'app' ? uncheck({ id: h.id, day: h.day }) : confirm(tr("Supprimer cet ajout ?"), tr("{0} hors application · Ramadan {1}", [plural(h.entry.count), h.entry.hijriYear]), () => run(() => api.delete(`/fasts/prior/${h.entry.id}`), tr("Ajout supprimé : compteur recalculé"))))}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={tr("Supprimer")}

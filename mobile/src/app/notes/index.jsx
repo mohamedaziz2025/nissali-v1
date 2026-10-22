@@ -31,7 +31,7 @@ export default function Notes() {
   const confirmDelete = (n, one) =>
     Alert.alert(one ? tr("Supprimer cette fois ?") : tr("Supprimer la note ?"), one ? tr("Seule l’occurrence du {0} est supprimée.", [noteDate(n.day)]) : n.repeat === 'once' ? tr("La note est supprimée.") : tr("Toute la série est supprimée."), [
       { text: tr("Annuler"), style: 'cancel' },
-      { text: tr("Supprimer"), style: 'destructive', onPress: () => run(() => api.delete(`/notes/${n.noteId}${one ? `?day=${n.day}` : ''}`), one ? 'Occurrence supprimée' : 'Note supprimée') },
+      { text: tr("Supprimer"), style: 'destructive', onPress: () => run(() => api.delete(`/notes/${n.noteId}${one ? `?day=${n.day}` : ''}`), one ? tr("Occurrence supprimée") : tr("Note supprimée")) },
     ]);
 
   const upcoming = data.upcoming || [];
@@ -70,7 +70,7 @@ export default function Notes() {
               {open.remind ? tr(" · rappel activé") : ''}
             </T>
             <Button title={tr("Modifier")} variant="soft" icon="edit" onPress={() => { setOpen(null); router.push(`/notes/nouvelle?id=${open.noteId}`); }} />
-            <Button title={open.paused ? tr("Reprendre") : tr("Mettre en pause")} variant="outline" onPress={() => run(() => api.patch(`/notes/${open.noteId}`, { paused: !open.paused }), open.paused ? 'Note reprise' : 'Note en pause')} />
+            <Button title={open.paused ? tr("Reprendre") : tr("Mettre en pause")} variant="outline" onPress={() => run(() => api.patch(`/notes/${open.noteId}`, { paused: !open.paused }), open.paused ? tr("Note reprise") : tr("Note en pause"))} />
             {open.repeat !== 'once' ? <Button title={tr("Supprimer cette fois")} variant="ghost" onPress={() => confirmDelete(open, true)} /> : null}
             <Button title={open.repeat !== 'once' ? tr("Supprimer toute la série") : tr("Supprimer la note")} variant="danger" onPress={() => confirmDelete(open, false)} />
           </>

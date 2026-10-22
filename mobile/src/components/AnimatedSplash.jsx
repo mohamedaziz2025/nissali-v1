@@ -53,7 +53,7 @@ export default function AnimatedSplash({ onDone }) {
   }, [draw, line, text, fade, onDone]);
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, s.wrap, { opacity: fade }]} accessibilityLabel={tr("Nissali")} accessible>
+    <Animated.View style={[StyleSheet.absoluteFill, s.wrap, { opacity: fade }]} accessibilityLabel={'Nissali'} accessible>
       <View style={{ width: SIZE, height: SIZE }}>
         <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
           <AnimatedPath
@@ -76,7 +76,7 @@ export default function AnimatedSplash({ onDone }) {
           />
         </Svg>
       </View>
-      <Animated.Text style={[s.brand, { opacity: text, transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{tr("nissali")}</Animated.Text>
+      <Animated.Text style={[s.brand, { opacity: text, transform: [{ translateY: text.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>nissali</Animated.Text>
       <Animated.Text style={[s.tagline, { opacity: text }]}>{tr("Ton cycle, ta foi, ta santé.")}</Animated.Text>
     </Animated.View>
   );

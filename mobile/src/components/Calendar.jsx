@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { addDays, monthLabel, shiftMonth, WEEKDAYS_SHORT } from '../lib/format';
+import { addDays, monthLabel, shiftMonth, today as serverToday, WEEKDAYS_SHORT } from '../lib/format';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 import { Button, Row, Sheet, T } from './ui';
@@ -172,7 +172,7 @@ export function Legend() {
 
 /** Feuille de choix d'une date (la date du jour est proposée par défaut). */
 export function DatePickerSheet({ visible, onClose, onPick, value, maxDay, minDay, title = 'Choisir une date', width = 320 }) {
-  const [month, setMonth] = useState((value || maxDay || new Date().toISOString()).slice(0, 7));
+  const [month, setMonth] = useState((value || maxDay || serverToday()).slice(0, 7));
   const [picked, setPicked] = useState(value);
   return (
     <Sheet

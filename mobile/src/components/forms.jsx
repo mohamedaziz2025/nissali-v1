@@ -3,14 +3,14 @@ import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
 import { api } from '../lib/api';
-import { longDate, toDay } from '../lib/format';
+import { longDate, today as serverToday } from '../lib/format';
 import { colors } from '../theme';
 import { DatePickerSheet } from './Calendar';
 import Icon from './Icon';
 import { Chip, Field, Row, T, styles as ui } from './ui';
 
 import { tr } from '../lib/i18n';
-export function DateField({ label, value, onChange, maxDay = toDay(new Date()), minDay, placeholder = 'Choisir une date', allowClear }) {
+export function DateField({ label, value, onChange, maxDay = serverToday(), minDay, placeholder = 'Choisir une date', allowClear }) {
   const [open, setOpen] = useState(false);
   const { width } = useWindowDimensions();
   return (
@@ -95,7 +95,7 @@ export function CityPicker({ value, onChange, label = 'Ville' }) {
       setQuery('');
       setResults([]);
     } catch (e) {
-      setError(e.message || 'Position indisponible');
+      setError(e.message || tr("Position indisponible"));
     } finally {
       setLocating(false);
     }

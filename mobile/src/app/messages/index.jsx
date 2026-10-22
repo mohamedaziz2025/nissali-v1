@@ -43,7 +43,7 @@ export function ConversationList({ as = 'user', embedded = false }) {
       {list.map((c) => {
         const unread = c.unread > 0;
         return (
-          <Pressable key={c.id} onPress={() => router.push(`/messages/${c.id}${as === 'pro' ? '?as=pro' : ''}`)} accessibilityRole="button" accessibilityLabel={`${c.other.name}${(unread ? tr(", {0} message{1} non lu{2}", [c.unread, c.unread > 1 ? 's' : '', c.unread > 1 ? 's' : '']) : '')}`} style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.blush }]}>
+          <Pressable key={c.id} onPress={() => router.push(`/messages/${c.id}${as === 'pro' ? '?as=pro' : ''}`)} accessibilityRole="button" accessibilityLabel={`${c.other.name}${unread ? tr(", {0} message{1} non lu{2}", [c.unread, c.unread > 1 ? 's' : '', c.unread > 1 ? 's' : '']) : ''}`} style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.blush }]}>
             <Avatar person={c.other} size={56} />
             <View style={{ flex: 1, gap: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -52,7 +52,7 @@ export function ConversationList({ as = 'user', embedded = false }) {
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={[s.preview, unread && { color: colors.prune, fontFamily: fonts.bold }]} numberOfLines={1}>
-                  {c.blocked ? tr("Conversation bloquée") : c.last ? `${(c.last.mine ? tr("Vous : ") : '')}${c.last.text}` : tr("Nouvelle conversation")}
+                  {c.blocked ? tr("Conversation bloquée") : c.last ? `${c.last.mine ? tr("Vous : ") : ''}${c.last.text}` : tr("Nouvelle conversation")}
                 </Text>
                 {unread ? (
                   <View style={s.badge}>

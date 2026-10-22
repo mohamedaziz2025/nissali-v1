@@ -52,8 +52,8 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
 
   const addDate = (d) => {
     if (!d) return;
-    if (dates.includes(d)) return setError('Cette date est déjà choisie');
-    if (mode === 'nombre' && dates.length >= count) return setError(`Tu as déjà choisi ${plural(count, 'date')}`);
+    if (dates.includes(d)) return setError(tr("Cette date est déjà choisie"));
+    if (mode === 'nombre' && dates.length >= count) return setError(tr("Tu as déjà choisi {0}", [plural(count, 'date')]));
     setError(null);
     setDates((list) => [...list, d].sort());
   };
@@ -65,8 +65,8 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
 
   const submit = async () => {
     if (sending.current) return; // double clic
-    if (n < 1) return setError(mode === 'dates' ? 'Choisis au moins une date' : 'Le nombre de jours doit être au moins 1');
-    if (over) return setError(`Tu ne peux pas ajouter plus de ${plural(available)} : c’est ton solde`);
+    if (n < 1) return setError(mode === 'dates' ? tr("Choisis au moins une date") : tr("Le nombre de jours doit être au moins 1"));
+    if (over) return setError(tr("Tu ne peux pas ajouter plus de {0} : c’est ton solde", [plural(available)]));
     if (mode === 'nombre' && !dates.length) {
       const ok = await confirmAsync('Confirmer le nombre', `Ajouter ${plural(count)} déjà rattrapé${count > 1 ? 's' : ''} sans date au Ramadan ${year.hijriYear} ?`);
       if (!ok) return;
@@ -122,8 +122,8 @@ export function PriorSheet({ visible, onClose, year, years = [], onYear, entry, 
         <>
           <View style={s.modes} accessibilityRole="radiogroup">
             {[
-              ['nombre', 'Par nombre'],
-              ['dates', 'Par date'],
+              ['nombre', tr("Par nombre")],
+              ['dates', tr("Par date")],
             ].map(([k, l]) => (
               <Pressable key={k} onPress={() => switchMode(k)} accessibilityRole="radio" accessibilityState={{ checked: mode === k }} style={[s.mode, mode === k && s.modeOn]}>
                 {mode === k ? <Icon name="check" size={15} color={colors.white} strokeWidth={2.6} /> : null}

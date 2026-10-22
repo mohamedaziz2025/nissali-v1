@@ -1,6 +1,10 @@
 // Icônes au trait fin (5.1 Style : « icônes au trait fin »).
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { isRTL } from '../lib/i18n';
 import { colors } from '../theme';
+
+// Icônes qui indiquent une direction : retournées en arabe (lecture de droite à gauche).
+const DIRECTIONAL = new Set(['chevronLeft', 'chevronRight', 'undo', 'logout', 'external', 'swap']);
 
 const ICONS = {
   home: <Path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" />,
@@ -245,7 +249,7 @@ export default function Icon({ name, size = 24, color = colors.prune, strokeWidt
   const shape = ICONS[name];
   if (!shape) return null;
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={isRTL && DIRECTIONAL.has(name) ? { transform: [{ scaleX: -1 }] } : undefined}>
       {shape}
     </Svg>
   );

@@ -1,7 +1,6 @@
-// Langues de l'appli : français (texte source), anglais et arabe. Par défaut, la langue du téléphone (réglable
-// aussi dans les réglages du téléphone, pour l'appli seule). Le choix est lu de façon synchrone au démarrage :
-// les textes des modules (listes, étiquettes) sont traduits dès leur chargement, et changer de langue recharge
-// l'appli (nécessaire aussi pour la mise en page de droite à gauche de l'arabe).
+// Langues de l'appli : français (texte source), anglais et arabe. L'appli est en français par défaut : aucun
+// écran ne propose de changer de langue, mais le système de traduction est conservé (dictionnaires FR/EN/AR,
+// sens de lecture, en-tête Accept-Language) et un choix déjà enregistré sur l'appareil est respecté.
 // Les textes religieux en arabe (dhikr, invocations, versets) ne sont jamais traduits : ils restent en arabe.
 import { getLocales } from 'expo-localization';
 import * as SecureStore from 'expo-secure-store';
@@ -14,7 +13,6 @@ const RELOADED = 'nissali.rtlReloaded';
 const SUPPORTED = ['fr', 'en', 'ar'];
 
 export const LANGUAGES = [
-  { key: 'system', label: null },
   { key: 'fr', label: 'Français' },
   { key: 'en', label: 'English' },
   { key: 'ar', label: 'العربية' },
@@ -50,8 +48,8 @@ export function systemLanguage() {
 
 const resolve = (pref) => (pref === 'system' || !SUPPORTED.includes(pref) ? systemLanguage() : pref);
 
-/** 'system' | 'fr' | 'en' | 'ar' */
-export const preference = SUPPORTED.includes(read(KEY)) ? read(KEY) : 'system';
+/** 'fr' | 'en' | 'ar' — le français par défaut, sauf choix déjà enregistré sur l'appareil. */
+export const preference = SUPPORTED.includes(read(KEY)) ? read(KEY) : 'fr';
 export const language = resolve(preference);
 export const isRTL = language === 'ar';
 /** Pour Intl et l'en-tête Accept-Language de l'API. */
@@ -104,7 +102,10 @@ export function syncDirection() {
   reload();
 }
 
-/** Change la langue (« system » = langue du téléphone) et recharge l'appli. */
+/**
+ * Change la langue (« system » = langue du téléphone) et recharge l'appli. Le mécanisme est conservé
+ * (le système de traduction reste en place) même si aucun écran ne propose le choix pour l'instant.
+ */
 export async function setLanguage(pref) {
   write(KEY, pref);
   const rtl = resolve(pref) === 'ar';

@@ -67,10 +67,10 @@ export default function PractitionerSpace() {
     }
   };
   const activity = [
-    ['user', 'Mon profil public', 'Ce que voient les sœurs', () => router.push(`/praticienne/${data.id}`)],
-    ['edit', 'Modifier ma fiche', 'Présentation, tarifs, photo', () => router.push('/pro/profil')],
+    ['user', tr("Mon profil public"), tr("Ce que voient les sœurs"), () => router.push(`/praticienne/${data.id}`)],
+    ['edit', tr("Modifier ma fiche"), tr("Présentation, tarifs, photo"), () => router.push('/pro/profil')],
     ['chat', 'Messages', data.stats.unread ? `${data.stats.unread} non lu${data.stats.unread > 1 ? 's' : ''}` : 'Aucun message non lu', () => router.push('/pro/messages')],
-    ['clock', 'Disponibilités', 'Jours et horaires', () => router.push('/pro/disponibilites')],
+    ['clock', tr("Disponibilités"), tr("Jours et horaires"), () => router.push('/pro/disponibilites')],
     ['star', 'Avis', data.stats.reviews ? `${data.stats.reviews} avis` : 'Pas encore d’avis', () => router.push('/pro')],
   ];
 
@@ -117,8 +117,8 @@ export default function PractitionerSpace() {
 
       <View style={s.stats}>
         {[
-          [data.stats.views, 'vues ce mois'],
-          [data.stats.unread, 'messages non lus'],
+          [data.stats.views, tr("vues ce mois")],
+          [data.stats.unread, tr("messages non lus")],
           [data.stats.reviews ? `${Number(data.stats.rating || 0).toFixed(1)}` : '—', data.stats.reviews ? `${data.stats.reviews} avis` : 'pas d’avis'],
         ].map(([n, l]) => (
           <View key={l} style={s.stat}>
