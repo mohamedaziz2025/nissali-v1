@@ -10,7 +10,7 @@ import { Button, Chip, ErrorState, Field, Label, Loader, OfflineBanner, Ring, Ro
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { hasGoal, isReached, plural, ringProgress, useDhikrData } from '../../lib/dhikr';
-import { colors, fonts, tnum } from '../../theme';
+import { arabicText, colors, fonts, tnum } from '../../theme';
 
 import { tr } from '../../lib/i18n';
 const confirm = (title, text, action, label) => {
@@ -337,7 +337,7 @@ const s = StyleSheet.create({
   rowCount: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.bordeaux },
   badge: { backgroundColor: colors.sable, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   badgeText: { fontFamily: fonts.bold, fontSize: 10.5, color: colors.orText },
-  arabic: { fontSize: 20, lineHeight: 34, color: colors.bordeaux, maxWidth: '36%', writingDirection: 'rtl', fontFamily: fonts.arabic },
+  arabic: { ...arabicText(20), color: colors.bordeaux, maxWidth: '36%' },
   createBox: { backgroundColor: colors.sable, borderRadius: 20, padding: 14, gap: 10 },
   createTitle: { fontFamily: fonts.extra, fontSize: 16, color: colors.prune },
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.white, borderRadius: 999, borderWidth: 1, borderColor: colors.lineField, paddingHorizontal: 14, minHeight: 46 },

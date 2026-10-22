@@ -51,6 +51,12 @@ export const fonts = {
 /** Chiffres à chasse fixe (heures, compteurs, poids) : ils ne bougent pas quand ils changent. */
 export const tnum = { fontVariant: ['tabular-nums'] };
 
+/**
+ * Texte arabe (Amiri) : hauteur de ligne de 2 × la taille, sinon iOS coupe les signes du haut (chadda, petit
+ * alif) et ceux du bas touchent la ligne suivante.
+ */
+export const arabicText = (size) => ({ fontFamily: fonts.arabic, fontSize: size, lineHeight: Math.round(size * 2), writingDirection: 'rtl' });
+
 export const radius = { hero: 28, card: 24, md: 16, sm: 8, sheet: 32, pill: 999 };
 export const space = { gutter: 18, gap: 16 };
 

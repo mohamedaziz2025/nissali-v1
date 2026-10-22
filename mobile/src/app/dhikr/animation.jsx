@@ -13,7 +13,7 @@ import { Button, Chip, ErrorState, Field, Label, Loader, Row, Sheet, T } from '.
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { isReached, saveCount, useDhikrData } from '../../lib/dhikr';
-import { colors, fonts, tnum } from '../../theme';
+import { arabicText, colors, fonts, tnum } from '../../theme';
 
 import { tr } from '../../lib/i18n';
 const GOAL_PRESETS = [33, 99, 100, 1000];
@@ -315,7 +315,7 @@ export default function DhikrAnimation() {
             </View>
           ) : (
             <>
-              <Text style={s.arabic} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5}>{current.arabic}</Text>
+              <Text style={s.arabic} numberOfLines={2}>{current.arabic}</Text>
               <Text style={s.name}>{current.name}</Text>
               {current.meaning ? <Text style={s.meaning} numberOfLines={2}>{tr(current.meaning)}</Text> : null}
             </>
@@ -426,7 +426,7 @@ const s = StyleSheet.create({
   pastilleAdd: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 38, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.bordeaux },
   pastilleAddText: { fontFamily: fonts.bold, fontSize: 13, color: colors.bordeaux },
   tapZone: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
-  arabic: { fontSize: 36, lineHeight: 56, color: colors.bordeaux, textAlign: 'center', writingDirection: 'rtl', fontFamily: fonts.arabic },
+  arabic: { ...arabicText(34), color: colors.bordeaux, textAlign: 'center', paddingHorizontal: 8, marginBottom: 2 },
   name: { fontFamily: fonts.title, fontSize: 22, color: colors.prune, textAlign: 'center' },
   meaning: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, textAlign: 'center', paddingHorizontal: 10 },
   doneWrap: { alignItems: 'center', gap: 10, marginBottom: 10 },

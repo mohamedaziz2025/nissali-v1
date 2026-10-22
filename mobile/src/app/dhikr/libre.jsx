@@ -11,7 +11,7 @@ import Icon from '../../components/Icon';
 import { ErrorState, Loader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { flushDhikr, saveCount, useDhikrData } from '../../lib/dhikr';
-import { colors, fonts, tnum } from '../../theme';
+import { arabicText, colors, fonts, tnum } from '../../theme';
 
 import { tr } from '../../lib/i18n';
 export default function FreeTasbih() {
@@ -105,7 +105,7 @@ const s = StyleSheet.create({
   chipText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.prune, maxWidth: 180 },
   chipCount: { fontFamily: fonts.extra, fontSize: 12, color: colors.orText },
   zone: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  arabic: { fontSize: 34, lineHeight: 56, color: colors.bordeaux, textAlign: 'center', writingDirection: 'rtl', fontFamily: fonts.arabic },
+  arabic: { ...arabicText(34), color: colors.bordeaux, textAlign: 'center', paddingHorizontal: 8 },
   name: { fontFamily: fonts.extra, fontSize: 20, color: colors.prune, textAlign: 'center', marginBottom: 14 },
   button: { backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, shadowColor: '#7A1E35', shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 8 },
   count: { fontFamily: fonts.extra, fontSize: 84, lineHeight: 94, letterSpacing: -2, color: colors.white },

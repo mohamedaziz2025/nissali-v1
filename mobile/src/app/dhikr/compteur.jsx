@@ -16,7 +16,7 @@ import { ErrorState, Loader, Row, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { isReached, plural, saveCount, useDhikrData } from '../../lib/dhikr';
-import { colors, fonts } from '../../theme';
+import { arabicText, colors, fonts } from '../../theme';
 
 import { tr } from '../../lib/i18n';
 const GOALS = [33, 99, 100];
@@ -280,7 +280,7 @@ const s = StyleSheet.create({
   steps: { flexDirection: 'row', gap: 6, marginTop: 6 },
   stepBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
   tapZone: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
-  arabic: { fontSize: 38, lineHeight: 60, color: colors.bordeaux, textAlign: 'center', writingDirection: 'rtl', fontFamily: fonts.arabic },
+  arabic: { ...arabicText(36), color: colors.bordeaux, textAlign: 'center', paddingHorizontal: 8 },
   name: { fontFamily: fonts.title, fontSize: 22, color: colors.prune, textAlign: 'center' },
   meaning: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, textAlign: 'center', paddingHorizontal: 10 },
   disc: { backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
@@ -297,7 +297,7 @@ const s = StyleSheet.create({
   done: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bordeaux, paddingHorizontal: 20, zIndex: 10 },
   doneRing: { width: 150, height: 150, borderRadius: 75, borderWidth: 10, borderColor: colors.or, backgroundColor: colors.onBordeauxSurface, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   doneTitle: { fontFamily: fonts.extra, fontSize: 32, letterSpacing: -1, color: colors.white },
-  doneArabic: { fontSize: 30, lineHeight: 48, color: colors.orClair, writingDirection: 'rtl', fontFamily: fonts.arabic },
+  doneArabic: { ...arabicText(30), color: colors.orClair },
   doneSub: { fontFamily: fonts.medium, fontSize: 15, color: colors.onBordeaux, textAlign: 'center' },
   streak: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.onBordeauxSurface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginTop: 6 },
   streakText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
