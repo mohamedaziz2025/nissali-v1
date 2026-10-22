@@ -164,7 +164,11 @@ const submitSchema = z
 router.post('/submit', async (req, res) => {
   if (await getPractitionerFor(req.user)) throw conflict('Tu as déjà un profil praticienne');
   const draft = draftOf(req.user);
-  const parsed = submitSchema.safeParse({ ...draft.data, ...(req.body || {}) });
+  // L'appli enregistre le brouillon avec des champs vides (photoUrl: null, prestation à moitié remplie) :
+  // on les ignore au lieu de rejeter l'envoi (« Expected string, received null »).
+  const fromDraft = Object.fromEntries(Object.entries(draft.data || {}).filter(([, v]) => v !== null && v !== undefined));
+  if (fromDraft.service && !(fromDraft.service.name && typeof fromDraft.service.price === 'number')) delete fromDraft.service;
+  const parsed = submitSchema.safeParse({ ...fromDraft, ...(req.body || {}) });
   if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message || 'Profil incomplet');
   const b = parsed.data;
   const cat = await Category.findOne({ key: b.specialty, active: true }).lean();
