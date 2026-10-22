@@ -12,15 +12,8 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { colors, fonts, PRAYERS } from '../theme';
 
-import { preference, tr } from '../lib/i18n';
+import { tr } from '../lib/i18n';
 
-/** Libellé du choix de langue (le choix lui-même est détaillé dans les réglages). */
-const LANG_LABEL = {
-  system: tr("Langue du système"),
-  fr: 'Français',
-  en: 'English',
-  ar: 'العربية',
-};
 const SPECIAL = [
   { key: 'aucun', label: tr("Aucun") },
   { key: 'adolescente', label: tr("Adolescente") },
@@ -192,7 +185,6 @@ export default function Profile() {
         <Label>{tr("Compte")}</Label>
         <ListItem icon="lock" title={tr("Connexion et sécurité")} subtitle={user.hasPassword ? tr("Mot de passe") : tr("Connexion par code")} onPress={() => router.push('/securite')} />
         <ListItem icon="info" title={tr("Confidentialité et données")} subtitle={tr("Accords, export, suppression du compte")} onPress={() => router.push('/reglages/confidentialite')} />
-        <ListItem icon="globe" title={tr("Langue")} subtitle={LANG_LABEL[preference] || LANG_LABEL.system} onPress={() => router.push('/reglages/langue')} />
         <ListItem icon="chat" title={tr("Aide")} subtitle="contact@nissali.fr" onPress={() => Linking.openURL('mailto:contact@nissali.fr').catch(() => {})} />
         <ListItem icon="logout" title={tr("Me déconnecter")} onPress={logout} last />
       </Card>
