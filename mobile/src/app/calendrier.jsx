@@ -11,7 +11,7 @@ import DaySheet from '../components/DaySheet';
 import Icon from '../components/Icon';
 import { usePeriodActions } from '../components/PeriodSheets';
 import { Button, ErrorState, Gap, Loader, Row, Screen, Segmented } from '../components/ui';
-import { dayMonth, monthLabel, shiftMonth } from '../lib/format';
+import { dayMonth, monthLabel, shiftMonth, today as serverToday } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { colors, fonts } from '../theme';
 
@@ -56,7 +56,7 @@ export default function MyCalendar() {
   const { width } = useWindowDimensions();
   const [view, setView] = useState('mois');
   const [month, setMonth] = useState(null);
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [year, setYear] = useState(Number(serverToday().slice(0, 4)));
   const [day, setDay] = useState(null);
   const cycle = useApi(`/cycle${month ? `?month=${month}` : ''}`);
   const yearData = useApi(view === 'annee' ? `/cycle/year/${year}` : null);

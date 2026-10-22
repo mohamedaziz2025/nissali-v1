@@ -6,7 +6,8 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { getToken, readJson, writeJson } from './storage';
 
-import { tr } from './i18n';
+import { syncToday } from './format';
+import { language, tr } from './i18n';
 function detectBaseUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   // En développement avec Expo Go : même machine que le serveur Metro, port 4000.
@@ -69,7 +70,7 @@ export async function request(method, path, body, { timeout = 15000, raw = false
     }
     if (!res.ok) {
       if (res.status === 401 && unauthorizedHandler) unauthorizedHandler();
-      throw new ApiError(data?.error || 'Envoi impossible', res.status, data);
+      throw new ApiError(tr(data?.error || 'Envoi impossible'), res.status, data);
     }
     return data;
   }
@@ -82,6 +83,7 @@ export async function request(method, path, body, { timeout = 15000, raw = false
       method,
       headers: {
         Accept: 'application/json',
+        'Accept-Language': language,
         'x-nissali-app': 'mobile',
         ...(isForm ? {} : body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -104,8 +106,9 @@ export async function request(method, path, body, { timeout = 15000, raw = false
   }
   if (!res.ok) {
     if (res.status === 401 && unauthorizedHandler) unauthorizedHandler();
-    throw new ApiError(data?.error || 'Une erreur est survenue', res.status, data);
+    throw new ApiError(tr(data?.error || 'Une erreur est survenue'), res.status, data);
   }
+  if (data && typeof data.today === 'string') syncToday(data.today);
   return data;
 }
 

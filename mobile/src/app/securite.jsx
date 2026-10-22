@@ -24,7 +24,7 @@ export default function Security() {
   const next = () => router.replace('/');
 
   const save = async () => {
-    if (password !== confirm) return setError('Les deux mots de passe ne correspondent pas');
+    if (password !== confirm) return setError(tr("Les deux mots de passe ne correspondent pas"));
     setBusy(true);
     setError(null);
     try {

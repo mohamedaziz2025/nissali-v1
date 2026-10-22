@@ -8,7 +8,7 @@ import { usePeriodActions } from '../components/PeriodSheets';
 import { Button, Card, ErrorState, Gap, Label, Loader, Notice, Ring, Row, Screen, Segmented, Sheet, Stepper, T, useToast } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { addDays, dayMonth, longDate, toDay } from '../lib/format';
+import { addDays, dayMonth, longDate, today as serverToday } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { colors } from '../theme';
 
@@ -19,7 +19,7 @@ function Setup({ onDone }) {
   const [date, setDate] = useState(null);
   const [cycleLength, setCycleLength] = useState(28);
   const [busy, setBusy] = useState(false);
-  const today = toDay(new Date());
+  const today = serverToday();
   const submit = async () => {
     setBusy(true);
     try {
@@ -65,7 +65,7 @@ export default function Pregnancy() {
   const { data, loading, error, reload } = useApi('/pregnancy');
   const { openEnd, sheets } = usePeriodActions(reload);
   const [endOpen, setEndOpen] = useState(false);
-  const [birth, setBirth] = useState(toDay(new Date()));
+  const [birth, setBirth] = useState(serverToday());
   const [message, setMessage] = useState(null);
 
   if (loading && !data) return <Screen back title={tr("Grossesse")}><Loader /></Screen>;

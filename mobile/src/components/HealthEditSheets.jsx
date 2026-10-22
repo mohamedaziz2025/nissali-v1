@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { sendOrQueue } from '../lib/api';
-import { cap, longDate, toDay } from '../lib/format';
+import { cap, longDate, today as serverToday } from '../lib/format';
 import { colors, fonts, MOODS, SYMPTOMS, tnum } from '../theme';
 import { MoodFace } from './HealthCards';
 import { Button, Chips, Row, Sheet, useToast } from './ui';
@@ -13,7 +13,7 @@ export const hm = (h) => (h == null ? '—' : `${Math.floor(h)} h ${String(Math.
 
 /** « Aujourd’hui · mer. 21 oct. », « Hier · … » ou la date. */
 export function dayTitle(day) {
-  const today = toDay(new Date());
+  const today = serverToday();
   const d = new Date(`${today}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   const yesterday = d.toISOString().slice(0, 10);
@@ -66,7 +66,7 @@ export function SleepSheet({ visible, day, value, onClose, onSaved }) {
   const { busy, save } = useSave(day, onSaved, onClose);
   if (!day) return null;
   return (
-    <Sheet visible={visible} onClose={onClose} title={value != null ? tr("Modifier la nuit") : tr("Ajouter une nuit")} footer={<Footer exists={value != null} busy={busy} onDelete={() => save({ sleepHours: null }, 'Nuit supprimée')} onSave={() => save({ sleepHours: h }, 'Sommeil enregistré')} />}>
+    <Sheet visible={visible} onClose={onClose} title={value != null ? tr("Modifier la nuit") : tr("Ajouter une nuit")} footer={<Footer exists={value != null} busy={busy} onDelete={() => save({ sleepHours: null }, tr("Nuit supprimée"))} onSave={() => save({ sleepHours: h }, tr("Sommeil enregistré"))} />}>
       <DateRow day={day} />
       <Row gap={12} justify="space-between">
         <Pressable onPress={() => setH((v) => Math.max(0, v - 0.25))} accessibilityRole="button" accessibilityLabel={tr("Moins 15 minutes")} style={s.step}>
@@ -90,7 +90,7 @@ export function MoodSheet({ visible, day, value, onClose, onSaved }) {
   const { busy, save } = useSave(day, onSaved, onClose);
   if (!day) return null;
   return (
-    <Sheet visible={visible} onClose={onClose} title={value ? tr("Modifier mon humeur") : tr("Mon humeur")} footer={<Footer exists={Boolean(value)} busy={busy} disabled={!mood} onDelete={() => save({ mood: null }, 'Humeur supprimée')} onSave={() => save({ mood }, 'Humeur enregistrée')} />}>
+    <Sheet visible={visible} onClose={onClose} title={value ? tr("Modifier mon humeur") : tr("Mon humeur")} footer={<Footer exists={Boolean(value)} busy={busy} disabled={!mood} onDelete={() => save({ mood: null }, tr("Humeur supprimée"))} onSave={() => save({ mood }, tr("Humeur enregistrée"))} />}>
       <DateRow day={day} />
       <Row gap={2} justify="space-between">
         {MOODS.map((m) => {
@@ -114,9 +114,9 @@ export function SymptomsSheet({ visible, day, value, onClose, onSaved }) {
   }, [visible, value]);
   const { busy, save } = useSave(day, onSaved, onClose);
   if (!day) return null;
-  const today = day === toDay(new Date());
+  const today = day === serverToday();
   return (
-    <Sheet visible={visible} onClose={onClose} title={today ? tr("Mes symptômes aujourd’hui") : tr("Mes symptômes")} footer={<Footer exists={false} busy={busy} onSave={() => save({ symptoms: list }, 'Symptômes enregistrés')} />}>
+    <Sheet visible={visible} onClose={onClose} title={today ? tr("Mes symptômes aujourd’hui") : tr("Mes symptômes")} footer={<Footer exists={false} busy={busy} onSave={() => save({ symptoms: list }, tr("Symptômes enregistrés"))} />}>
       <DateRow day={day} />
       <Chips items={Object.entries(SYMPTOMS).map(([key, label]) => ({ key, label }))} value={list} onChange={setList} multi />
     </Sheet>

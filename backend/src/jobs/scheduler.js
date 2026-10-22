@@ -1,6 +1,7 @@
 // Tâches planifiées : notifications du 5.12 (discrètes, RG-17), rappels de prière en push,
 // rappels de rendez-vous, clôture des réservations passées, purge RGPD (8.2).
 import cron from 'node-cron';
+import { env } from '../config/env.js';
 import { nextVoluntary } from '../services/voluntary.js';
 import { syncAllJumua } from '../services/mawaqit.js';
 import { broadcastJob } from '../services/broadcasts.js';
@@ -172,6 +173,14 @@ export function startScheduler() {
   // Jumu'a des mosquées partenaires depuis Mawaqit (si MAWAQIT_API_TOKEN est défini), chaque nuit.
   cron.schedule('40 3 * * *', () => syncAllJumua().catch((e) => console.error('[jobs] mawaqit', e)));
   cron.schedule('15 3 * * *', () => dailyMaintenance().catch((e) => console.error('[jobs] maintenance', e)));
+  // Traduction des nouveaux contenus en anglais et en arabe (même script que `npm run translate:content`),
+  // chaque nuit, si une clé DeepL est configurée. Seul ce qui manque est traduit.
+  if (env.deeplKey) {
+    cron.schedule('45 3 * * *', async () => {
+      const { translateContent } = await import('../services/contentTranslation.js');
+      await translateContent({ log: (m) => console.log(`[jobs] traduction · ${m}`) }).catch((e) => console.error('[jobs] traduction', e));
+    });
+  }
   setTimeout(() => dailyMaintenance().catch(() => {}), 10_000);
   console.log('[jobs] tâches planifiées démarrées');
 }

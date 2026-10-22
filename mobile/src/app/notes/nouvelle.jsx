@@ -10,7 +10,7 @@ import Icon from '../../components/Icon';
 import { NOTE_REPEATS, NOTE_TYPES, NOTE_WEEKDAYS, noteDate, NoteRow } from '../../components/Notes';
 import { Button, Chip, Loader, Sheet, Screen, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
-import { addDays, parseDay, toDay } from '../../lib/format';
+import { addDays, parseDay, today as serverToday } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors, fonts } from '../../theme';
 
@@ -42,7 +42,7 @@ function SwitchLine({ icon, label, value, onChange, last }) {
 export default function NewNote() {
   const { id, day: dayParam, type: typeParam } = useLocalSearchParams();
   const toast = useToast();
-  const today = toDay(new Date());
+  const today = serverToday();
   const list = useApi('/notes');
   const existing = useApi(id ? `/notes/${id}` : null);
   const [form, setForm] = useState({ ...EMPTY, day: dayParam || today, ...(NOTE_TYPES.some((t) => t.key === typeParam) ? { type: typeParam } : {}) });

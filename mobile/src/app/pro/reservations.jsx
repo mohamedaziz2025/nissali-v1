@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { BookingCard, bookingAction, SpaceSwitch } from '../../components/ProBits';
 import { ErrorState, Gap, Loader, Screen, Segmented, T, useToast } from '../../components/ui';
-import { toDay } from '../../lib/format';
+import { today as serverToday } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 
 import { tr } from '../../lib/i18n';
 const FILTERS = {
-  avenir: { label: tr("À venir"), query: () => `?from=${toDay(new Date())}`, keep: (b) => ['confirmee', 'en_attente'].includes(b.status) },
+  avenir: { label: tr("À venir"), query: () => `?from=${serverToday()}`, keep: (b) => ['confirmee', 'en_attente'].includes(b.status) },
   attente: { label: tr("En attente"), query: () => '?status=en_attente', keep: () => true },
   passees: { label: tr("Passées"), query: () => '?order=desc', keep: (b) => ['terminee', 'absente'].includes(b.status) || (b.status === 'confirmee' && new Date(b.endAt) < new Date()) },
   annulees: { label: tr("Annulées"), query: () => '?order=desc', keep: (b) => ['annulee', 'refusee'].includes(b.status) },

@@ -41,7 +41,7 @@ export default function NotificationSettings() {
     <Screen back title={tr("Notifications")}>
       <SettingsCard title={tr("Niveau")}>
         <T variant="small">{tr("Conseils et actualités en plus de tes rappels. Tes rappels de prière et tes rappels personnels ne changent jamais.")}</T>
-        <FrequencyPicker value={np.frequency || 'faible'} onChange={(v) => patch({ frequency: v, frequencyAsked: true }, 'Niveau enregistré')} />
+        <FrequencyPicker value={np.frequency || 'faible'} onChange={(v) => patch({ frequency: v, frequencyAsked: true }, tr("Niveau enregistré"))} />
       </SettingsCard>
       <Gap />
 
@@ -68,7 +68,7 @@ export default function NotificationSettings() {
               <Text style={s.notifLogo}>N</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.notifTitle}>{hide ? tr("Nissali") : tr("Rappel")}</Text>
+              <Text style={s.notifTitle}>{hide ? 'Nissali' : tr("Rappel")}</Text>
               <Text style={s.notifBody}>{hide ? tr("Rappel Nissali") : tr("Prendre mon comprimé de fer · 08:00")}</Text>
             </View>
             <Text style={s.notifNow}>{tr("maintenant")}</Text>

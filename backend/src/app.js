@@ -4,6 +4,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
+import { translateResponse } from './middleware/translateResponse.js';
 import { authenticate } from './middleware/auth.js';
 import { ClientRecord } from './models/index.js';
 import { readChatImageToken, readFileToken } from './services/session.js';
@@ -74,6 +75,9 @@ export function createApp() {
     res.setHeader('Cache-Control', 'private, max-age=3600');
     return res.sendFile(path.join(path.resolve(env.privateDir), 'chat', name), (err) => err && !res.headersSent && res.status(404).end());
   });
+  // Contenus traduits (anglais, arabe) déjà enregistrés en base, selon la langue de l'appli. Routes publiques
+  // seulement : ni back-office, ni écrans de modification (pro, notes, messages, compte).
+  app.use(['/api/today', '/api/cycle', '/api/health-log', '/api/dhikr', '/api/fasts', '/api/pregnancy', '/api/prayers', '/api/blog', '/api/notifications', '/api/practitioners', '/api/events', '/api/nissaplace'], translateResponse);
   app.use('/api/auth', authRoutes);
   app.use('/api/me', meRoutes);
   app.use('/api/today', todayRoutes);

@@ -20,9 +20,9 @@ export function BrandSymbol({ size = 30, color = colors.bordeaux }) {
 /** Logo : le symbole suivi du nom. */
 export function Logo({ size = 30 }) {
   return (
-    <View style={s.logo} accessibilityRole="image" accessibilityLabel={tr("Nissali")}>
+    <View style={s.logo} accessibilityRole="image" accessibilityLabel={'Nissali'}>
       <BrandSymbol size={size * 1.3} />
-      <Text style={[s.word, { fontSize: size * 0.82 }]}>{tr("nissali")}</Text>
+      <Text style={[s.word, { fontSize: size * 0.82 }]}>nissali</Text>
     </View>
   );
 }
@@ -45,8 +45,8 @@ export function BrandBar({ unread, right }) {
 
 const s = StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 14 },
-  logo: { flexDirection: 'row', alignItems: 'center', gap: 0, marginLeft: -9 },
-  word: { fontFamily: fonts.logo, color: colors.bordeaux, letterSpacing: 0.2 },
+  logo: { flexDirection: 'row', alignItems: 'center', gap: 0, marginLeft: -9, direction: 'ltr' },
+  word: { writingDirection: 'ltr', fontFamily: fonts.logo, color: colors.bordeaux, letterSpacing: 0.2 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   round: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.blush, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.bordeaux, borderWidth: 2, borderColor: colors.blush },

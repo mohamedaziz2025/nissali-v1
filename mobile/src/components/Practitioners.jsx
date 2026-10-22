@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { assetUrl } from '../lib/api';
-import { addDays, toDay, DAYS_SHORT as FMT_DAYS_SHORT, MONTHS_SHORT as FMT_MONTHS_SHORT } from '../lib/format';
+import { addDays, DAYS_SHORT as FMT_DAYS_SHORT, MONTHS_SHORT as FMT_MONTHS_SHORT, today as serverToday } from '../lib/format';
 import { colors, fonts } from '../theme';
 import Icon from './Icon';
 
@@ -24,7 +24,7 @@ export const euros = (n) => `${Number(n).toLocaleString('fr-FR')} €`;
 /** « Aujourd’hui 14:00 », « Demain 09:00 », « lun. 19 oct. · 10:00 » */
 export function nextLabel(next) {
   if (!next) return null;
-  const today = toDay(new Date());
+  const today = serverToday();
   const [y, m, d] = next.day.split('-').map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
   if (next.day === today) return tr("Aujourd’hui · {0}", [next.time]);

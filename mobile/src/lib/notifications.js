@@ -8,7 +8,6 @@ import { api } from './api';
 import { tr } from './i18n';
 import { addDays } from './format';
 import { writeJson } from './storage';
-
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     // Appli ouverte : les messages et annonces s'affichent dans le bandeau de l'appli (InAppNotifier),
@@ -58,7 +57,7 @@ async function ensureAdhanChannel(voice) {
     if (isAdhanChannel(c.id) && c.id !== id) await Notifications.deleteNotificationChannelAsync(c.id).catch(() => {});
   }
   await Notifications.setNotificationChannelAsync(id, {
-    name: 'Adhan',
+    name: tr("Adhan"),
     description: tr("L’adhan de la voix choisie, à l’heure de la prière"),
     importance: Notifications.AndroidImportance.MAX,
     sound: ADHAN_SOUNDS[voiceOf(voice)].android,
@@ -68,7 +67,7 @@ async function ensureAdhanChannel(voice) {
   });
 }
 
-const LABELS = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+const LABELS = { fajr: tr("Fajr"), dhuhr: tr("Dhuhr"), asr: tr("Asr"), maghrib: tr("Maghrib"), isha: tr("Isha") };
 
 export async function ensurePermission() {
   if (Platform.OS === 'web') return false;
@@ -164,7 +163,7 @@ export async function rescheduleAll(today, user) {
         // Vendredi, mosquée choisie : rappel de la Jumu'a à l'heure publiée par la mosquée.
         if (!paused && t.jumua?.times?.length) {
           for (const [k, time] of t.jumua.times.entries()) {
-            await schedule(new Date(t.jumua.instants[k]), { title: `Jumu’a · ${time}`, body: tr("{0} à {1}", [k ? tr("2ᵉ Jumu’a") : tr("Jumu’a"), t.jumua.mosque]) }, 'prieres');
+            await schedule(new Date(t.jumua.instants[k]), { title: tr("Jumu’a · {0}", [time]), body: tr("{0} à {1}", [k ? tr("2ᵉ Jumu’a") : tr("Jumu’a"), t.jumua.mosque]) }, 'prieres');
           }
         }
       }

@@ -74,7 +74,7 @@ function PrayersCard({ prayers, ramadan, onToggle, onAdhanSettings }) {
   const nextKey = PRAYERS.find((p) => new Date(t.instants?.[p]).getTime() > now);
   const jumua = jumuaOf(src);
   const paused = prayers.paused;
-  const why = prayers.pauseReason === 'nifas' ? 'ton nifas' : 'tes règles';
+  const why = prayers.pauseReason === 'nifas' ? tr("ton nifas") : tr("tes règles");
   const settings = () => router.push('/reglages/prieres');
 
   if (paused && prayers.periodHome === 'ligne') {
@@ -310,7 +310,7 @@ function NotesWidget({ notes }) {
         <>
           <View>
             {notes.map((n, i) => (
-              <Pressable key={`${n.noteId}-${n.day}`} onPress={() => router.push(`/notes/nouvelle?id=${n.noteId}`)} accessibilityRole="button" accessibilityLabel={`${n.text}, ${noteDate(n.day)}${n.time ? ` à ${n.time}` : ''}${(n.remind ? tr(", avec rappel") : '')}`} style={[s.noteRow, i < notes.length - 1 && s.noteLine]}>
+              <Pressable key={`${n.noteId}-${n.day}`} onPress={() => router.push(`/notes/nouvelle?id=${n.noteId}`)} accessibilityRole="button" accessibilityLabel={`${n.text}, ${noteDate(n.day)}${n.time ? ` à ${n.time}` : ''}${n.remind ? tr(", avec rappel") : ''}`} style={[s.noteRow, i < notes.length - 1 && s.noteLine]}>
                 <View style={[s.noteDot, { backgroundColor: NOTE_DOTS[n.type] || NOTE_DOTS.autre }]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.noteTitle} numberOfLines={1}>{n.text}</Text>
@@ -345,7 +345,7 @@ function ReminderCard({ reminder }) {
     <View style={s.reminder} accessibilityRole="text">
       <Text style={s.surtitle}>{tr("PETIT RAPPEL")}</Text>
       <Text style={s.reminderText}>{reminder.text}</Text>
-      <Text style={s.small}>{reminder.source ? `${(reminder.kind === 'hadith' ? tr("Rapporté par ") : '')}${reminder.source}` : tr("L’équipe Nissali")}</Text>
+      <Text style={s.small}>{reminder.source ? `${reminder.kind === 'hadith' ? tr("Rapporté par ") : ''}${reminder.source}` : tr("L’équipe Nissali")}</Text>
     </View>
   );
 }

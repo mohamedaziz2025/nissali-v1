@@ -5,7 +5,7 @@ import { DateField } from '../../components/forms';
 import Icon from '../../components/Icon';
 import { Button, Card, ErrorState, Field, Gap, Label, Loader, Row, Screen, Sheet, T, useToast } from '../../components/ui';
 import { api } from '../../lib/api';
-import { addDays, longDate, toDay, WEEKDAY_NAMES } from '../../lib/format';
+import { addDays, longDate, today as serverToday, WEEKDAY_NAMES } from '../../lib/format';
 import { useApi } from '../../lib/useApi';
 import { colors } from '../../theme';
 
@@ -81,7 +81,7 @@ export default function Availability() {
       <Card style={{ gap: 8 }}>
         <Row justify="space-between">
           <Label>{tr("Congés et absences")}</Label>
-          <Pressable onPress={() => setOff({ from: toDay(new Date()), to: addDays(toDay(new Date()), 7), reason: '' })} hitSlop={10}>
+          <Pressable onPress={() => setOff({ from: serverToday(), to: addDays(serverToday(), 7), reason: '' })} hitSlop={10}>
             <T variant="medium" color={colors.bordeaux}>{tr("+ Ajouter")}</T>
           </Pressable>
         </Row>
@@ -126,8 +126,8 @@ export default function Availability() {
       <Sheet visible={Boolean(off)} onClose={() => setOff(null)} title={tr("Congé")} footer={<Button title={tr("Ajouter")} onPress={saveOff} />}>
         {off ? (
           <>
-            <DateField label={tr("Du")} value={off.from} onChange={(v) => setOff((o) => ({ ...o, from: v }))} maxDay={addDays(toDay(new Date()), 365)} minDay={toDay(new Date())} />
-            <DateField label={tr("Au")} value={off.to} onChange={(v) => setOff((o) => ({ ...o, to: v }))} maxDay={addDays(toDay(new Date()), 365)} minDay={off.from} />
+            <DateField label={tr("Du")} value={off.from} onChange={(v) => setOff((o) => ({ ...o, from: v }))} maxDay={addDays(serverToday(), 365)} minDay={serverToday()} />
+            <DateField label={tr("Au")} value={off.to} onChange={(v) => setOff((o) => ({ ...o, to: v }))} maxDay={addDays(serverToday(), 365)} minDay={off.from} />
             <Field label={tr("Motif (facultatif)")} value={off.reason} onChangeText={(v) => setOff((o) => ({ ...o, reason: v }))} />
           </>
         ) : null}

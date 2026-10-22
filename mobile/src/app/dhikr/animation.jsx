@@ -39,13 +39,17 @@ export default function DhikrAnimation() {
   useKeepAwake();
   const { mode: modeParam } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { user, setSession } = useAuth();
   const { data, error, loading, counts, reload } = useDhikrData();
   const [mode, setMode] = useState(modeParam === 'apres' ? 'apres' : 'libre');
   const [step, setStep] = useState(0); // étape du tasbih « Après la prière »
   const [activeKey, setActiveKey] = useState(null); // dhikr sélectionné en « Temps libre »
   const [local, setLocal] = useState({});
+  // Tour en cours : départ de chaque formule (le total du jour ne baisse jamais, « Recommencer » repart de là).
+  const [libreBase, setLibreBase] = useState({});
+  const [apresBase, setApresBase] = useState(null);
+  const live = useRef({});
   const [goalOverride, setGoalOverride] = useState({}); // « Sans objectif » : préférence locale, non envoyée au serveur
   const [goalSheet, setGoalSheet] = useState(false);
   const [addSheet, setAddSheet] = useState(false);
@@ -68,19 +72,33 @@ export default function DhikrAnimation() {
   const steps = data?.tasbih || [];
   const haptics = (user?.dhikr || data?.settings || {}).haptics !== false && Platform.OS !== 'web';
 
+  const dayCount = (k) => Math.max(live.current[k] || 0, all[k] || 0);
   const current = mode === 'apres' ? steps[step] : list.find((d) => d.key === activeKey) || list[0];
   const curKey = current?.key;
-  const count = curKey ? all[curKey] || 0 : 0;
-  const goal = curKey && goalOverride[curKey] ? goalOverride[curKey] : current?.goal;
+  const baseOf = (k) => (mode === 'apres' ? apresBase?.[k] ?? dayCount(k) : libreBase[k] || 0);
+  const count = curKey ? Math.max(0, dayCount(curKey) - baseOf(curKey)) : 0;
+  const goal = mode === 'libre' && curKey && goalOverride[curKey] ? goalOverride[curKey] : current?.goal;
   const endless = goal === Infinity;
   const target = endless ? 0 : goal || 33;
   const reached = !endless && count >= target;
-  const total = Object.values(all).reduce((n, c) => n + c, 0);
+  const total = Object.keys({ ...all, ...live.current }).reduce((n, k) => n + dayCount(k), 0);
+  const finished = mode === 'apres' && step === steps.length - 1 && reached;
+
+  // « Après la prière » : chaque étape repart de 0, quel que soit le total déjà fait aujourd'hui.
+  const startTasbih = () => {
+    setApresBase(Object.fromEntries(steps.map((st) => [st.key, dayCount(st.key)])));
+    setStep(0);
+  };
+  useEffect(() => {
+    if (data && mode === 'apres' && !apresBase) startTasbih();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, mode]);
 
   if (loading && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><Loader /></View>;
   if (error && !data) return <View style={[s.screen, { paddingTop: insets.top }]}><ErrorState error={error} /></View>;
 
   const setCountFor = (k, n) => {
+    live.current[k] = n;
     setLocal((l) => ({ ...l, [k]: n }));
     saveCount(data.day, k, n).catch(() => {});
   };
@@ -108,21 +126,28 @@ export default function DhikrAnimation() {
   };
 
   const tap = () => {
-    const n = count + 1;
-    setCountFor(curKey, n);
+    if (!curKey || finished) return;
+    const day = dayCount(curKey) + 1;
+    setCountFor(curKey, day);
+    const round = day - baseOf(curKey);
     bounce();
-    if (!endless && n >= target) {
+    // L'objectif vient d'être atteint (une seule fois par tour) : fête, puis étape suivante en « Après la prière ».
+    if (!endless && round === target) {
       if (haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       celebrate();
-      if (mode === 'apres' && step < steps.length - 1) {
-        setTimeout(() => setStep((s2) => s2 + 1), 600);
-      }
+      if (mode === 'apres' && step < steps.length - 1) setTimeout(() => setStep((x) => Math.min(x + 1, steps.length - 1)), 600);
     } else if (haptics) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
-  const finished = mode === 'apres' && step === steps.length - 1 && reached;
-
-  const recommencer = () => setCountFor(curKey, 0);
+  const recommencer = () => {
+    if (mode === 'apres') return startTasbih();
+    if (curKey) setLibreBase((b) => ({ ...b, [curKey]: dayCount(curKey) }));
+  };
+  const switchMode = (m) => {
+    if (m === mode) return;
+    setMode(m);
+    if (m === 'apres') startTasbih();
+  };
   const toggleHaptics = async () => {
     try {
       const r = await api.patch('/dhikr/settings', { haptics: !haptics });
@@ -169,7 +194,7 @@ export default function DhikrAnimation() {
     setActiveKey(key);
   };
 
-  const ringSize = Math.min(width - 70, 260);
+  const ringSize = Math.round(Math.min(width - 70, 260, height * 0.33));
   const plusOneStyle = {
     opacity: plusOne.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0] }),
     transform: [{ translateY: plusOne.interpolate({ inputRange: [0, 1], outputRange: [0, -36] }) }],
@@ -189,10 +214,10 @@ export default function DhikrAnimation() {
       </Row>
 
       <View style={s.tabs}>
-        <Pressable onPress={() => setMode('apres')} accessibilityRole="tab" accessibilityState={{ selected: mode === 'apres' }} style={[s.tab, mode === 'apres' && s.tabOn]}>
+        <Pressable onPress={() => switchMode('apres')} accessibilityRole="tab" accessibilityState={{ selected: mode === 'apres' }} style={[s.tab, mode === 'apres' && s.tabOn]}>
           <Text style={[s.tabText, mode === 'apres' && s.tabTextOn]}>{tr("Après la prière")}</Text>
         </Pressable>
-        <Pressable onPress={() => setMode('libre')} accessibilityRole="tab" accessibilityState={{ selected: mode === 'libre' }} style={[s.tab, mode === 'libre' && s.tabOn]}>
+        <Pressable onPress={() => switchMode('libre')} accessibilityRole="tab" accessibilityState={{ selected: mode === 'libre' }} style={[s.tab, mode === 'libre' && s.tabOn]}>
           <Text style={[s.tabText, mode === 'libre' && s.tabTextOn]}>{tr("Temps libre")}</Text>
         </Pressable>
       </View>
@@ -200,13 +225,15 @@ export default function DhikrAnimation() {
       {mode === 'apres' ? (
         <View style={s.steps}>
           {steps.map((st, i) => (
-            <View key={st.key} style={[s.stepBar, i < step && s.stepDone, i === step && s.stepOn]} />
+            <View key={st.key} style={[s.stepBar, i < step && s.stepDone, i === step && s.stepOn]}>
+              <Text style={[s.stepText, i <= step && { color: colors.white }]}>{st.goal}</Text>
+            </View>
           ))}
         </View>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pastilles} style={{ marginHorizontal: -20 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pastilles} style={s.pastilleScroll}>
           {list.map((d) => {
-            const c = all[d.key] || 0;
+            const c = Math.max(0, dayCount(d.key) - (libreBase[d.key] || 0));
             const ok = c >= d.goal;
             const on = d.key === (current?.key);
             return (
@@ -232,15 +259,15 @@ export default function DhikrAnimation() {
             </View>
           ) : (
             <>
-              <Text style={s.arabic}>{current.arabic}</Text>
+              <Text style={s.arabic} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5}>{current.arabic}</Text>
               <Text style={s.name}>{current.name}</Text>
-              {current.meaning ? <Text style={s.meaning}>{current.meaning}</Text> : null}
+              {current.meaning ? <Text style={s.meaning} numberOfLines={2}>{tr(current.meaning)}</Text> : null}
             </>
           )}
           <Pressable onPress={tap} disabled={finished} accessibilityRole="button" accessibilityLabel={tr("{0} : {1} sur {2}. Touche pour compter", [current.name, count, endless ? 'libre' : target])} style={{ marginTop: 18 }}>
             <View>
               <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, s.ripple, { borderRadius: ringSize / 2 }, rippleStyle]} />
-              <BigRing progress={endless ? 0 : count / target} reached={reached} size={ringSize} scale={scale} pulse={halo}>
+              <BigRing progress={endless ? (count % 33) / 33 : count / target} reached={reached} size={ringSize} scale={scale} pulse={halo}>
                 <View style={[s.disc, { width: ringSize - 56, height: ringSize - 56, borderRadius: (ringSize - 56) / 2 }]}>
                   <Text style={s.count} adjustsFontSizeToFit numberOfLines={1}>{count}</Text>
                   {endless ? <Text style={s.of}>{tr("sans objectif")}</Text> : <Text style={s.of}>/ {target}</Text>}
@@ -317,10 +344,12 @@ const s = StyleSheet.create({
   tabOn: { backgroundColor: colors.bordeaux },
   tabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.muted },
   tabTextOn: { color: colors.white },
-  steps: { flexDirection: 'row', gap: 6, marginTop: 14 },
-  stepBar: { flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.line },
+  steps: { flexDirection: 'row', gap: 8, marginTop: 14, justifyContent: 'center' },
+  stepBar: { minWidth: 46, height: 30, borderRadius: 999, paddingHorizontal: 12, backgroundColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
   stepDone: { backgroundColor: colors.or },
   stepOn: { backgroundColor: colors.bordeaux },
+  pastilleScroll: { flexGrow: 0, flexShrink: 0, marginHorizontal: -20 },
   pastilles: { gap: 8, paddingHorizontal: 20, marginTop: 14 },
   pastille: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 38, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: colors.lineField, backgroundColor: colors.white },
   pastilleOn: { backgroundColor: colors.bordeaux, borderColor: colors.bordeaux },

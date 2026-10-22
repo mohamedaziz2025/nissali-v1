@@ -249,7 +249,7 @@ export default function Practitioners() {
 
       {activeCount ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, marginTop: 12 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 20 }}>
-          {family ? <Chip label={`${(families.find((f) => f.key === family)?.label || tr("Catégorie"))} ✕`} selected onPress={() => setFamily('')} /> : null}
+          {family ? <Chip label={`${families.find((f) => f.key === family)?.label || tr("Catégorie")} ✕`} selected onPress={() => setFamily('')} /> : null}
           {sort !== 'distance' ? <Chip label={tr("Tri : {0} ✕", [sortInfo.label])} selected onPress={() => setSort('distance')} /> : null}
           {visio ? <Chip label={tr("Visio ✕")} selected onPress={() => setVisio(false)} /> : null}
           {diplome ? <Chip label={tr("Diplômées ✕")} selected onPress={() => setDiplome(false)} /> : null}

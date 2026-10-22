@@ -157,7 +157,7 @@ export default function Profile() {
           <Text style={s.proTitle}>{practitioner ? tr("Mon espace praticienne") : user.proDraft ? tr("Termine ton profil praticienne") : tr("Devenir praticienne")}</Text>
           <Text style={s.proSub}>
             {practitioner
-              ? `${(practitioner.status === 'validee' ? tr("En ligne") : tr("En vérification"))} · ${practitioner.displayName}`
+              ? `${practitioner.status === 'validee' ? tr("En ligne") : tr("En vérification")} · ${practitioner.displayName}`
               : user.proDraft
                 ? tr("Étape {0} sur 4", [user.proDraft.step])
                 : tr("Diététicienne, naturopathe, hijama, doula… Propose tes services dans Nissali.")}

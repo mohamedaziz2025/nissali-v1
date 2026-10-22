@@ -12,7 +12,7 @@ export default function Index() {
   if (status === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: colors.ivoire, justifyContent: 'center' }}>
-        <Loader label={tr("Nissali")} />
+        <Loader label={'Nissali'} />
       </View>
     );
   }

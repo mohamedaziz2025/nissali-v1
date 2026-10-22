@@ -40,7 +40,9 @@ export default function DhikrCard({ afterPrayer = false }) {
   return (
     <View style={s.card}>
       <View style={s.head}>
-        <Text style={s.title}>{tr("Dhikr")}</Text>
+        <Text style={s.title}>
+          {tr("Dhikr")} <Text style={s.titleToday}>{tr("Aujourd’hui")}</Text>
+        </Text>
         {data.streak ? (
           <View style={s.streak}>
             <Icon name="sparkle" size={12} color={colors.orText} />
@@ -53,7 +55,6 @@ export default function DhikrCard({ afterPrayer = false }) {
           <CounterRing progress={total / goal} reached={reached}>
             <View style={s.disc}>
               <Text style={[s.count, tnum]} adjustsFontSizeToFit numberOfLines={1}>{total}</Text>
-              <Text style={s.of}>{tr("dhikr")}{'\n'}{tr("aujourd’hui")}</Text>
             </View>
           </CounterRing>
         </Pressable>
@@ -78,8 +79,8 @@ const s = StyleSheet.create({
   streakText: { fontFamily: fonts.bold, fontSize: 12, color: colors.orText },
   body: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   disc: { width: SIZE - 22, height: SIZE - 22, borderRadius: (SIZE - 22) / 2, backgroundColor: colors.bordeaux, alignItems: 'center', justifyContent: 'center' },
-  count: { fontFamily: fonts.extra, fontSize: 22, color: colors.white, letterSpacing: -0.5 },
-  of: { fontFamily: fonts.semi, fontSize: 8.5, lineHeight: 10, color: colors.onBordeaux, textAlign: 'center', marginTop: 2 },
+  count: { fontFamily: fonts.extra, fontSize: 26, color: colors.white, letterSpacing: -0.5 },
+  titleToday: { fontFamily: fonts.semi, fontSize: 15, letterSpacing: 0, color: colors.muted },
   continue: { fontFamily: fonts.extra, fontSize: 16, color: colors.prune },
   names: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted },
   choose: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', marginTop: 4, backgroundColor: colors.blush, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },

@@ -16,7 +16,8 @@
     "review:account": "node --env-file-if-exists=.env src/seed/review-account.js",
     "vapid": "node scripts/generate-vapid.js",
     "fix:urls": "node --env-file-if-exists=.env src/seed/fixUploadUrls.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "translate:content": "node --env-file-if-exists=.env scripts/translate-content.js"
   },
   "dependencies": {
     "adhan": "^4.4.6",

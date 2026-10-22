@@ -139,7 +139,7 @@ export default function Register() {
   const register = async (value = code) => {
     if (!social && password.length < 8) {
       setStep(STEPS.indexOf('compte'));
-      return setError('Choisis ton mot de passe (8 caractères minimum)');
+      return setError(tr("Choisis ton mot de passe (8 caractères minimum)"));
     }
     setBusy(true);
     setError(null);
@@ -201,15 +201,15 @@ export default function Register() {
   const privacySteps = STEPS.filter((x) => ['accords', 'code'].includes(x));
   const pos = accountSteps.includes(k) ? { index: accountSteps.indexOf(k) + 1, count: accountSteps.length } : { index: privacySteps.indexOf(k) + 1, count: privacySteps.length };
   const meta = {
-    prenom: { section: 'Ton compte', ...pos, title: tr("Comment t’appelles-tu ?"), subtitle: tr("Ton prénom, pour que l’appli te parle à toi.") },
-    age: { section: 'Ton compte', ...pos, title: tr("Quel âge as-tu ?"), subtitle: tr("Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.") },
-    ville: { section: 'Ton compte', ...pos, title: tr("Où vis-tu ?"), subtitle: tr("Ta ville sert à tes horaires de prière et à la qibla.") },
-    situation: { section: 'Ton compte', ...pos, title: tr("Ta situation"), subtitle: tr("Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.") },
-    compte: { section: 'Ton compte', ...pos, title: tr("Ton e-mail et ton mot de passe") },
-    contact: { section: 'Ton compte', ...pos, title: tr("Ton e-mail de contact"), subtitle: tr("Apple a masqué ton adresse. Indique celle où l’on peut t’écrire (sauvegarde, nouveautés si tu l’acceptes).") },
-    telephone: { section: 'Ton compte', ...pos, title: tr("Ton numéro de téléphone"), subtitle: tr("Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.") },
-    accords: { section: 'Ta confidentialité', ...pos, title: tr("Tes accords"), subtitle: tr("Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.") },
-    code: { section: 'Ta confidentialité', ...pos, title: tr("Vérifie ton e-mail") },
+    prenom: { section: tr("Ton compte"), ...pos, title: tr("Comment t’appelles-tu ?"), subtitle: tr("Ton prénom, pour que l’appli te parle à toi.") },
+    age: { section: tr("Ton compte"), ...pos, title: tr("Quel âge as-tu ?"), subtitle: tr("Nissali est accessible à partir de 15 ans. On garde une année de naissance estimée.") },
+    ville: { section: tr("Ton compte"), ...pos, title: tr("Où vis-tu ?"), subtitle: tr("Ta ville sert à tes horaires de prière et à la qibla.") },
+    situation: { section: tr("Ton compte"), ...pos, title: tr("Ta situation"), subtitle: tr("Elle adapte les contenus de l’appli. Tu pourras la changer dans ton profil.") },
+    compte: { section: tr("Ton compte"), ...pos, title: tr("Ton e-mail et ton mot de passe") },
+    contact: { section: tr("Ton compte"), ...pos, title: tr("Ton e-mail de contact"), subtitle: tr("Apple a masqué ton adresse. Indique celle où l’on peut t’écrire (sauvegarde, nouveautés si tu l’acceptes).") },
+    telephone: { section: tr("Ton compte"), ...pos, title: tr("Ton numéro de téléphone"), subtitle: tr("Obligatoire. Il est enregistré sur ton compte : aucun SMS ne t’est envoyé.") },
+    accords: { section: tr("Ta confidentialité"), ...pos, title: tr("Tes accords"), subtitle: tr("Rien n’est coché pour toi. Tu pourras changer d’avis à tout moment dans ton profil.") },
+    code: { section: tr("Ta confidentialité"), ...pos, title: tr("Vérifie ton e-mail") },
   }[k];
 
   const content = {

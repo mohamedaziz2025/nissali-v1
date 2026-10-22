@@ -61,7 +61,7 @@ export default function Welcome() {
     <View style={[s.wrap, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
       <View style={s.center}>
         <Image source={require('../../assets/logo.png')} style={s.logo} accessibilityIgnoresInvertColors accessibilityLabel={tr("Logo Nissali")} />
-        <T variant="h1" style={s.brand}>{tr("nissali")}</T>
+        <T variant="h1" style={s.brand}>nissali</T>
         <T variant="h3" style={s.tagline}>{tr("Ton cycle, ta foi, ta santé.")}{'\n'}{tr("Au même endroit.")}</T>
         <T variant="muted" style={{ textAlign: 'center', marginTop: 16, paddingHorizontal: 12 }}>
           {tr("Prières, dhikr, cycle et jeûnes, pensés pour toi. 100 % gratuite, et tes données de santé ne sont jamais vendues.")}

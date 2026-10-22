@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { sendOrQueue } from '../lib/api';
-import { addDays, monthLabel, shiftMonth, toDay, DAYS_SHORT as FMT_DAYS_SHORT, MONTHS_LONG as FMT_MONTHS_LONG, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
+import { addDays, DAYS_SHORT as FMT_DAYS_SHORT, monthLabel, MONTHS_LONG as FMT_MONTHS_LONG, shiftMonth, today as serverToday, WEEKDAYS_SHORT as FMT_WEEKDAYS_SHORT } from '../lib/format';
 import { colors, fonts } from '../theme';
 import { monthGrid } from './Calendar';
 import { BloodDrops } from './Flow';
@@ -48,7 +48,7 @@ function Section({ children }) {
 
 /** « Aujourd’hui · mer. 28 octobre », « Hier · … » ou la date. */
 function recap(day) {
-  const today = toDay(new Date());
+  const today = serverToday();
   const d = new Date(`${day}T12:00:00Z`);
   const label = `${DAYS_SHORT[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
   return day === today ? tr("Aujourd’hui · {0}", [label]) : day === addDays(today, -1) ? tr("Hier · {0}", [label]) : label.charAt(0).toUpperCase() + label.slice(1);
@@ -56,7 +56,7 @@ function recap(day) {
 
 /** Calendrier du mois dans la feuille : jours hors [minDay, aujourd'hui] grisés et non cliquables. */
 function SheetCalendar({ value, onChange, minDay }) {
-  const today = toDay(new Date());
+  const today = serverToday();
   const [month, setMonth] = useState(value.slice(0, 7));
   const prevOk = !minDay || shiftMonth(month, -1) >= minDay.slice(0, 7);
   const nextOk = month < today.slice(0, 7);
@@ -149,7 +149,7 @@ export function usePeriodActions(onChange) {
   const [periodId, setPeriodId] = useState(null);
   const [periodStart, setPeriodStart] = useState(null);
   const [kind, setKind] = useState('hayd');
-  const [day, setDay] = useState(toDay(new Date()));
+  const [day, setDay] = useState(serverToday());
   const [level, setLevel] = useState('moyen');
   const [time, setTime] = useState(nowQuarter());
   const [sign, setSign] = useState('secheresse');
@@ -157,7 +157,7 @@ export function usePeriodActions(onChange) {
   const [info, setInfo] = useState(null);
 
   const openStart = (presetDay) => {
-    setDay(typeof presetDay === 'string' ? presetDay : toDay(new Date()));
+    setDay(typeof presetDay === 'string' ? presetDay : serverToday());
     setLevel('moyen');
     setMode('start');
   };
@@ -165,7 +165,7 @@ export function usePeriodActions(onChange) {
     setPeriodId(id);
     setPeriodStart(start);
     setKind(k);
-    setDay(toDay(new Date()));
+    setDay(serverToday());
     setTime(nowQuarter());
     setSign('secheresse');
     setMode('end');
@@ -211,7 +211,7 @@ export function usePeriodActions(onChange) {
   const sheets = (
     <>
       <Sheet visible={mode === 'start'} onClose={close} title={tr("Tes règles ont commencé ?")} footer={<Button title={tr("Confirmer")} onPress={start} loading={busy} />}>
-        <SheetCalendar key={`start-${mode}`} value={day} onChange={setDay} minDay={addDays(toDay(new Date()), -60)} />
+        <SheetCalendar key={`start-${mode}`} value={day} onChange={setDay} minDay={addDays(serverToday(), -60)} />
         <Section>{tr("LE FLUX")}</Section>
         <View style={s.whenRow}>
           {FLOW_CHOICES.map((f) => {

@@ -31,7 +31,7 @@ function WeekDots({ week, todayReached }) {
       {week.map((w) => {
         const reached = w.today ? todayReached : w.reached;
         return (
-          <View key={w.day} style={s.weekCol} accessibilityLabel={`${w.label} : ${(reached ? tr("objectif atteint") : (w.future ? tr("à venir") : tr("sans objectif")))}`}>
+          <View key={w.day} style={s.weekCol} accessibilityLabel={`${w.label} : ${reached ? tr("objectif atteint") : (w.future ? tr("à venir") : tr("sans objectif"))}`}>
             <View style={[s.dot, reached ? s.dotGold : w.today ? s.dotToday : s.dotDashed]}>
               {reached ? <Icon name="check" size={13} color={colors.white} strokeWidth={3} /> : null}
             </View>
@@ -210,7 +210,7 @@ export default function Dhikr() {
           <DhikrCard key={d.key} d={d} onPress={() => router.push(`/dhikr/compteur?key=${d.key}`)} onLongPress={() => setEdit({ key: d.key, goal: d.goal, name: d.name, arabic: d.arabic, personal: d.personal, free: !data.goalChoices.includes(d.goal) })} />
         ))}
       </View>
-      <T variant="small" style={{ marginTop: 12 }}>{tr("Appui long sur un dhikr : objectif, ordre (le même que sur l’accueil) ou le retirer. Les compteurs repartent à zéro chaque jour après Fajr.")}</T>
+      <T variant="small" style={{ marginTop: 12 }}>{tr("Appui long sur un dhikr : objectif, ordre (le même que sur l’accueil) ou le retirer. Les compteurs repartent à zéro chaque jour à minuit.")}</T>
       <T variant="small" style={{ marginTop: 6 }}>{tr("Textes arabes, phonétique et sens validés par le comité religieux. Les dhikr « Personnel » ne sont vus que par toi.")}</T>
 
       {/* Appui long : objectif, ordre, retirer (et texte pour un dhikr personnel) */}

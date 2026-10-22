@@ -176,7 +176,7 @@ export default function EditPeriods() {
                     onPress={() => toggle(d)}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: on, disabled }}
-                    accessibilityLabel={`${Number(d.slice(8))} ${monthLabel(m)}${(pred ? tr(", règles prévues") : '')}`}
+                    accessibilityLabel={`${Number(d.slice(8))} ${monthLabel(m)}${pred ? tr(", règles prévues") : ''}`}
                     style={{ width: cell, height: cell + 18, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6 }}
                   >
                     {d === today ? <Text style={s.today}>{tr("AUJ.")}</Text> : null}

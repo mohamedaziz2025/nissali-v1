@@ -60,7 +60,7 @@ function ServiceSheet({ service, practitioner, onClose, onBook, onContact }) {
       .catch(() => setNext(null));
   }, [service, practitioner.id]);
   if (!service) return null;
-  const place = service.mode === 'visio' ? 'En visio' : service.mode === 'les_deux' ? 'Au cabinet ou en visio' : 'Au cabinet';
+  const place = service.mode === 'visio' ? tr("En visio") : service.mode === 'les_deux' ? tr("Au cabinet ou en visio") : tr("Au cabinet");
   return (
     <Sheet visible onClose={onClose} title={service.name} footer={!practitioner.isSelf ? <Button title={tr("Réserver cette prestation")} onPress={() => onBook(service)} /> : null}>
       <View style={s.detailPrice}>

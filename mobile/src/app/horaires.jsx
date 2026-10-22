@@ -20,7 +20,7 @@ import { colors, fonts, PRAYER_LABELS, PRAYERS } from '../theme';
 import { tr } from '../lib/i18n';
 function MosqueRow({ m, selected, onPress }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={`${m.name}, ${m.city}${(m.distanceKm != null ? tr(", {0} kilomètres", [m.distanceKm]) : '')}`} style={({ pressed }) => [s.mosque, selected && s.mosqueOn, pressed && { opacity: 0.8 }]}>
+    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={`${m.name}, ${m.city}${m.distanceKm != null ? tr(", {0} kilomètres", [m.distanceKm]) : ''}`} style={({ pressed }) => [s.mosque, selected && s.mosqueOn, pressed && { opacity: 0.8 }]}>
       <View style={[s.mosqueIcon, selected && { backgroundColor: colors.bordeaux }]}>
         <Icon name="home" size={18} color={selected ? colors.white : colors.or} />
       </View>
@@ -210,7 +210,7 @@ export default function PrayerTimes() {
   const jumua = jumuaOf(meta);
   const nextJ = today?.jumuaNext || (jumua ? { ...jumua, estimated: false, mosque: meta?.label } : null);
   const isMosque = meta?.mode === 'mosquee';
-  const placeName = isMosque ? meta.label : today?.city?.name || user?.city?.name || 'Ma ville';
+  const placeName = isMosque ? meta.label : today?.city?.name || user?.city?.name || tr("Ma ville");
   const placeHint = isMosque ? [meta.city, meta.fallback ? 'horaires calculés à son adresse' : meta.partner ? 'horaires publiés par la mosquée' : 'horaires calculés à son adresse'].filter(Boolean).join(' · ') : user?.city?.source === 'gps' ? tr("Ma position · horaires calculés") : tr("Ma ville · horaires calculés");
   const nextKey = t?.instants ? PRAYERS.find((p) => new Date(t.instants[p]).getTime() > now) : null;
   const heroKey = nextKey || 'fajr';
@@ -300,7 +300,7 @@ export default function PrayerTimes() {
             <Text style={s.heroIn}>{nextKey ? tr("Dans {0}", [countdown(t.instants[nextKey], now).replace(/^(\d+)\s+min$/, (_, m) => `${m}\u00A0minute${m > 1 ? 's' : ''}`)]) : tr("Demain matin")}</Text>
             {jumua?.today ? <Text style={s.heroJumua}>{tr("Aujourd’hui · Jumu’a à")} {jumua.times.join(' et ')}</Text> : null}
             <Pressable
-              onPress={() => patchSettings({ notifications: !notifOn }, notifOn ? 'Rappels de prière désactivés' : 'Rappels de prière activés')}
+              onPress={() => patchSettings({ notifications: !notifOn }, notifOn ? tr("Rappels de prière désactivés") : tr("Rappels de prière activés"))}
               accessibilityRole="switch"
               accessibilityState={{ checked: notifOn }}
               style={s.heroPill}
@@ -383,7 +383,7 @@ export default function PrayerTimes() {
       )}
 
       <Sheet visible={reminders} onClose={() => setReminders(false)} title={tr("Mes rappels de prière")}>
-        <Toggle label={tr("Notification à l’heure de chaque prière")} value={notifOn} onChange={(v) => patchSettings({ notifications: v }, v ? 'Rappels de prière activés' : 'Rappels de prière désactivés')} />
+        <Toggle label={tr("Notification à l’heure de chaque prière")} value={notifOn} onChange={(v) => patchSettings({ notifications: v }, v ? tr("Rappels de prière activés") : tr("Rappels de prière désactivés"))} />
         {/* 07 — son de l'adhan : réglage distinct, il ne réactive pas des rappels désactivés */}
         <Pressable
           onPress={() => {
@@ -418,14 +418,14 @@ export default function PrayerTimes() {
               label={tr("Rappel à l’heure de {0}", [PRAYER_LABELS[prayerSheet]])}
               hint={tr("Notification à l’heure de la prière (sauf pendant les règles)")}
               value={notifOn && user?.prayerSettings?.notifyPrayers?.[prayerSheet] !== false}
-              onChange={(v) => patchSettings({ ...(v && !notifOn ? { notifications: true } : {}), notifyPrayers: { [prayerSheet]: v } }, v ? `Rappel de ${PRAYER_LABELS[prayerSheet]} activé` : `Rappel de ${PRAYER_LABELS[prayerSheet]} désactivé`)}
+              onChange={(v) => patchSettings({ ...(v && !notifOn ? { notifications: true } : {}), notifyPrayers: { [prayerSheet]: v } }, v ? tr("Rappel de {0} activé", [PRAYER_LABELS[prayerSheet]]) : tr("Rappel de {0} désactivé", [PRAYER_LABELS[prayerSheet]]))}
             />
             {adhanMode === 'adhan' ? (
               <Toggle
                 label={tr("Adhan pour {0}", [PRAYER_LABELS[prayerSheet]])}
                 hint={tr("Appel à la prière avec la notification")}
                 value={user?.prayerSettings?.adhanPrayers?.[prayerSheet] !== false}
-                onChange={(v) => patchSettings({ adhanPrayers: { [prayerSheet]: v } }, v ? `Adhan activé pour ${PRAYER_LABELS[prayerSheet]}` : `Adhan désactivé pour ${PRAYER_LABELS[prayerSheet]}`)}
+                onChange={(v) => patchSettings({ adhanPrayers: { [prayerSheet]: v } }, v ? tr("Adhan activé pour {0}", [PRAYER_LABELS[prayerSheet]]) : tr("Adhan désactivé pour {0}", [PRAYER_LABELS[prayerSheet]]))}
               />
             ) : null}
             <Button title={tr("Son de l’adhan et voix")} variant="soft" small onPress={() => { setPrayerSheet(null); setTimeout(() => setAdhanSound(true), 350); }} />

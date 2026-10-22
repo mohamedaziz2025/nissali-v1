@@ -36,6 +36,20 @@ export function parseDay(day) {
   return new Date(Date.UTC(y, m - 1, d, 12));
 }
 
+/** Écart en jours entre la date du serveur (fuseau de l'utilisatrice) et celle du téléphone. */
+let serverOffset = 0;
+/** Appelé par le client API quand une réponse donne `today` : l'appli suit la date du serveur, pas l'horloge du téléphone. */
+export function syncToday(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return;
+  serverOffset = Math.round((Date.parse(`${day}T12:00:00Z`) - Date.parse(`${toDay(new Date())}T12:00:00Z`)) / 86_400_000);
+}
+/** Aujourd'hui (AAAA-MM-JJ) selon le serveur. */
+export function today() {
+  const d = new Date();
+  d.setDate(d.getDate() + serverOffset);
+  return toDay(d);
+}
+
 export function toDay(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
